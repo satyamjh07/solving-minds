@@ -1,0 +1,959 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useQuestions, Question } from '@/hooks/useQuestions';
+import { useAttempts, Attempt } from '@/hooks/useAttempts';
+import { useProfile } from '@/hooks/useProfile';
+import { supabase } from '@/lib/supabase/client';
+import 'katex/dist/katex.min.css';
+import { InlineMath, BlockMath } from 'react-katex';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Zap,
+  Loader2,
+  BookOpen,
+  BarChart3,
+  Check,
+} from 'lucide-react';
+
+const COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+type SolverView = 'modes' | 'pyq-selection' | 'solving';
+
+interface ChapterInfo {
+  name: string;
+  count: number;
+}
+
+export default function SolvingPage() {
+  const { profile } = useProfile();
+  const [view, setView] = useState<SolverView>('modes');
+  const [subject, setSubject] = useState('physics');
+  const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
+  const [chapters, setChapters] = useState<ChapterInfo[]>([]);
+  const [loadingChapters, setLoadingChapters] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showSolution, setShowSolution] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [integerInput, setIntegerInput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Filters
+  const [filterYear, setFilterYear] = useState('ALL');
+  const [filterDifficulty, setFilterDifficulty] = useState('ALL');
+  const [filterType, setFilterType] = useState('ALL');
+
+  // Fetch chapters and counts for the subject
+  useEffect(() => {
+    async function fetchChapters() {
+      setLoadingChapters(true);
+      const { data } = await supabase
+        .from('questions')
+        .select('chapter')
+        .eq('subject', subject.toLowerCase())
+        .eq('exam_type', 'pyq');
+      
+      if (data) {
+        const counts: Record<string, number> = {};
+        data.forEach(d => {
+          counts[d.chapter] = (counts[d.chapter] || 0) + 1;
+        });
+        const sorted = Object.entries(counts)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setChapters(sorted);
+      }
+      setLoadingChapters(false);
+    }
+    fetchChapters();
+  }, [subject]);
+
+  const { questions: rawQuestions, loading: qLoading } = useQuestions(subject, selectedChapter);
+  
+  // Apply local filters to questions
+  const questions = rawQuestions.filter(q => {
+    if (filterYear !== 'ALL' && q.year.toString() !== filterYear) return false;
+    if (filterDifficulty !== 'ALL' && q.difficulty?.toUpperCase() !== filterDifficulty) return false;
+    if (filterType !== 'ALL') {
+      if (filterType === 'NUMERICAL' && q.type !== 'integer') return false;
+      if (filterType === 'MCQ' && q.type !== 'mcq') return false;
+    }
+    return true;
+  });
+
+  const { attempts, refetch: refetchAttempts } = useAttempts(questions.map(q => q._dbId));
+
+  const currentQuestion = questions[currentIndex];
+  const currentAttempt = currentQuestion ? attempts[currentQuestion._dbId] : null;
+  
+  const isOnCooldown = (attempt: Attempt | null) => {
+    if (!attempt) return false;
+    const age = Date.now() - new Date(attempt.created_at).getTime();
+    return age < COOLDOWN_MS;
+  };
+
+  const isAnswered = isOnCooldown(currentAttempt);
+
+  const handleSubmit = async (optionIdx?: number) => {
+    if (!currentQuestion || isAnswered || isSubmitting) return;
+    
+    let isCorrect = false;
+    let answerValue = '';
+
+    if (currentQuestion.type === 'integer') {
+      if (!integerInput) return;
+      isCorrect = Number(integerInput) === Number(currentQuestion.answer);
+      answerValue = integerInput;
+    } else {
+      const finalOption = optionIdx !== undefined ? optionIdx : selectedOption;
+      if (finalOption === null) return;
+      isCorrect = finalOption === currentQuestion.correct;
+      answerValue = finalOption.toString();
+      setSelectedOption(finalOption);
+    }
+
+    setIsSubmitting(true);
+    const { error } = await supabase.from('user_attempts').insert({
+      user_id: profile?.id,
+      question_id: currentQuestion._dbId,
+      is_correct: isCorrect,
+      selected_answer: answerValue
+    });
+
+    if (error) {
+      console.error(error);
+    } else {
+      refetchAttempts();
+    }
+    setIsSubmitting(false);
+  };
+
+  const formatText = (text: string) => {
+    if (!text) return null;
+    
+    // Improve regex to catch all possible latex triggers
+    const hasLatex = /\\(?:textbf|textit|frac|text|sin|cos|sqrt|times|approx|circ|vec|theta|alpha|beta|gamma|delta|omega|phi|psi|rho|sigma|tau|lambda|mu|nu|xi|zeta|eta|theta|pi|partial|sum|int|infty|leq|geq|neq|approx|pm|mp|cdot|nabla|implies|iff|longrightarrow|Rightarrow|rightarrow|to|up|down|cap|cup|subset|subseteq|in|notin|forall|exists|neg|wedge|vee|parallel|perp|angle|triangle|square|dot|ddot|bar|hat|tilde|check|breve|grave|acute|math|mathcal|mathbb|mathbf|mathsf|mathtt|mathit|text|textbf|textit|texttt|textrm|textsf|bold)\{/.test(text) || /[\\$]/.test(text);
+    
+    let processedText = text;
+    // If it has latex but no delimiters, wrap it in display math to ensure KaTeX picks it up
+    if (hasLatex && !text.includes('$') && !text.includes('\\[')) {
+      processedText = `$$${text}$$`;
+    }
+
+    // Split on standard delimiters
+    const parts = processedText.split(/(\$\$.*?\$\$|\$.*?\$|\\\[.*?\\\]|\\\(.*?\\\))/gs);
+    
+    return parts.map((part, index) => {
+      if (!part) return null;
+
+      // Handle block math
+      if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('\\[') && part.endsWith('\\]'))) {
+        const math = part.startsWith('$$') ? part.slice(2, -2) : part.slice(2, -2);
+        return <BlockMath key={index} math={math} />;
+      }
+      
+      // Handle inline math
+      if ((part.startsWith('$') && part.endsWith('$')) || (part.startsWith('\\(') && part.endsWith('\\)'))) {
+        const math = part.startsWith('$') ? part.slice(1, -1) : part.slice(2, -2);
+        return <InlineMath key={index} math={math} />;
+      }
+
+      // Standard text with line breaks
+      return <span key={index} dangerouslySetInnerHTML={{ __html: part.replace(/\n/g, '<br/>') }} />;
+    });
+  };
+
+  const jumpToQ = (idx: number) => {
+    setCurrentIndex(idx);
+    setShowSolution(false);
+    setSelectedOption(null);
+    setIntegerInput('');
+  };
+
+  // View 1: Mode Selection
+  if (view === 'modes') {
+    return (
+      <div className="an-content max-w-5xl mx-auto py-12 px-6">
+        <div className="mb-10">
+          <p className="font-mono text-[10px] text-gray-500 uppercase tracking-[0.2em]">Select your training interface</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div onClick={() => setView('pyq-selection')} className="bg-[#12121a] border border-[#ffffff08] rounded-3xl p-8 cursor-pointer hover:border-[#7c3aed40] hover:bg-[#7c3aed05] transition-all group relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Zap size={80} />
+             </div>
+             <div className="bg-[#7c3aed10] text-[#7c3aed] w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+                <Zap size={24} />
+             </div>
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-white mb-2">PYQ Solver</h3>
+             <p className="text-xs text-gray-500 leading-relaxed mb-6">Full access to JEE Main & Advanced archive. Original ZEROday solving layout.</p>
+             <div className="flex items-center text-[#7c3aed] text-[10px] font-bold uppercase tracking-widest">
+                Initiate <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
+             </div>
+          </div>
+
+          <div className="bg-[#12121a] border border-[#ffffff08] rounded-3xl p-8 opacity-50 relative overflow-hidden">
+             <div className="bg-[#00f0ff10] text-[#00f0ff] w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+                <BookOpen size={24} />
+             </div>
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-white mb-2">Booklets</h3>
+             <p className="text-xs text-gray-500 leading-relaxed mb-6">Topic-wise modules and study material. Integrates soon.</p>
+             <div className="text-gray-600 text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
+          </div>
+
+          <div className="bg-[#12121a] border border-[#ffffff08] rounded-3xl p-8 opacity-50 relative overflow-hidden">
+             <div className="bg-[#00e5a010] text-[#00e5a0] w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+                <BarChart3 size={24} />
+             </div>
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-white mb-2">Mock Tests</h3>
+             <p className="text-xs text-gray-500 leading-relaxed mb-6">Full simulations with ranking systems. In calibration.</p>
+             <div className="text-gray-600 text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // View 2: PYQ Selection (Legacy Style)
+  if (view === 'pyq-selection') {
+    return (
+      <div className="an-content max-w-5xl mx-auto py-8 px-6 pb-32">
+        <div className="flex items-center gap-2 text-gray-500 text-[9px] font-bold uppercase tracking-widest mb-4">
+           <button onClick={() => setView('modes')} className="hover:text-white transition-colors">MODES</button>
+           <span className="opacity-30">/</span>
+           <span className="text-gray-400">PYQ SELECTION</span>
+        </div>
+
+        <p className="text-gray-500 text-[10px] mb-8">Target high-yield concepts. Select your focus area to begin the deep-work session.</p>
+
+        {/* Step 1: Subject */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">01</div>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">SELECT_SUBJECT</h2>
+          </div>
+          <div className="grid grid-cols-3 gap-3 max-w-2xl">
+            {['physics', 'chemistry', 'mathematics'].map(s => (
+              <button 
+                key={s}
+                onClick={() => setSubject(s)}
+                className={`flex flex-col gap-2 p-4 rounded-xl border transition-all ${subject === s ? 'bg-[#7c3aed]/20 border-[#7c3aed] text-white shadow-[0_0_15px_rgba(124,58,237,0.2)]' : 'bg-[#12121a] border-[#ffffff08] text-gray-500 hover:border-white/10'}`}
+              >
+                <div className="text-2xl font-black">
+                  {s === 'physics' ? 'Σ' : s === 'chemistry' ? 'Δ' : '∫'}
+                </div>
+                <div className="text-[8px] font-bold uppercase tracking-[0.2em]">{s === 'mathematics' ? 'MATHS' : s}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Step 2: Chapter */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">02</div>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">CHOOSE_CHAPTER</h2>
+            <div className="ml-auto text-[8px] font-bold uppercase tracking-widest text-[#7c3aed]">{selectedChapter || 'NONE SELECTED'}</div>
+          </div>
+          
+          {loadingChapters ? (
+            <div className="flex py-10 justify-center">
+              <Loader2 className="animate-spin text-gray-600" size={20} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {chapters.map(ch => (
+                <button 
+                  key={ch.name}
+                  onClick={() => setSelectedChapter(ch.name)}
+                  className={`p-3 rounded-xl border text-left transition-all relative ${selectedChapter === ch.name ? 'bg-[#7c3aed]/10 border-[#7c3aed] text-white' : 'bg-[#12121a] border-white/[0.05] text-gray-400 hover:border-white/10'}`}
+                >
+                  <div className="font-bold text-[11px] mb-1 line-clamp-1">{ch.name}</div>
+                  <div className="flex items-center gap-1.5 text-[8px] font-bold text-[#7c3aed]/60 uppercase tracking-widest">
+                     <BookOpen size={8} /> {ch.count} Q
+                  </div>
+                  {selectedChapter === ch.name && (
+                    <div className="absolute top-3 right-3">
+                      <Check size={12} className="text-[#7c3aed]" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Step 3: Fine Tune */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">03</div>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">FINE_TUNE</h2>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">EXAM YEARS</label>
+              <div className="flex flex-wrap gap-2">
+                {['ALL', '2026', '2025', '2024', '2023'].map(year => (
+                  <button
+                    key={year}
+                    onClick={() => setFilterYear(year)}
+                    className={`px-4 py-1.5 rounded-full text-[9px] font-bold transition-all ${filterYear === year ? 'bg-[#7c3aed] text-white' : 'bg-[#12121a] border border-white/5 text-gray-500 hover:text-white'}`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">DIFFICULTY</label>
+                <div className="flex gap-2">
+                  {['ALL', 'EASY', 'MED', 'HARD'].map(diff => (
+                    <button
+                      key={diff}
+                      onClick={() => setFilterDifficulty(diff)}
+                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterDifficulty === diff ? 'bg-[#7c3aed]/10 border-[#7c3aed] text-[#7c3aed]' : 'bg-[#12121a] border-white/5 text-gray-500 hover:text-white'}`}
+                    >
+                      {diff}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">QUESTION TYPE</label>
+                <div className="flex gap-2">
+                  {['ALL', 'MCQ', 'NUMERICAL'].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setFilterType(type)}
+                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterType === type ? 'bg-[#7c3aed]/10 border-[#7c3aed] text-[#7c3aed]' : 'bg-[#12121a] border-white/5 text-gray-500 hover:text-white'}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a10]/80 backdrop-blur-xl border-t border-white/[0.05] p-3 flex items-center justify-between z-[1100]">
+           <div className="flex items-center gap-6 px-6">
+              <div className="flex flex-col">
+                <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">SUBJECT</span>
+                <span className="text-[9px] text-white font-bold uppercase tracking-widest text-[#7c3aed]">{subject}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">CHAPTER</span>
+                <span className="text-[9px] text-white font-bold uppercase tracking-widest text-[#7c3aed]">{selectedChapter || '—'}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">QUESTIONS</span>
+                <span className="text-[9px] text-white font-bold uppercase tracking-widest text-[#7c3aed]">
+                  {selectedChapter ? questions.length : '—'}
+                </span>
+              </div>
+           </div>
+           <button 
+              disabled={!selectedChapter || questions.length === 0}
+              onClick={() => {
+                setView('solving');
+                setCurrentIndex(0);
+              }}
+              className="bg-[#7c3aed] hover:bg-[#8b5cf6] text-white px-8 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]"
+            >
+              <Zap size={12} /> START SOLVING
+           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // View 3: Solving Environment
+  return (
+    <div className="zd-main-wrapper" style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
+      <div className="ps-4 pe-4 pt-6 max-w-[1400px] mx-auto">
+        <div className="zd-breadcrumb mb-6">
+          <button className="zd-breadcrumb-btn" onClick={() => setView('modes')}>
+            Modes
+          </button>
+          <span className="zd-breadcrumb-sep">/</span>
+          <button className="zd-breadcrumb-btn" onClick={() => setView('pyq-selection')}>
+            PYQ SELECTION
+          </button>
+          <span className="zd-breadcrumb-sep">/</span>
+          <span className="zd-breadcrumb-current">{selectedChapter || 'Solving'}</span>
+        </div>
+
+        <div className="zd-layout">
+          {/* Left Sidebar */}
+          <div className="zd-left">
+            <div className="zd-card">
+              <div className="zd-section-label">SUBJECT</div>
+              <button 
+                className={`zd-subject-btn ${subject === 'physics' ? 'active' : ''}`}
+                onClick={() => setSubject('physics')}
+              >
+                <span className="zd-dot" style={{ background: 'var(--blue)' }}></span>PHYSICS
+              </button>
+              <button 
+                className={`zd-subject-btn ${subject === 'chemistry' ? 'active' : ''}`}
+                onClick={() => setSubject('chemistry')}
+              >
+                <span className="zd-dot" style={{ background: 'var(--purple)' }}></span>CHEMISTRY
+              </button>
+              <button 
+                className={`zd-subject-btn ${subject === 'mathematics' ? 'active' : ''}`}
+                onClick={() => setSubject('mathematics')}
+              >
+                <span className="zd-dot" style={{ background: 'var(--orange)' }}></span>MATHEMATICS
+              </button>
+              
+              <div className="zd-divider"></div>
+              
+              <div className="zd-section-label">CHAPTER</div>
+              <div className="zd-chapter-list">
+                {chapters.map(ch => (
+                  <button 
+                    key={ch.name}
+                    className={`zd-chapter-btn ${selectedChapter === ch.name ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedChapter(ch.name);
+                      setCurrentIndex(0);
+                      setShowSolution(false);
+                    }}
+                  >
+                    {ch.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Main Column */}
+          <div className="zd-right">
+            {/* Question Navigator */}
+            <div className="zd-card zd-qnav-card mb-4">
+              <div className="zd-qnav-header">
+                <span className="zd-qnav-title">
+                  {selectedChapter ? `${selectedChapter.toUpperCase()} (${questions.length})` : 'SELECT A CHAPTER'}
+                </span>
+                <div className="zd-qnav-legend">
+                  <span className="zd-pip" style={{ background: 'var(--green)' }}></span>Correct
+                  <span className="zd-pip" style={{ background: 'var(--red)' }}></span>Wrong
+                  <span className="zd-pip" style={{ background: 'var(--orange)' }}></span>Skipped
+                  <span className="zd-pip" style={{ background: 'var(--bg3)' }}></span>Unseen
+                </div>
+              </div>
+              <div className="zd-qnav-grid">
+                {questions.map((q, i) => {
+                  const att = attempts[q._dbId];
+                  const answered = isOnCooldown(att);
+                  let status = 'unseen';
+                  if (answered) status = att.is_correct ? 'correct' : 'wrong';
+                  
+                  return (
+                    <button 
+                      key={i}
+                      className={`solver-q-box ${status} ${i === currentIndex ? 'current' : ''}`}
+                      onClick={() => jumpToQ(i)}
+                    >
+                      {i + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Question Card */}
+            <div className="zd-card zd-q-card">
+              {qLoading ? (
+                <div className="flex h-64 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#7c3aed]" />
+                </div>
+              ) : !selectedChapter ? (
+                <div className="zd-empty-state">
+                  <BookOpen size={48} className="mb-4 opacity-20" />
+                  <h3>SELECT A CHAPTER TO BEGIN</h3>
+                  <p>Choose a subject and chapter from the left panel</p>
+                </div>
+              ) : questions.length === 0 ? (
+                <div className="zd-empty-state">
+                  <BarChart3 size={48} className="mb-4 opacity-20" />
+                  <h3>NO QUESTIONS MATCH FILTERS</h3>
+                  <p>Try adjusting your fine-tune settings</p>
+                </div>
+              ) : currentQuestion ? (
+                <div id="q-content">
+                  <div className="zd-q-meta">
+                    <span className="solver-badge solver-badge-chapter">{currentQuestion.chapter}</span>
+                    <span className={`solver-badge solver-badge-${currentQuestion.difficulty?.toLowerCase()}`}>
+                      {currentQuestion.difficulty}
+                    </span>
+                    <span className={`solver-badge solver-badge-${currentQuestion.type}`}>
+                      {currentQuestion.type === 'mcq' ? 'MCQ' : 'Numerical'}
+                    </span>
+                    <span className="solver-badge solver-badge-year">{currentQuestion.year}</span>
+                    {isAnswered && (
+                      <span className="solver-badge" style={{ background: 'rgba(255,147,64,0.15)', color: '#ff9340', border: '1px solid rgba(255,147,64,0.3)' }}>
+                        ⏳ COOLDOWN ACTIVE
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="zd-q-text">
+                    {formatText(currentQuestion.text)}
+                  </div>
+
+                  {currentQuestion.image && (
+                    <img src={currentQuestion.image} className="zd-q-image" alt="Question" />
+                  )}
+
+                  {currentQuestion.type === 'integer' ? (
+                    <div className="zd-integer-box">
+                      <label>ENTER YOUR NUMERICAL ANSWER:</label>
+                      <div className="zd-integer-row">
+                        <input 
+                          type="number" 
+                          step="any" 
+                          className={`zd-integer-input ${isAnswered ? (currentAttempt?.is_correct ? 'correct' : 'wrong') : ''}`}
+                          value={isAnswered ? currentAttempt?.selected_answer : integerInput}
+                          onChange={(e) => setIntegerInput(e.target.value)}
+                          disabled={isAnswered}
+                        />
+                        {!isAnswered && (
+                          <button className="zd-btn zd-btn-check" onClick={() => handleSubmit()}>CHECK</button>
+                        )}
+                      </div>
+                      {isAnswered && (
+                        <div className={`zd-integer-feedback ${currentAttempt?.is_correct ? 'correct' : 'wrong'}`}>
+                          {currentAttempt?.is_correct ? '✓ Correct!' : `✗ Wrong. Answer: ${currentQuestion.answer}`}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="zd-options-grid">
+                      {currentQuestion.options.map((opt, i) => {
+                        const isCorrectOpt = i === currentQuestion.correct;
+                        const userSel = isAnswered ? Number(currentAttempt?.selected_answer) : selectedOption;
+                        const isUserOpt = userSel === i;
+
+                        let cls = "solver-option-btn";
+                        if (isAnswered) {
+                          cls += " disabled";
+                          if (isCorrectOpt) cls += " correct";
+                          if (isUserOpt && !isCorrectOpt) cls += " wrong";
+                        } else if (isUserOpt) {
+                          cls += " active";
+                        }
+
+                        return (
+                          <button 
+                            key={i} 
+                            className={cls}
+                            onClick={() => !isAnswered && handleSubmit(i)}
+                          >
+                            <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
+                            <span>{formatText(opt.text)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className={`zd-explanation ${isAnswered || showSolution ? 'show' : ''}`}>
+                    <div className="zd-explanation-label">
+                      <Zap size={12} /> SOLUTION
+                    </div>
+                    <div className="zd-explanation-text">
+                      {formatText(currentQuestion.explanation)}
+                      {currentQuestion.explanation_image_url && (
+                        <img src={currentQuestion.explanation_image_url} className="mt-4 rounded-lg w-full" alt="Explanation" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="zd-q-actions">
+                    <button 
+                      className="zd-btn zd-btn-ghost" 
+                      onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
+                    >
+                      SKIP
+                    </button>
+                    <button 
+                      className="zd-btn zd-btn-primary"
+                      onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
+                      disabled={currentIndex === questions.length - 1}
+                    >
+                      NEXT →
+                    </button>
+                    <span className="zd-q-progress">
+                      {currentIndex + 1} / {questions.length}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="zd-empty-state">
+                  <p>Question Protocol Error: Contact AURA Support</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <style jsx global>{`
+        .zd-layout {
+          display: grid;
+          grid-template-columns: 260px 1fr;
+          gap: 1.5rem;
+          align-items: start;
+        }
+        @media (max-width: 1024px) {
+          .zd-layout {
+            grid-template-columns: 1fr;
+          }
+          .zd-left {
+            display: none;
+          }
+        }
+        .zd-main-wrapper {
+          padding-bottom: 100px;
+        }
+        .zd-breadcrumb {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.6rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+        }
+        .zd-breadcrumb-btn {
+          color: var(--text2);
+          background: none;
+          border: none;
+          cursor: pointer;
+        }
+        .zd-breadcrumb-btn:hover { color: var(--accent); }
+        .zd-breadcrumb-current { color: var(--accent); }
+        .zd-breadcrumb-sep { color: var(--border); }
+
+        .zd-card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 1.25rem;
+        }
+        .zd-section-label {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.15em;
+          color: var(--text2);
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--border);
+        }
+        .zd-subject-btn {
+          display: flex;
+          align-items: center;
+          width: 100%;
+          padding: 0.75rem;
+          background: none;
+          border: 1px solid transparent;
+          border-radius: 10px;
+          color: var(--text2);
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.75rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: all 0.2s;
+          margin-bottom: 0.25rem;
+        }
+        .zd-subject-btn:hover { background: var(--bg3); color: var(--text); }
+        .zd-subject-btn.active {
+          background: var(--accent-glow);
+          color: var(--accent);
+          border-color: var(--accent);
+        }
+        .zd-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          margin-right: 10px;
+        }
+        .zd-divider {
+          height: 1px;
+          background: var(--border);
+          margin: 1rem 0;
+        }
+        .zd-chapter-list {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          max-height: 500px;
+          overflow-y: auto;
+        }
+        .zd-chapter-btn {
+          padding: 0.6rem 0.75rem;
+          text-align: left;
+          background: none;
+          border: 1px solid transparent;
+          border-radius: 8px;
+          color: var(--text2);
+          font-size: 0.8rem;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .zd-chapter-btn:hover { background: var(--bg3); color: var(--text); }
+        .zd-chapter-btn.active {
+          background: var(--bg3);
+          color: var(--text);
+          border-color: var(--border-hover);
+        }
+
+        .zd-qnav-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+        .zd-qnav-title {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: var(--text2);
+          letter-spacing: 0.1em;
+        }
+        .zd-qnav-legend {
+          display: flex;
+          gap: 1rem;
+          font-size: 0.65rem;
+          color: var(--text2);
+          font-weight: 600;
+        }
+        .zd-pip {
+          width: 10px;
+          height: 10px;
+          border-radius: 2px;
+          display: inline-block;
+          margin-right: 4px;
+          vertical-align: middle;
+        }
+        .zd-qnav-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        .solver-q-box {
+          width: 32px;
+          height: 32px;
+          border-radius: 6px;
+          border: 1px solid var(--border);
+          background: var(--bg3);
+          color: var(--text2);
+          font-size: 0.7rem;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: 'DM Mono', monospace;
+        }
+        .solver-q-box.current { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+        .solver-q-box.correct { border-color: var(--green); color: var(--green); background: rgba(39, 174, 96, 0.1); }
+        .solver-q-box.wrong { border-color: var(--red); color: var(--red); background: rgba(231, 76, 60, 0.1); }
+        .solver-q-box.skipped { border-color: var(--orange); color: var(--orange); background: rgba(243, 156, 18, 0.1); }
+
+        .zd-q-meta { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .solver-badge {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.6rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          padding: 3px 10px;
+          border-radius: 4px;
+          background: var(--bg3);
+          border: 1px solid var(--border);
+          color: var(--text2);
+        }
+        .solver-badge-hard { color: var(--red); border-color: var(--red); background: rgba(231, 76, 60, 0.05); }
+        .solver-badge-medium { color: var(--orange); border-color: var(--orange); background: rgba(243, 156, 18, 0.05); }
+        .solver-badge-easy { color: var(--green); border-color: var(--green); background: rgba(39, 174, 96, 0.05); }
+
+        .zd-q-text {
+          font-size: 1rem;
+          line-height: 1.85;
+          color: var(--text);
+          margin-bottom: 1.4rem;
+          font-weight: 500;
+        }
+        .zd-q-image {
+          width: 100%;
+          max-height: 280px;
+          object-fit: contain;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--bg);
+          margin-bottom: 1rem;
+        }
+
+        /* ── Integer input ───────────────────────────────────── */
+        .zd-integer-box {
+          background: var(--bg2);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 1rem 1.1rem;
+          margin-bottom: 1rem;
+        }
+        .zd-integer-box label {
+          display: block;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--text2);
+          margin-bottom: 0.7rem;
+        }
+        .zd-integer-row {
+          display: flex;
+          gap: 0.7rem;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .zd-integer-input {
+          background: var(--card);
+          border: 1px solid var(--border-hover);
+          border-radius: 8px;
+          color: var(--text);
+          font-family: 'DM Mono', monospace;
+          font-size: 1.05rem;
+          font-weight: 700;
+          padding: 0.6rem 1rem;
+          width: 200px;
+          outline: none;
+          transition: border-color 0.16s, box-shadow 0.16s;
+        }
+        .zd-integer-input:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+        .zd-integer-input.correct { border-color: var(--green); }
+        .zd-integer-input.wrong   { border-color: var(--red); }
+
+        .zd-integer-feedback {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.8rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          margin-top: 0.5rem;
+          min-height: 1.2em;
+        }
+        .zd-integer-feedback.correct { color: var(--green); }
+        .zd-integer-feedback.wrong   { color: var(--red); }
+
+        .zd-options-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+          gap: 0.75rem;
+          margin-bottom: 2rem;
+        }
+        @media (max-width: 768px) {
+          .zd-options-grid { grid-template-columns: 1fr; }
+        }
+        .solver-option-btn {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem;
+          background: var(--bg2);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          color: var(--text);
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .solver-option-btn:hover:not(.disabled) { border-color: var(--accent); background: var(--accent-glow); }
+        .solver-option-btn.active { border-color: var(--accent); background: var(--accent-glow); }
+        .solver-option-btn.correct { border-color: var(--green); background: rgba(39, 174, 96, 0.05); color: var(--green); }
+        .solver-option-btn.wrong { border-color: var(--red); background: rgba(231, 76, 60, 0.05); color: var(--red); }
+        .solver-option-btn.disabled { cursor: not-allowed; }
+
+        .solver-option-key {
+          width: 30px;
+          height: 30px;
+          border-radius: 6px;
+          background: var(--bg3);
+          border: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.75rem;
+          flex-shrink: 0;
+        }
+        .solver-option-btn.correct .solver-option-key { background: var(--green); color: white; border-color: var(--green); }
+        .solver-option-btn.wrong .solver-option-key { background: var(--red); color: white; border-color: var(--red); }
+
+        .zd-explanation {
+          display: none;
+          background: rgba(39, 174, 96, 0.03);
+          border: 1px solid rgba(39, 174, 96, 0.1);
+          border-radius: 16px;
+          padding: 1.5rem;
+          margin-bottom: 2rem;
+        }
+        .zd-explanation.show { display: block; }
+        .zd-explanation-label {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: var(--green);
+          margin-bottom: 1rem;
+          text-transform: uppercase;
+        }
+        .zd-explanation-text { font-size: 0.95rem; line-height: 1.6; color: var(--text); }
+
+        .zd-q-actions { display: flex; gap: 1rem; align-items: center; }
+        .zd-q-progress { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--text2); }
+        .zd-btn {
+          padding: 0.75rem 1.5rem;
+          border-radius: 10px;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.75rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .zd-btn-primary { background: var(--accent-grad); color: white; border: none; box-shadow: 0 0 15px var(--accent-glow); }
+        .zd-btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+        .zd-btn-ghost:hover { background: var(--bg3); color: var(--text); }
+        .zd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .zd-btn-check {
+          background: rgba(39,174,96,0.1);
+          color: var(--green);
+          border: 1px solid rgba(39,174,96,0.25);
+        }
+        .zd-btn-check:hover { background: rgba(39,174,96,0.18); }
+      `}</style>
+    </div>
+  );
+}
