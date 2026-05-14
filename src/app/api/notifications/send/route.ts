@@ -1,9 +1,11 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 import { supabase } from '@/lib/supabase/client'; // Note: Should ideally use service role on server
 
 // Initialize Admin SDK
-if (!admin.apps.length) {
+if (!admin.apps.length && process.env.FIREBASE_PROJECT_ID) {
   try {
     admin.initializeApp({
       credential: admin.credential.cert({
