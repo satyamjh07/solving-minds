@@ -3,6 +3,7 @@ import { Bebas_Neue, Space_Grotesk, DM_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { DialogProvider } from '@/components/DialogProvider';
+import Script from 'next/script';
 
 const bebasNeue = Bebas_Neue({
   weight: '400',
@@ -50,6 +51,15 @@ export default function RootLayout({
         <link rel="stylesheet" href="/css/solver.css" />
         <link rel="stylesheet" href="/css/bottom-nav-patch.css" />
         <link rel="stylesheet" href="/css/dashboard-analytics.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+        <Script 
+          src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" 
+          strategy="beforeInteractive" 
+        />
+        <Script 
+          src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" 
+          strategy="beforeInteractive"
+        />
       </head>
       <body className="min-h-full bg-[var(--bg)] text-[var(--text)] antialiased font-[family-name:var(--font-grotesk)]">
         <ThemeProvider>
