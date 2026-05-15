@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
-import { Loader2, Send, ChevronUp, ChevronDown, Image as ImageIcon, X } from 'lucide-react';
+import { Loader2, Send, ChevronUp, ChevronDown, Image as ImageIcon, X, MoreVertical, Trash2, VolumeX, Volume2 } from 'lucide-react';
 import { useDialog } from '@/components/DialogProvider';
 import { uploadToCloudinary, getOptimizedUrl } from '@/lib/cloudinary';
 import { ImageLightbox } from './ImageLightbox';
@@ -18,12 +18,13 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   const fetchComments = async () => {
     setLoading(true);
     const { data: commentsData, error } = await supabase
       .from('comments')
-      .select('*, profiles(id, name, avatar_url, role)')
+      .select('*, profiles(id, name, avatar_url, role, muted_until)')
       .eq('post_id', postId)
       .order('created_at', { ascending: true });
 
@@ -137,6 +138,35 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
     }
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const { error } = await supabase.from('comments').delete().eq('id', commentId);
+      if (error) throw error;
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      toast('Comment deleted', 'success');
+    } catch (error: any) {
+      toast(error.message || 'Failed to delete comment', 'error');
+    }
+  };
+
+  const handleMuteUser = async (userId: string, isMuted: boolean) => {
+    try {
+      // Mute for 24 hours if isMuted is false (meaning we want to mute them)
+      const mutedUntil = isMuted ? null : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ muted_until: mutedUntil })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      
+      toast(isMuted ? 'User unmuted' : 'User muted for 24h', 'success');
+      fetchComments(); // Refresh to update roles/status if needed
+    } catch (error: any) {
+      toast(error.message || 'Failed to update user status', 'error');
+    }
+  };
+
   return (
     <div className="mt-4 pt-4 border-t border-[#ffffff10]">
       {loading ? (
@@ -158,18 +188,68 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
                     <span className="flex items-center justify-center h-full text-xs text-gray-500">👤</span>
                   )}
                 </div>
-                <div className="flex-1 bg-[#ffffff05] rounded-xl p-3 border border-[#ffffff05]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span 
-                      className="font-bold text-[13px] text-gray-200 cursor-pointer hover:text-cyan-400 transition-colors"
-                      onClick={() => onShowUser(comment.user_id)}
-                    >
-                      {comment.profiles?.name || 'Anonymous'}
-                      {comment.profiles?.role === 'admin' && <span className="ml-2 text-[8px] bg-red-500/20 text-red-400 px-1 rounded uppercase font-black">ADMIN</span>}
-                    </span>
-                    <span className="text-[10px] font-mono text-gray-500 uppercase">
-                      {new Date(comment.created_at).toLocaleDateString()}
-                    </span>
+                <div className="flex-1 bg-[#ffffff05] rounded-xl p-3 border border-[#ffffff05] group/comment relative">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className="font-bold text-[13px] text-gray-200 cursor-pointer hover:text-cyan-400 transition-colors"
+                        onClick={() => onShowUser(comment.user_id)}
+                      >
+                        {comment.profiles?.name || 'Anonymous'}
+                        {comment.profiles?.role === 'admin' && <span className="ml-2 text-[8px] bg-red-500/20 text-red-400 px-1 rounded uppercase font-black tracking-tighter">ADMIN</span>}
+                        {comment.profiles?.role === 'mod' && <span className="ml-2 text-[8px] bg-purple-500/20 text-purple-400 px-1 rounded uppercase font-black tracking-tighter">MOD</span>}
+                      </span>
+                      <span className="text-[10px] font-mono text-gray-500 uppercase">
+                        {new Date(comment.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    {/* Comment Actions Menu */}
+                    {(profile?.role === 'admin' || profile?.role === 'mod' || profile?.id === comment.user_id) && (
+                      <div className="relative">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenu(activeMenu === comment.id ? null : comment.id);
+                          }}
+                          className="p-1 hover:bg-white/10 rounded-lg text-gray-500 hover:text-white transition-all opacity-0 group-hover/comment:opacity-100"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+
+                        {activeMenu === comment.id && (
+                          <div 
+                            className="absolute right-0 top-full mt-1 w-32 bg-bg-2 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+                            onMouseLeave={() => setActiveMenu(null)}
+                          >
+                            {(profile.role === 'admin' || profile.role === 'mod') && profile.id !== comment.user_id && (
+                              <button 
+                                onClick={() => {
+                                  handleMuteUser(comment.user_id, !!comment.profiles?.muted_until);
+                                  setActiveMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors flex items-center gap-2"
+                              >
+                                {comment.profiles?.muted_until ? <Volume2 size={12} /> : <VolumeX size={12} />}
+                                {comment.profiles?.muted_until ? 'Unmute' : 'Mute'}
+                              </button>
+                            )}
+                            {(profile.role === 'admin' || profile.role === 'mod' || profile.id === comment.user_id) && (
+                              <button 
+                                onClick={() => {
+                                  if (confirm('Delete this transmission?')) handleDeleteComment(comment.id);
+                                  setActiveMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 text-red-400 transition-colors flex items-center gap-2"
+                              >
+                                <Trash2 size={12} />
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {comment.content && <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{comment.content}</p>}
                   

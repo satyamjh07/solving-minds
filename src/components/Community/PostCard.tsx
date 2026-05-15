@@ -159,13 +159,34 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
           </button>
 
           {canModerate && (
-            <button
-              className="post-mod-btn flex items-center gap-1.5 text-red-500 hover:text-red-400 transition-colors text-sm"
-              onClick={() => onDelete(post.id)}
-            >
-              <Trash2 size={14} />
-              Delete
-            </button>
+            <div className="flex gap-2">
+              <button
+                className="post-mod-btn flex items-center gap-1.5 text-red-500 hover:text-red-400 transition-colors text-sm"
+                onClick={() => onDelete(post.id)}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+              {profile.id !== post.user_id && (
+                <button
+                  className={`post-mod-btn flex items-center gap-1.5 ${profile.muted_until ? 'text-green-500 hover:text-green-400' : 'text-purple-500 hover:text-purple-400'} transition-colors text-sm`}
+                  onClick={async () => {
+                    try {
+                      const mutedUntil = profile.muted_until ? null : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                      const { supabase } = await import('@/lib/supabase/client');
+                      const { error } = await supabase.from('profiles').update({ muted_until: mutedUntil }).eq('id', post.user_id);
+                      if (error) throw error;
+                      alert(profile.muted_until ? 'User unmuted' : 'User muted for 24h');
+                    } catch (e: any) {
+                      alert(e.message);
+                    }
+                  }}
+                >
+                  <Flag size={14} />
+                  {profile.muted_until ? 'Unmute' : 'Mute User'}
+                </button>
+              )}
+            </div>
           )}
         </div>
 

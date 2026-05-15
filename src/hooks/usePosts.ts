@@ -18,6 +18,7 @@ export interface Post {
     class: string;
     target_year: string;
     role: string;
+    muted_until: string | null;
   };
   tags: string[] | null;
   score: number;
@@ -42,7 +43,7 @@ export function usePosts(filters: PostFilters = {}) {
 
     let query = supabase
       .from('posts')
-      .select('id, user_id, title, content, image_urls, tags, created_at, profiles(id, name, avatar_url, class, target_year, role)')
+      .select('id, user_id, title, content, image_urls, tags, created_at, profiles(id, name, avatar_url, class, target_year, role, muted_until)')
       .order('created_at', { ascending: false })
       .limit(30);
 
