@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { calculateAura } from '@/lib/aura';
 
 export interface DashboardAnalytics {
   streak: { current: number; best: number };
@@ -203,6 +204,23 @@ export function useDashboardAnalytics(userId: string | undefined) {
           activityMap,
           studySessions: sessRows
         });
+
+        // 3. Update profile with new aura score (debounced or simple)
+        const aura = calculateAura({
+          totalQuestions: resourceAllocation.reduce((acc, curr) => acc + curr.totalQuestions, 0),
+          streak: currentStreak,
+          accuracy: rows.length > 0 ? Math.round((rows.filter(r => r.is_correct).length / rows.length) * 100) : 0
+        });
+
+        if (userId) {
+          await supabase
+            .from('profiles')
+            .update({ 
+              aura_score: aura.score,
+              aura_level: `Level ${aura.level}` 
+            })
+            .eq('id', userId);
+        }
 
       } catch (err) {
         console.error('Error loading dashboard analytics:', err);

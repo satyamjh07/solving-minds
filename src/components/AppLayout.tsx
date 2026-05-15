@@ -71,7 +71,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     '/dashboard':  { title: 'Command Center',     sub: 'Your daily performance hub' },
     '/solving':    { title: 'Solver_Protcol',     sub: 'Sharpen your problem-solving edge' },
     '/community':  { title: 'Social_Feed',        sub: 'Share, discuss, and grow together' },
-    '/noise':      { title: 'Noise_Zone',         sub: 'Curated study music & focus sounds' },
+    '/levelup':    { title: 'Level_Up_Protocol',  sub: 'Ascend the ranks of elite solvers' },
     '/settings':   { title: 'Settings',           sub: 'Personalize your profile and preferences' },
     '/admin':      { title: 'Admin_Panel',        sub: 'Manage users, posts, and reports' },
   };
@@ -82,7 +82,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: 'Home', href: '/dashboard', icon: <LayoutDashboard size={18} />, page: 'dashboard' },
     { name: 'Solver', href: '/solving', icon: <Target size={18} />, page: 'solving', badge: 'NEW' },
     { name: 'Social', href: '/community', icon: <Users size={18} />, page: 'community' },
-    { name: 'Noise', href: '/noise', icon: <Music size={18} />, page: 'noise' },
+    { name: 'Level Up', href: '/levelup', icon: <Award size={18} />, page: 'levelup' },
     { name: 'Settings', href: '/settings', icon: <Settings size={18} />, page: 'settings' },
   ];
 

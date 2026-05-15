@@ -10,7 +10,7 @@ export interface LeaderboardEntry {
   class: string | null;
   target_year: number | string | null;
   role: string | null;
-  total_seconds: number;
+  aura_score: number;
   rank: number;
 }
 
@@ -62,7 +62,7 @@ export function useLeaderboard(mode: 'daily' | 'weekly' = 'weekly') {
                   class: p.class,
                   target_year: p.target_year,
                   role: p.role,
-                  total_seconds: 0, // We don't have time without RPC/View
+                  aura_score: p.aura_score || 0,
                   rank: idx + 1
               })));
           }

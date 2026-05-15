@@ -258,7 +258,7 @@ export default function DashboardPage() {
                   <div className="an-card-title text-yellow-400">
                      <Award size={16} className="mr-2" /> Global Leaderboard
                   </div>
-                  <div className="an-card-sub">Ranked by study hours</div>
+                  <div className="an-card-sub">Ranked by aura score</div>
                </div>
                <div className="an-lb-tabs">
                   <div className={`an-lb-tab ${lbMode === 'daily' ? 'active' : ''}`} onClick={() => setLbMode('daily')}>Daily</div>
@@ -289,8 +289,8 @@ export default function DashboardPage() {
                               <div className="an-lb-sub">{entry.class} · Target {entry.target_year}</div>
                            </div>
                            <div className="an-lb-score">
-                              <div className="an-lb-val">{(entry.total_seconds / 3600).toFixed(1)}h</div>
-                              <div className="an-lb-label">studied</div>
+                              <div className="an-lb-val">{entry.aura_score.toLocaleString()}</div>
+                              <div className="an-lb-label">aura points</div>
                            </div>
                         </div>
                      ))
