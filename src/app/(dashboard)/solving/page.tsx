@@ -1,24 +1,22 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { useQuestions, Question } from '@/hooks/useQuestions';
 import { useAttempts, Attempt } from '@/hooks/useAttempts';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import 'katex/dist/katex.min.css';
-import { InlineMath, BlockMath } from 'react-katex';
 import { 
-  ChevronLeft, 
-  ChevronRight, 
   Zap,
   Loader2,
   BookOpen,
   BarChart3,
   Check,
-  Info
+  ChevronRight
 } from 'lucide-react';
 
-// KaTeX auto-render helper
+// ─── Module-level helpers (defined OUTSIDE the component so React never recreates them) ───
+
 const renderMath = (el: HTMLElement | null) => {
   if (!el || !(window as any).renderMathInElement) return;
   (window as any).renderMathInElement(el, {
@@ -31,6 +29,29 @@ const renderMath = (el: HTMLElement | null) => {
     throwOnError: false,
   });
 };
+
+const formatText = (text: string) => {
+  if (!text) return '';
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br/>');
+};
+
+// KEY FIX: Defined outside SolvingPage so React never sees a new component type,
+// which was causing KaTeX to re-render (and options to flash) on every state change.
+const QuestionText = memo(function QuestionText({ text, className = '' }: { text: string; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current) renderMath(ref.current);
+  }, [text]);
+  return (
+    <div
+      ref={ref}
+      className={className}
+      dangerouslySetInnerHTML={{ __html: formatText(text) }}
+    />
+  );
+});
 
 const COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
 
@@ -52,8 +73,11 @@ export default function SolvingPage() {
   const [showSolution, setShowSolution] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [integerInput, setIntegerInput] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Ref-based cache like legacy solver's _pyqAttemptCache — updated synchronously,
+  // no re-render needed, acts as the authoritative in-session store.
+  const attemptCacheRef = useRef<Record<string, Attempt>>({});
   const [localAttempts, setLocalAttempts] = useState<Record<string, Attempt>>({});
+
 
   // Filters
   const [filterYear, setFilterYear] = useState('ALL');
@@ -86,9 +110,11 @@ export default function SolvingPage() {
   }, [subject]);
 
   const { questions: rawQuestions, loading: qLoading } = useQuestions(subject, selectedChapter);
-  
-  // Apply local filters to questions
-  const questions = rawQuestions.filter(q => {
+
+  // KEY FIX: Memoize the filter so `questions` has a stable reference.
+  // Previously this ran inline → new array every render → qIds changed every render
+  // → useAttempts re-fetched → overwrote optimistic attempts → colors disappeared.
+  const questions = useMemo(() => rawQuestions.filter(q => {
     if (filterYear !== 'ALL' && q.year.toString() !== filterYear) return false;
     if (filterDifficulty !== 'ALL' && q.difficulty?.toUpperCase() !== filterDifficulty) return false;
     if (filterType !== 'ALL') {
@@ -96,14 +122,21 @@ export default function SolvingPage() {
       if (filterType === 'MCQ' && q.type !== 'mcq') return false;
     }
     return true;
-  });
+  }), [rawQuestions, filterYear, filterDifficulty, filterType]);
 
   const qIds = useMemo(() => questions.map(q => q._dbId), [questions]);
   const { attempts: fetchedAttempts, refetch: refetchAttempts } = useAttempts(qIds);
 
-  // Sync fetched attempts to local state
+  // Reset attempt cache when chapter changes so old answers don’t bleed through.
   useEffect(() => {
-    setLocalAttempts(fetchedAttempts);
+    attemptCacheRef.current = {};
+    setLocalAttempts({});
+  }, [selectedChapter, subject]);
+
+  // KEY FIX: MERGE fetched attempts into local state instead of replacing.
+  // Replacing would clobber any optimistic updates already in local state.
+  useEffect(() => {
+    setLocalAttempts(prev => ({ ...fetchedAttempts, ...prev }));
   }, [fetchedAttempts]);
 
   const attempts = localAttempts;
@@ -119,9 +152,12 @@ export default function SolvingPage() {
 
   const isAnswered = isOnCooldown(currentAttempt);
 
-  const handleSubmit = async (optionIdx?: number) => {
-    if (!currentQuestion || isAnswered || isSubmitting) return;
-    
+  const handleSubmit = (optionIdx?: number) => {
+    if (!currentQuestion || isAnswered) return;
+
+    // Guard using the ref cache (synchronous, no re-render lag)
+    if (attemptCacheRef.current[currentQuestion._dbId]) return;
+
     let isCorrect = false;
     let answerValue = '';
 
@@ -130,66 +166,47 @@ export default function SolvingPage() {
       isCorrect = Number(integerInput) === Number(currentQuestion.answer);
       answerValue = integerInput;
     } else {
-      const finalOption = optionIdx !== undefined ? optionIdx : selectedOption;
-      if (finalOption === null) return;
-      isCorrect = finalOption === currentQuestion.correct;
-      answerValue = finalOption.toString();
-      setSelectedOption(finalOption);
+      if (optionIdx === undefined || optionIdx === null) return;
+      isCorrect = optionIdx === currentQuestion.correct;
+      answerValue = optionIdx.toString();
     }
 
-    setIsSubmitting(true);
-    
-    // Optimistic Update
-    const optimisticAttempt: Attempt = {
+    const newAttempt: Attempt = {
       id: 'temp-' + Date.now(),
       question_id: currentQuestion._dbId,
       is_correct: isCorrect,
       selected_answer: answerValue,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
-    
-    setLocalAttempts(prev => ({
-      ...prev,
-      [currentQuestion._dbId]: optimisticAttempt
-    }));
 
-    const { error } = await supabase.from('user_attempts').insert({
-      user_id: profile?.id,
-      question_id: currentQuestion._dbId,
-      is_correct: isCorrect,
-      selected_answer: answerValue
-    });
+    // KEY FIX: Update the ref synchronously FIRST (like legacy's qState.answered = true)
+    // This prevents double-submission even before the React state update.
+    attemptCacheRef.current[currentQuestion._dbId] = newAttempt;
 
-    if (error) {
-      console.error(error);
-      toast('Failed to save attempt, but your result is shown.', 'warning');
+    // Then update React state to trigger re-render with result — instant, no await.
+    setLocalAttempts(prev => ({ ...prev, [currentQuestion._dbId]: newAttempt }));
+
+    // KEY FIX: Fire-and-forget DB save (like legacy solver's .then() pattern).
+    // UI never waits for the network — result shows instantly.
+    const userId = profile?.id;
+    if (userId) {
+      supabase.from('user_attempts').insert({
+        user_id: userId,
+        question_id: currentQuestion._dbId,
+        is_correct: isCorrect,
+        selected_answer: answerValue,
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('[Solver] Failed to save attempt:', error.message);
+        } else if (data && (data as any)[0]) {
+          // Upgrade temp id to real DB row id in the cache
+          attemptCacheRef.current[currentQuestion._dbId] = (data as any)[0];
+        }
+      });
     }
-    
-    setIsSubmitting(false);
   };
 
-  const formatText = (text: string) => {
-    if (!text) return '';
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br/>');
-  };
-
-  function QuestionText({ text, className = '' }: { text: string; className?: string }) {
-    const ref = useRef<HTMLDivElement>(null);
-    
-    useEffect(() => {
-      if (ref.current) renderMath(ref.current);
-    }, [text]);
-
-    return (
-      <div 
-        ref={ref}
-        className={className}
-        dangerouslySetInnerHTML={{ __html: formatText(text) }}
-      />
-    );
-  }
+  // formatText and QuestionText are now module-level (see top of file)
 
   const jumpToQ = (idx: number) => {
     setCurrentIndex(idx);
@@ -569,31 +586,26 @@ export default function SolvingPage() {
                     <div className="zd-options-grid">
                       {currentQuestion.options.map((opt, i) => {
                         const isCorrectOpt = i === currentQuestion.correct;
-                        const userSel = isAnswered ? Number(currentAttempt?.selected_answer) : selectedOption;
-                        const isUserOpt = userSel === i;
+                        const selectedIdx = isAnswered ? Number(currentAttempt?.selected_answer) : -1;
+                        const isUserOpt = isAnswered && selectedIdx === i;
 
-                        let cls = "solver-option-btn";
+                        let cls = 'solver-option-btn';
                         if (isAnswered) {
-                          cls += " disabled";
-                          if (isCorrectOpt) cls += " correct";
-                          if (isUserOpt && !isCorrectOpt) cls += " wrong";
-                        } else if (isUserOpt) {
-                          cls += " active";
+                          cls += ' disabled';
+                          if (isCorrectOpt) cls += ' correct';
+                          if (isUserOpt && !isCorrectOpt) cls += ' wrong';
                         }
 
                         return (
-                          <button 
-                            key={i} 
+                          <button
+                            key={i}
                             className={cls}
-                            disabled={isAnswered || isSubmitting}
-                            onClick={() => !isAnswered && handleSubmit(i)}
+                            disabled={isAnswered}
+                            onClick={() => handleSubmit(i)}
                           >
                             <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
-                            <div className="flex-1 flex items-center justify-between gap-4">
+                            <div className="flex-1">
                               <QuestionText text={opt.text} />
-                              {isSubmitting && selectedOption === i && (
-                                <Loader2 size={12} className="animate-spin opacity-40 shrink-0" />
-                              )}
                             </div>
                           </button>
                         );

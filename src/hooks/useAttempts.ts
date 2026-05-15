@@ -15,6 +15,11 @@ export function useAttempts(questionIds: string[]) {
   const [attempts, setAttempts] = useState<Record<string, Attempt>>({});
   const [loading, setLoading] = useState(false);
 
+  // KEY FIX: Serialize to a stable string key so the effect only fires when the
+  // actual question IDs change — not just because a new array reference was passed.
+  // Previously the array reference changed every render → infinite re-fetches.
+  const idsKey = questionIds.join(',');
+
   async function fetchAttempts() {
     if (!questionIds.length) return;
     setLoading(true);
@@ -48,9 +53,10 @@ export function useAttempts(questionIds: string[]) {
     setLoading(false);
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchAttempts();
-  }, [questionIds]);
+  }, [idsKey]); // stable string key, not array reference
 
   return { attempts, loading, refetch: fetchAttempts };
 }
