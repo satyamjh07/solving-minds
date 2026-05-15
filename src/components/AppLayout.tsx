@@ -12,7 +12,7 @@ import {
   ShieldAlert,
   LogOut,
   Bell,
-  Music,
+  Award,
   User as UserIcon,
   Loader2,
   AlertTriangle
