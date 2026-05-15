@@ -20,9 +20,10 @@ interface PostCardProps {
   onVote: (postId: string, value: number) => void;
   canModerate: boolean;
   onDelete: (postId: string) => void;
+  onShowUser: (userId: string) => void;
 }
 
-export function PostCard({ post, onVote, canModerate, onDelete }: PostCardProps) {
+export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: PostCardProps) {
   const profile = post.profiles || {} as any;
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showComments, setShowComments] = useState(false);
@@ -54,7 +55,7 @@ export function PostCard({ post, onVote, canModerate, onDelete }: PostCardProps)
     <div className="post-card" data-id={post.id}>
       <div className="post-body">
         <div className="post-header">
-          <button className="post-avatar-btn">
+          <button className="post-avatar-btn" onClick={() => onShowUser(post.user_id)}>
             <div className="post-avatar">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt={profile.name} />
@@ -64,7 +65,7 @@ export function PostCard({ post, onVote, canModerate, onDelete }: PostCardProps)
             </div>
           </button>
           <div className="post-header-info">
-            <button className="post-author-link">
+            <button className="post-author-link" onClick={() => onShowUser(post.user_id)}>
               {profile.name || 'Anonymous'}
               {profile.role === 'admin' && <span className="role-badge badge-admin ml-1">ADMIN</span>}
               {profile.role === 'mod' && <span className="role-badge badge-mod ml-1">MOD</span>}
@@ -168,7 +169,7 @@ export function PostCard({ post, onVote, canModerate, onDelete }: PostCardProps)
           )}
         </div>
 
-        {showComments && <CommentsSection postId={post.id} />}
+        {showComments && <CommentsSection postId={post.id} onShowUser={onShowUser} />}
       </div>
 
       {lightboxIndex !== null && (

@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useState } from 'react';
 import { Loader2, Plus, PenLine, Filter, RotateCcw, Tag as TagIcon, Calendar, GraduationCap, Target as TargetIcon } from 'lucide-react';
 import { useDialog } from '@/components/DialogProvider';
+import { UserProfileModal } from '@/components/Community/UserProfileModal';
 
 const PRESET_TAGS = [
   'doubts', 'physics', 'chemistry', 'maths', 'help',
@@ -28,6 +29,7 @@ export default function CommunityPage() {
   const [classFilter, setClassFilter] = useState('ALL');
   const [tagFilter, setTagFilter] = useState('ALL');
   const [timeFilter, setTimeFilter] = useState('ALL');
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const isAnyFilterActive = targetYearFilter !== 'ALL' || classFilter !== 'ALL' || tagFilter !== 'ALL' || timeFilter !== 'ALL' || filter !== 'all';
 
@@ -162,7 +164,14 @@ export default function CommunityPage() {
               </div>
             ) : filteredPosts.length > 0 ? (
               filteredPosts.map(post => (
-                <PostCard key={post.id} post={post} onVote={handleVote} canModerate={profile?.role === 'admin' || profile?.role === 'mod'} onDelete={handleDelete} />
+                <PostCard 
+                  key={post.id} 
+                  post={post} 
+                  onVote={handleVote} 
+                  canModerate={profile?.role === 'admin' || profile?.role === 'mod'} 
+                  onDelete={handleDelete} 
+                  onShowUser={setSelectedUserId}
+                />
               ))
             ) : (
               <div className="text-center py-32 bg-bg-2/30 border border-white/5 rounded-3xl backdrop-blur-sm">
@@ -317,6 +326,8 @@ export default function CommunityPage() {
       </div>
 
       {showCreateModal && <CreatePostModal onClose={() => setShowCreateModal(false)} onSuccess={() => refetch()} />}
+
+      {selectedUserId && <UserProfileModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />}
 
       <style>{`
         @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

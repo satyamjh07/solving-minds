@@ -33,38 +33,57 @@ export function useLeaderboard(mode: 'daily' | 'weekly' = 'weekly') {
           since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack)).toISOString();
         }
 
-        // Try RPC first
-        const { data, error } = await supabase.rpc('get_leaderboard', {
-          since_ts: since,
-          row_limit: 10
-        });
+        // STRATEGY: 
+        // 1. For Global ranking (or as fallback), use profiles table (Source of Truth for NEW Aura Score)
+        // 2. For Daily/Weekly, we try the RPC to get active users, but map their activity to Aura Score logic
+        
+        console.log(`Fetching ${mode} leaderboard...`);
 
-        if (!error && data) {
-          setEntries(data.map((r: any, idx: number) => ({
-            ...r,
+        if (mode === 'daily' || mode === 'weekly') {
+          // Attempt RPC for periodic data
+          const { data: rpcData, error: rpcErr } = await supabase.rpc('get_leaderboard', {
+            since_ts: since,
+            row_limit: 10
+          });
+
+          if (!rpcErr && rpcData && rpcData.length > 0) {
+            console.log(`${mode} RPC data found:`, rpcData);
+            setEntries(rpcData.map((r: any, idx: number) => ({
+              user_id: r.user_id || r.id,
+              name: r.name,
+              avatar_url: r.avatar_url,
+              class: r.class,
+              target_year: r.target_year,
+              role: r.role,
+              // Map legacy total_seconds to a relative aura score for the period
+              // Formula: (seconds / 360) * 10 (approx 10 points per 6 mins of work)
+              aura_score: Math.floor((r.total_seconds || 0) / 36) || 0,
+              rank: idx + 1
+            })));
+            return;
+          }
+        }
+
+        // FALLBACK / GLOBAL: Query profiles directly
+        // This ensures the NEW aura_score from the profiles table is used.
+        const { data: profileData, error: pErr } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('aura_score', { ascending: false })
+          .limit(10);
+        
+        if (profileData) {
+          console.log('Using profiles for leaderboard:', profileData);
+          setEntries(profileData.map((p, idx) => ({
+            user_id: p.id,
+            name: p.name,
+            avatar_url: p.avatar_url,
+            class: p.class,
+            target_year: p.target_year,
+            role: p.role || 'user',
+            aura_score: Number(p.aura_score) || 0,
             rank: idx + 1
           })));
-        } else {
-          // Fallback: Fetch from the dedicated aura_leaderboard table
-          console.warn('Leaderboard RPC failed or not found, falling back to aura_leaderboard table.');
-          const { data: leaderboardData, error: lErr } = await supabase
-            .from('aura_leaderboard')
-            .select('*')
-            .order('aura_score', { ascending: false })
-            .limit(10);
-          
-          if (leaderboardData) {
-              setEntries(leaderboardData.map((p, idx) => ({
-                  user_id: p.id,
-                  name: p.name,
-                  avatar_url: p.avatar_url,
-                  class: p.class,
-                  target_year: p.target_year,
-                  role: p.role || 'user',
-                  aura_score: Number(p.aura_score) || 0,
-                  rank: p.rank || (idx + 1)
-              })));
-          }
         }
       } catch (err) {
         console.error('Error loading leaderboard:', err);

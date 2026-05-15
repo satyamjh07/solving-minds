@@ -8,7 +8,7 @@ import { useDialog } from '@/components/DialogProvider';
 import { uploadToCloudinary, getOptimizedUrl } from '@/lib/cloudinary';
 import { ImageLightbox } from './ImageLightbox';
 
-export function CommentsSection({ postId }: { postId: string }) {
+export function CommentsSection({ postId, onShowUser }: { postId: string; onShowUser: (userId: string) => void }) {
   const { profile } = useProfile();
   const { toast } = useDialog();
   const [comments, setComments] = useState<any[]>([]);
@@ -148,7 +148,10 @@ export function CommentsSection({ postId }: { postId: string }) {
           {comments.length > 0 ? (
             comments.map((comment) => (
               <div key={comment.id} className="flex gap-3">
-                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-[#ffffff08]">
+                <div 
+                  className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-[#ffffff08] cursor-pointer"
+                  onClick={() => onShowUser(comment.user_id)}
+                >
                   {comment.profiles?.avatar_url ? (
                     <img src={getOptimizedUrl(comment.profiles.avatar_url, 'w_80,h_80,c_fill')} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -157,7 +160,10 @@ export function CommentsSection({ postId }: { postId: string }) {
                 </div>
                 <div className="flex-1 bg-[#ffffff05] rounded-xl p-3 border border-[#ffffff05]">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-[13px] text-gray-200">
+                    <span 
+                      className="font-bold text-[13px] text-gray-200 cursor-pointer hover:text-cyan-400 transition-colors"
+                      onClick={() => onShowUser(comment.user_id)}
+                    >
                       {comment.profiles?.name || 'Anonymous'}
                       {comment.profiles?.role === 'admin' && <span className="ml-2 text-[8px] bg-red-500/20 text-red-400 px-1 rounded uppercase font-black">ADMIN</span>}
                     </span>
