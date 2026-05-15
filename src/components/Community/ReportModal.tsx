@@ -69,7 +69,7 @@ export function ReportModal({ postId, onClose }: ReportModalProps) {
             <Flag size={22} className="text-red-400" fill="currentColor" />
           </div>
           <h2 className="text-white text-lg font-bold">Report Content</h2>
-          <p className="text-gray-500 text-xs mt-1">Help us keep ZEROday safe. Select a reason below.</p>
+          <p className="text-gray-500 text-xs mt-1">Help us keep Solving Minds safe. Select a reason below.</p>
         </div>
 
         {/* Reason selector */}

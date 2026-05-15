@@ -87,7 +87,7 @@ export default function LoginPage() {
             <div className="w-10 h-10 rounded-xl bg-[#00f0ff]/10 border border-[#00f0ff]/20 flex items-center justify-center">
               <Zap className="w-5 h-5 text-[#00f0ff]" />
             </div>
-            <span className="font-[family-name:var(--font-bebas)] text-2xl tracking-widest text-white">ZEROday</span>
+            <span className="font-[family-name:var(--font-bebas)] text-2xl tracking-widest text-white">Solving Minds</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
           <p className="text-sm text-white/40 mt-1">Sign in to continue your journey</p>

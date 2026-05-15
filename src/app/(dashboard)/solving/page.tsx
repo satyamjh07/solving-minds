@@ -215,7 +215,7 @@ export default function SolvingPage() {
                 <Zap size={24} />
              </div>
              <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">PYQ Solver</h3>
-             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Full access to JEE Main & Advanced archive. Original ZEROday solving layout.</p>
+             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Full access to JEE Main & Advanced archive. Original Solving Minds solving layout.</p>
              <div className="flex items-center text-purple text-[10px] font-bold uppercase tracking-widest">
                 Initiate <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
              </div>

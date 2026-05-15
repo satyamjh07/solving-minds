@@ -62,7 +62,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <div className="w-10 h-10 rounded-xl bg-[#00f0ff]/10 border border-[#00f0ff]/20 flex items-center justify-center">
               <Zap className="w-5 h-5 text-[#00f0ff]" />
             </div>
-            <span className="font-[family-name:var(--font-bebas)] text-2xl tracking-widest text-white">ZEROday</span>
+            <span className="font-[family-name:var(--font-bebas)] text-2xl tracking-widest text-white">Solving Minds</span>
           </Link>
           <button className="lg:hidden text-white/40" onClick={() => setSidebarOpen(false)}>
             <X className="w-6 h-6" />

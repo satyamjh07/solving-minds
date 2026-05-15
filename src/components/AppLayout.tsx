@@ -101,7 +101,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)]">
-      {/* Topbar (ZEROday Analytics Style) */}
+      {/* Topbar (Solving Minds Analytics Style) */}
       <header className="an-topbar">
         <div className="an-topbar-left">
           <div className="an-topbar-title">{currentMeta.title}</div>
