@@ -59,7 +59,15 @@ export function useNotifications(userId: string | undefined) {
           // Listen for foreground messages
           const unsubscribe = onMessage(messaging, (payload) => {
             console.log('Foreground message received:', payload);
-            // You can show a custom toast here if you want
+            
+            // Firebase suppresses system notifications if the tab is open.
+            // We manually trigger the browser's native notification here.
+            if (payload.notification) {
+              new Notification(payload.notification.title || 'New Notification', {
+                body: payload.notification.body,
+                icon: '/logo.png',
+              });
+            }
           });
           return unsubscribe;
         }
