@@ -23,7 +23,7 @@ export function useNotifications(userId: string | undefined) {
   };
 
   const requestPermission = async () => {
-    if (!('Notification' in window)) return;
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
     
     try {
       const status = await Notification.requestPermission();
@@ -32,9 +32,14 @@ export function useNotifications(userId: string | undefined) {
       if (status === 'granted') {
         const messaging = await getFirebaseMessaging();
         if (messaging) {
+          // Explicitly register the service worker to prevent "no active Service Worker" error
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+          
           const token = await getToken(messaging, {
-            vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+            vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+            serviceWorkerRegistration: registration,
           });
+          
           if (token) {
             setFcmToken(token);
             await saveTokenToDb(token);
