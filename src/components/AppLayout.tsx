@@ -15,7 +15,8 @@ import {
   Award,
   User as UserIcon,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -74,6 +75,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     '/levelup':    { title: 'Level_Up_Protocol',  sub: 'Ascend the ranks of elite solvers' },
     '/settings':   { title: 'Settings',           sub: 'Personalize your profile and preferences' },
     '/admin':      { title: 'Admin_Panel',        sub: 'Manage users, posts, and reports' },
+    '/moderation': { title: 'Moderation',         sub: 'Reviewing user transmission reports' },
   };
 
   const currentMeta = PAGE_META[pathname] ?? { title: 'Solving Minds', sub: 'Aura Protocol V3.0' };
@@ -86,7 +88,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: 'Settings', href: '/settings', icon: <Settings size={18} />, page: 'settings' },
   ];
 
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
+  const isStaff = profile?.role === 'admin' || profile?.role === 'mod';
+  const isAdmin = profile?.role === 'admin';
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -240,7 +243,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             </li>
           ))}
-          {isAdmin && (
+          {profile?.role === 'mod' && (
+            <li>
+              <Link 
+                href="/moderation" 
+                className={`nav-link ${pathname === '/moderation' ? 'active' : ''}`}
+              >
+                <div className="nav-svg"><ShieldCheck size={18} /></div>
+                <span>Mod</span>
+              </Link>
+            </li>
+          )}
+          {profile?.role === 'admin' && (
             <li>
               <Link 
                 href="/admin" 
