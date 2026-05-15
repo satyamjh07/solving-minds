@@ -94,7 +94,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0a10]">
+    <div className="min-h-screen flex flex-col bg-[var(--bg)]">
       {/* Topbar (ZEROday Analytics Style) */}
       <header className="an-topbar">
         <div className="an-topbar-left">
@@ -263,9 +263,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           right: 0 !important;
           width: 100vw !important;
           height: 62px !important;
-          background: rgba(10, 10, 16, 0.85) !important;
+          background: var(--glass) !important;
           backdrop-filter: blur(20px) !important;
-          border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+          border-top: 1px solid var(--glass-border) !important;
           z-index: 1000 !important;
           display: flex !important;
           flex-direction: row !important;
@@ -297,7 +297,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           gap: 4px !important;
           width: 100% !important;
           height: 100% !important;
-          color: rgba(255, 255, 255, 0.3) !important;
+          color: var(--text3) !important;
           text-decoration: none !important;
           font-family: 'DM Mono', monospace !important;
           font-size: 9px !important;

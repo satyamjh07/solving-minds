@@ -129,7 +129,7 @@ export default function CommunityPage() {
         <div className="lg:col-span-8 order-2 lg:order-1">
           {/* Toggle Bar */}
           <div className="flex justify-center lg:justify-start mb-6">
-            <div className="flex items-center bg-[#12121a] border border-[#ffffff08] p-1 rounded-xl w-full max-w-lg">
+            <div className="flex items-center bg-bg-2 border border-white/5 p-1 rounded-xl w-full max-w-lg">
               <button
                 onClick={() => setFilter('all')}
                 className={`flex-1 py-2 px-4 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all ${filter === 'all' ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/20' : 'text-gray-500 hover:text-white'}`}
@@ -165,7 +165,7 @@ export default function CommunityPage() {
                 <PostCard key={post.id} post={post} onVote={handleVote} canModerate={profile?.role === 'admin' || profile?.role === 'mod'} onDelete={handleDelete} />
               ))
             ) : (
-              <div className="text-center py-32 bg-[#12121a]/30 border border-[#ffffff05] rounded-3xl backdrop-blur-sm">
+              <div className="text-center py-32 bg-bg-2/30 border border-white/5 rounded-3xl backdrop-blur-sm">
                 <div className="mb-6 opacity-20 flex justify-center"><Filter size={60} /></div>
                 <p className="text-gray-400 font-mono text-xs mb-8 uppercase tracking-widest">
                   {isAnyFilterActive ? "No matches found for active filters." : "Zero posts detected in this sector."}
@@ -202,7 +202,7 @@ export default function CommunityPage() {
             </div>
 
             {/* Target Year Filter */}
-            <div className="bg-[#12121a] border border-[#ffffff08] rounded-2xl p-6">
+            <div className="bg-bg-2 border border-white/5 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
                 <TargetIcon size={14} /> Target Year
               </div>
@@ -211,7 +211,7 @@ export default function CommunityPage() {
                   <button
                     key={year}
                     onClick={() => setTargetYearFilter(year)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${targetYearFilter === year ? 'bg-cyan-500 text-black border-cyan-500 shadow-lg shadow-cyan-500/20' : 'bg-[#ffffff05] text-gray-500 border-[#ffffff10] hover:border-gray-600'}`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${targetYearFilter === year ? 'bg-cyan-500 text-black border-cyan-500 shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-muted-foreground border-white/10 hover:border-muted-foreground/30'}`}
                   >
                     {year}
                   </button>
@@ -220,7 +220,7 @@ export default function CommunityPage() {
             </div>
 
             {/* Class Filter */}
-            <div className="bg-[#12121a] border border-[#ffffff08] rounded-2xl p-6">
+            <div className="bg-bg-2 border border-white/5 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
                 <GraduationCap size={14} /> Academic Stage
               </div>
@@ -229,7 +229,7 @@ export default function CommunityPage() {
                   <button
                     key={cls}
                     onClick={() => setClassFilter(cls)}
-                    className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border ${classFilter === cls ? 'bg-purple-500 text-white border-purple-500 shadow-lg shadow-purple-500/20' : 'bg-[#ffffff05] text-gray-500 border-[#ffffff10] hover:border-gray-600'}`}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border ${classFilter === cls ? 'bg-purple-500 text-white border-purple-500 shadow-lg shadow-purple-500/20' : 'bg-white/5 text-muted-foreground border-white/10 hover:border-muted-foreground/30'}`}
                   >
                     {cls}
                   </button>
@@ -238,14 +238,14 @@ export default function CommunityPage() {
             </div>
 
             {/* Tags Filter */}
-            <div className="bg-[#12121a] border border-[#ffffff08] rounded-2xl p-6">
+            <div className="bg-bg-2 border border-white/5 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
                 <TagIcon size={14} /> Subject Tags
               </div>
               <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                 <button
                   onClick={() => setTagFilter('ALL')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${tagFilter === 'ALL' ? 'bg-white text-black border-white' : 'bg-[#ffffff05] text-gray-500 border-[#ffffff10] hover:border-gray-600'}`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${tagFilter === 'ALL' ? 'bg-foreground text-background border-foreground' : 'bg-white/5 text-muted-foreground border-white/10 hover:border-muted-foreground/30'}`}
                 >
                   ALL TAGS
                 </button>
@@ -253,7 +253,7 @@ export default function CommunityPage() {
                   <button
                     key={tag}
                     onClick={() => setTagFilter(tag)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${tagFilter === tag ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-[#ffffff05] text-gray-500 border-[#ffffff10] hover:border-gray-600'}`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${tagFilter === tag ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-white/5 text-muted-foreground border-white/10 hover:border-muted-foreground/30'}`}
                   >
                     #{tag}
                   </button>
@@ -277,7 +277,7 @@ export default function CommunityPage() {
                   <button
                     key={t.id}
                     onClick={() => setTimeFilter(t.id)}
-                    className={`px-3 py-2 rounded-lg text-[9px] font-bold uppercase transition-all border ${timeFilter === t.id ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-[#ffffff05] text-gray-500 border-[#ffffff10] hover:border-gray-600'}`}
+                    className={`px-3 py-2 rounded-lg text-[9px] font-bold uppercase transition-all border ${timeFilter === t.id ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-white/5 text-muted-foreground border-white/10 hover:border-muted-foreground/30'}`}
                   >
                     {t.label}
                   </button>

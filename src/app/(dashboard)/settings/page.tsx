@@ -114,7 +114,7 @@ export default function SettingsPage() {
         
         {/* Left Column: Profile */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#0f0f1a] border border-[#ffffff10] rounded-2xl p-6 shadow-xl">
+          <div className="bg-bg-2 border border-white/5 rounded-2xl p-6 shadow-xl h-full">
             <h2 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-6 border-b border-[#ffffff08] pb-4">
               Profile
             </h2>
@@ -151,7 +151,7 @@ export default function SettingsPage() {
                     type="text" 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-[#ffffff05] border border-[#ffffff10] rounded-xl px-4 py-3 text-sm text-white focus:border-[#7c3aed] transition-all outline-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:border-purple transition-all outline-none"
                   />
                 </div>
 
@@ -161,7 +161,7 @@ export default function SettingsPage() {
                     <select 
                       value={userClass}
                       onChange={(e) => setUserClass(e.target.value)}
-                      className="w-full bg-[#ffffff05] border border-[#ffffff10] rounded-xl px-4 py-3 text-sm text-white focus:border-[#7c3aed] transition-all outline-none appearance-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:border-purple transition-all outline-none appearance-none"
                     >
                       <option value="" disabled>Select Class</option>
                       <option value="Class 11">Class 11</option>
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                     <select 
                       value={targetYear}
                       onChange={(e) => setTargetYear(e.target.value)}
-                      className="w-full bg-[#ffffff05] border border-[#ffffff10] rounded-xl px-4 py-3 text-sm text-white focus:border-[#7c3aed] transition-all outline-none appearance-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:border-purple transition-all outline-none appearance-none"
                     >
                       <option value="" disabled>Year</option>
                       <option value="2025">2025</option>
@@ -191,7 +191,7 @@ export default function SettingsPage() {
                     onChange={(e) => setBio(e.target.value)}
                     rows={4}
                     placeholder="Tell us about your journey..."
-                    className="w-full bg-[#ffffff05] border border-[#ffffff10] rounded-xl px-4 py-3 text-sm text-white focus:border-[#7c3aed] transition-all outline-none resize-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:border-purple transition-all outline-none resize-none"
                   />
                 </div>
 
@@ -209,7 +209,7 @@ export default function SettingsPage() {
 
         {/* Middle Column: Theme */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#0f0f1a] border border-[#ffffff10] rounded-2xl p-6 shadow-xl h-full">
+          <div className="bg-bg-2 border border-white/5 rounded-2xl p-6 shadow-xl h-full">
             <h2 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-6 border-b border-[#ffffff08] pb-4">
               Theme
             </h2>
@@ -239,7 +239,7 @@ export default function SettingsPage() {
 
         {/* Right Column: Account & Security */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#0f0f1a] border border-[#ffffff10] rounded-2xl p-6 shadow-xl h-full">
+          <div className="bg-bg-2 border border-white/5 rounded-2xl p-6 shadow-xl h-full">
             <h2 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-6 border-b border-[#ffffff08] pb-4">
               Account & Security
             </h2>

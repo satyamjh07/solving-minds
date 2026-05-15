@@ -78,8 +78,8 @@ export function PostCard({ post, onVote, canModerate, onDelete }: PostCardProps)
           </div>
         </div>
 
-        {post.title && <div className="post-title font-bold text-white mb-2 text-base">{post.title}</div>}
-        <div className="post-content text-gray-300 mb-3 text-sm leading-relaxed">{post.content}</div>
+        {post.title && <div className="post-title font-bold text-foreground mb-2 text-base">{post.title}</div>}
+        <div className="post-content text-muted-foreground mb-3 text-sm leading-relaxed">{post.content}</div>
 
         {/* Tags */}
         {tags.length > 0 && (
@@ -125,16 +125,16 @@ export function PostCard({ post, onVote, canModerate, onDelete }: PostCardProps)
         <div className="post-actions-row flex items-center gap-4">
           <div className="emoji-vote-group flex items-center bg-[#ffffff08] rounded-full px-1 py-0.5">
             <button
-              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === 1 ? 'text-[#7c3aed] bg-[#7c3aed20]' : 'text-gray-400 hover:bg-[#ffffff10]'}`}
+              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === 1 ? 'text-purple bg-purple/20' : 'text-muted-foreground/60 hover:bg-white/10'}`}
               onClick={() => onVote(post.id, 1)}
             >
               <ChevronUp size={20} fill={post.myVote === 1 ? 'currentColor' : 'none'} />
             </button>
-            <span className={`text-xs font-bold px-1 ${post.score > 0 ? 'text-[#00e5a0]' : post.score < 0 ? 'text-[#ff4d6a]' : 'text-gray-400'}`}>
+            <span className={`text-xs font-bold px-1 ${post.score > 0 ? 'text-green' : post.score < 0 ? 'text-red' : 'text-muted-foreground/60'}`}>
               {post.score !== 0 ? (post.score > 0 ? `+${post.score}` : post.score) : 'Vote'}
             </span>
             <button
-              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === -1 ? 'text-[#ff4d6a] bg-[#ff4d6a20]' : 'text-gray-400 hover:bg-[#ffffff10]'}`}
+              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === -1 ? 'text-red bg-red/20' : 'text-muted-foreground/60 hover:bg-white/10'}`}
               onClick={() => onVote(post.id, -1)}
             >
               <ChevronDown size={20} fill={post.myVote === -1 ? 'currentColor' : 'none'} />
@@ -142,7 +142,7 @@ export function PostCard({ post, onVote, canModerate, onDelete }: PostCardProps)
           </div>
 
           <button
-            className={`post-action-btn flex items-center gap-1.5 transition-colors text-sm ${showComments ? 'text-[#7c3aed]' : 'text-gray-400 hover:text-white'}`}
+            className={`post-action-btn flex items-center gap-1.5 transition-colors text-sm ${showComments ? 'text-purple' : 'text-muted-foreground/60 hover:text-foreground'}`}
             onClick={() => setShowComments(!showComments)}
           >
             <MessageSquare size={16} />
@@ -150,7 +150,7 @@ export function PostCard({ post, onVote, canModerate, onDelete }: PostCardProps)
           </button>
 
           <button
-            className="post-report-btn flex items-center gap-1.5 text-gray-400 hover:text-red-400 transition-colors text-sm"
+            className="post-report-btn flex items-center gap-1.5 text-muted-foreground/60 hover:text-red transition-colors text-sm"
             onClick={() => setShowReport(true)}
           >
             <Flag size={14} />
