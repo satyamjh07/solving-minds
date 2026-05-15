@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuestions, Question } from '@/hooks/useQuestions';
 import { useAttempts, Attempt } from '@/hooks/useAttempts';
 import { useProfile } from '@/hooks/useProfile';
@@ -15,7 +15,22 @@ import {
   BookOpen,
   BarChart3,
   Check,
+  Info
 } from 'lucide-react';
+
+// KaTeX auto-render helper
+const renderMath = (el: HTMLElement | null) => {
+  if (!el || !(window as any).renderMathInElement) return;
+  (window as any).renderMathInElement(el, {
+    delimiters: [
+      { left: '$$', right: '$$', display: true },
+      { left: '$', right: '$', display: false },
+      { left: '\\[', right: '\\]', display: true },
+      { left: '\\(', right: '\\)', display: false },
+    ],
+    throwOnError: false,
+  });
+};
 
 const COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
 
@@ -38,6 +53,7 @@ export default function SolvingPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [integerInput, setIntegerInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localAttempts, setLocalAttempts] = useState<Record<string, Attempt>>({});
 
   // Filters
   const [filterYear, setFilterYear] = useState('ALL');
@@ -82,7 +98,15 @@ export default function SolvingPage() {
     return true;
   });
 
-  const { attempts, refetch: refetchAttempts } = useAttempts(questions.map(q => q._dbId));
+  const qIds = useMemo(() => questions.map(q => q._dbId), [questions]);
+  const { attempts: fetchedAttempts, refetch: refetchAttempts } = useAttempts(qIds);
+
+  // Sync fetched attempts to local state
+  useEffect(() => {
+    setLocalAttempts(fetchedAttempts);
+  }, [fetchedAttempts]);
+
+  const attempts = localAttempts;
 
   const currentQuestion = questions[currentIndex];
   const currentAttempt = currentQuestion ? attempts[currentQuestion._dbId] : null;
@@ -114,6 +138,21 @@ export default function SolvingPage() {
     }
 
     setIsSubmitting(true);
+    
+    // Optimistic Update
+    const optimisticAttempt: Attempt = {
+      id: 'temp-' + Date.now(),
+      question_id: currentQuestion._dbId,
+      is_correct: isCorrect,
+      selected_answer: answerValue,
+      created_at: new Date().toISOString()
+    };
+    
+    setLocalAttempts(prev => ({
+      ...prev,
+      [currentQuestion._dbId]: optimisticAttempt
+    }));
+
     const { error } = await supabase.from('user_attempts').insert({
       user_id: profile?.id,
       question_id: currentQuestion._dbId,
@@ -123,46 +162,34 @@ export default function SolvingPage() {
 
     if (error) {
       console.error(error);
-    } else {
-      refetchAttempts();
+      toast('Failed to save attempt, but your result is shown.', 'warning');
     }
+    
     setIsSubmitting(false);
   };
 
   const formatText = (text: string) => {
-    if (!text) return null;
-    
-    // Improve regex to catch all possible latex triggers
-    const hasLatex = /\\(?:textbf|textit|frac|text|sin|cos|sqrt|times|approx|circ|vec|theta|alpha|beta|gamma|delta|omega|phi|psi|rho|sigma|tau|lambda|mu|nu|xi|zeta|eta|theta|pi|partial|sum|int|infty|leq|geq|neq|approx|pm|mp|cdot|nabla|implies|iff|longrightarrow|Rightarrow|rightarrow|to|up|down|cap|cup|subset|subseteq|in|notin|forall|exists|neg|wedge|vee|parallel|perp|angle|triangle|square|dot|ddot|bar|hat|tilde|check|breve|grave|acute|math|mathcal|mathbb|mathbf|mathsf|mathtt|mathit|text|textbf|textit|texttt|textrm|textsf|bold)\{/.test(text) || /[\\$]/.test(text);
-    
-    let processedText = text;
-    // If it has latex but no delimiters, wrap it in display math to ensure KaTeX picks it up
-    if (hasLatex && !text.includes('$') && !text.includes('\\[')) {
-      processedText = `$$${text}$$`;
-    }
-
-    // Split on standard delimiters
-    const parts = processedText.split(/(\$\$.*?\$\$|\$.*?\$|\\\[.*?\\\]|\\\(.*?\\\))/gs);
-    
-    return parts.map((part, index) => {
-      if (!part) return null;
-
-      // Handle block math
-      if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('\\[') && part.endsWith('\\]'))) {
-        const math = part.startsWith('$$') ? part.slice(2, -2) : part.slice(2, -2);
-        return <BlockMath key={index} math={math} />;
-      }
-      
-      // Handle inline math
-      if ((part.startsWith('$') && part.endsWith('$')) || (part.startsWith('\\(') && part.endsWith('\\)'))) {
-        const math = part.startsWith('$') ? part.slice(1, -1) : part.slice(2, -2);
-        return <InlineMath key={index} math={math} />;
-      }
-
-      // Standard text with line breaks
-      return <span key={index} dangerouslySetInnerHTML={{ __html: part.replace(/\n/g, '<br/>') }} />;
-    });
+    if (!text) return '';
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br/>');
   };
+
+  function QuestionText({ text, className = '' }: { text: string; className?: string }) {
+    const ref = useRef<HTMLDivElement>(null);
+    
+    useEffect(() => {
+      if (ref.current) renderMath(ref.current);
+    }, [text]);
+
+    return (
+      <div 
+        ref={ref}
+        className={className}
+        dangerouslySetInnerHTML={{ __html: formatText(text) }}
+      />
+    );
+  }
 
   const jumpToQ = (idx: number) => {
     setCurrentIndex(idx);
@@ -507,9 +534,10 @@ export default function SolvingPage() {
                     )}
                   </div>
 
-                  <div className="zd-q-text">
-                    {formatText(currentQuestion.text)}
-                  </div>
+                  <QuestionText 
+                    text={currentQuestion.text} 
+                    className="zd-q-text" 
+                  />
 
                   {currentQuestion.image && (
                     <img src={currentQuestion.image} className="zd-q-image" alt="Question" />
@@ -557,10 +585,16 @@ export default function SolvingPage() {
                           <button 
                             key={i} 
                             className={cls}
+                            disabled={isAnswered || isSubmitting}
                             onClick={() => !isAnswered && handleSubmit(i)}
                           >
                             <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
-                            <span>{formatText(opt.text)}</span>
+                            <div className="flex-1 flex items-center justify-between gap-4">
+                              <QuestionText text={opt.text} />
+                              {isSubmitting && selectedOption === i && (
+                                <Loader2 size={12} className="animate-spin opacity-40 shrink-0" />
+                              )}
+                            </div>
                           </button>
                         );
                       })}
@@ -571,12 +605,13 @@ export default function SolvingPage() {
                     <div className="zd-explanation-label">
                       <Zap size={12} /> SOLUTION
                     </div>
-                    <div className="zd-explanation-text">
-                      {formatText(currentQuestion.explanation)}
-                      {currentQuestion.explanation_image_url && (
-                        <img src={currentQuestion.explanation_image_url} className="mt-4 rounded-lg w-full" alt="Explanation" />
-                      )}
-                    </div>
+                    <QuestionText 
+                      text={currentQuestion.explanation} 
+                      className="zd-explanation-text" 
+                    />
+                    {currentQuestion.explanation_image_url && (
+                      <img src={currentQuestion.explanation_image_url} className="mt-4 rounded-xl w-full border border-white/5" alt="Explanation" />
+                    )}
                   </div>
 
                   <div className="zd-q-actions">
@@ -611,7 +646,7 @@ export default function SolvingPage() {
       <style jsx global>{`
         .zd-layout {
           display: grid;
-          grid-template-columns: 260px 1fr;
+          grid-template-columns: 280px minmax(0, 1fr);
           gap: 1.5rem;
           align-items: start;
         }
@@ -793,11 +828,47 @@ export default function SolvingPage() {
         .solver-badge-easy { color: var(--green); border-color: var(--green); background: rgba(39, 174, 96, 0.05); }
 
         .zd-q-text {
-          font-size: 1rem;
-          line-height: 1.85;
+          font-size: 0.95rem;
+          line-height: 1.65;
           color: var(--text);
-          margin-bottom: 1.4rem;
+          margin-bottom: 1.5rem;
           font-weight: 500;
+          word-wrap: break-word;
+        }
+        .zd-q-text :global(.katex-display) {
+          margin: 1.5rem 0;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+        .zd-explanation-text :global(.katex-display) {
+          margin: 1rem 0;
+        }
+        .zd-options-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 0.75rem;
+          margin-bottom: 2rem;
+        }
+        @media (min-width: 768px) {
+          .zd-options-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+        .solver-option-btn {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem 1.25rem;
+          background: var(--bg3);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          color: var(--text);
+          font-size: 0.85rem;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.2s;
+          min-height: 60px;
+          width: 100%;
         }
         .zd-q-image {
           width: 100%;
