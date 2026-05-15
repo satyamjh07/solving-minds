@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2, ShieldCheck, ChevronLeft } from 'lucide-react';
 import { ReportsTab } from '@/components/Admin/ReportsTab';
+import { TicketsTab } from '@/components/Admin/TicketsTab';
+import { useState } from 'react';
 import Link from 'next/link';
 
 export default function ModerationPage() {
   const { profile, loading } = useProfile();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'reports' | 'tickets'>('reports');
 
   useEffect(() => {
     if (!loading && profile?.role !== 'admin' && profile?.role !== 'mod') {
@@ -56,12 +59,29 @@ export default function ModerationPage() {
 
         {/* Reports Section */}
         <div className="space-y-6">
-           <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-8">
-             <h2 className="text-sm font-black text-white uppercase tracking-[0.2em]">Pending Incident Reports</h2>
-             <div className="text-[10px] text-muted-foreground/60 font-mono">PROTOCOL_ACCESS_GRANTED</div>
+           <div className="flex items-center justify-between border-b border-white/5 pb-0 mb-8">
+             <div className="flex gap-8">
+                <button 
+                  onClick={() => setActiveTab('reports')}
+                  className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all border-b-2 ${
+                    activeTab === 'reports' ? 'text-white border-purple' : 'text-muted-foreground border-transparent hover:text-white'
+                  }`}
+                >
+                  Reports
+                </button>
+                <button 
+                  onClick={() => setActiveTab('tickets')}
+                  className={`pb-4 text-xs font-black uppercase tracking-[0.2em] transition-all border-b-2 ${
+                    activeTab === 'tickets' ? 'text-white border-purple' : 'text-muted-foreground border-transparent hover:text-white'
+                  }`}
+                >
+                  Support Tickets
+                </button>
+             </div>
+             <div className="text-[10px] text-muted-foreground/60 font-mono pb-4">PROTOCOL_ACCESS_GRANTED</div>
            </div>
            
-           <ReportsTab />
+           {activeTab === 'reports' ? <ReportsTab /> : <TicketsTab />}
         </div>
       </div>
 

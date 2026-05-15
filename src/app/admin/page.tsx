@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useDialog } from '@/components/DialogProvider';
 import { ReportsTab } from '@/components/Admin/ReportsTab';
+import { TicketsTab } from '@/components/Admin/TicketsTab';
 import QuestionsTab from './QuestionsTab';
 import BookletsTab from './BookletsTab';
 
@@ -124,6 +125,12 @@ export default function AdminPage() {
         >
           📚 Booklets
         </button>
+        <button 
+          className={`px-6 py-3 font-bold text-sm uppercase tracking-widest transition-colors ${activeTab === 'tickets' ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]' : 'text-[var(--text2)] hover:text-[var(--text)]'}`}
+          onClick={() => setActiveTab('tickets')}
+        >
+          🎫 Tickets
+        </button>
       </div>
 
       <div className="admin-tab-pane active">
@@ -132,6 +139,7 @@ export default function AdminPage() {
         {activeTab === 'posts' && <PostsTab />}
         {activeTab === 'questions' && <QuestionsTab />}
         {activeTab === 'booklets' && <BookletsTab />}
+        {activeTab === 'tickets' && <TicketsTab />}
       </div>
       </div>
     </div>

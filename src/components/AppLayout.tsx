@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
+import { SupportModal } from '@/components/Support/SupportModal';
+import { LifeBuoy } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -27,6 +29,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const { permission, requestPermission } = useNotifications(profile?.id);
   
   const notifyRef = useRef<HTMLDivElement>(null);
@@ -188,6 +191,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
                 <div className="zd-pd-divider"></div>
+                <button 
+                  className="zd-pd-item w-full" 
+                  onClick={() => {
+                    setIsSupportOpen(true);
+                    setIsProfileOpen(false);
+                  }}
+                >
+                  <LifeBuoy size={14} /> Support
+                </button>
                 <Link href="/settings" className="zd-pd-item" onClick={() => setIsProfileOpen(false)}>
                   <Settings size={14} /> Settings
                 </Link>
@@ -267,6 +279,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </ul>
       </nav>
+
+      {isSupportOpen && <SupportModal onClose={() => setIsSupportOpen(false)} />}
 
       {/* Global CSS for Bottom Nav (using original patch style) */}
       <style jsx global>{`
