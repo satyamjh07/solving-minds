@@ -213,6 +213,7 @@ export function useDashboardAnalytics(userId: string | undefined) {
         });
 
         if (userId) {
+          // 3.1 Update main profile
           await supabase
             .from('profiles')
             .update({ 
@@ -220,6 +221,28 @@ export function useDashboardAnalytics(userId: string | undefined) {
               aura_level: `Level ${aura.level}` 
             })
             .eq('id', userId);
+
+          // 3.2 Update dedicated leaderboard table
+          // We fetch profile data first to ensure leaderboard is consistent
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name, avatar_url, class, target_year')
+            .eq('id', userId)
+            .single();
+
+          if (profile) {
+            await supabase
+              .from('aura_leaderboard')
+              .upsert({
+                id: userId,
+                name: profile.name,
+                avatar_url: profile.avatar_url,
+                class: profile.class,
+                target_year: profile.target_year,
+                aura_score: aura.score,
+                aura_level: `Level ${aura.level}`,
+              });
+          }
         }
 
       } catch (err) {

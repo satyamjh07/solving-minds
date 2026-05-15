@@ -176,40 +176,40 @@ export default function SolvingPage() {
     return (
       <div className="an-content max-w-5xl mx-auto py-12 px-6">
         <div className="mb-10">
-          <p className="font-mono text-[10px] text-gray-500 uppercase tracking-[0.2em]">Select your training interface</p>
+          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Select your training interface</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div onClick={() => setView('pyq-selection')} className="bg-[#12121a] border border-[#ffffff08] rounded-3xl p-8 cursor-pointer hover:border-[#7c3aed40] hover:bg-[#7c3aed05] transition-all group relative overflow-hidden">
+          <div onClick={() => setView('pyq-selection')} className="bg-bg-2 border border-white/5 rounded-3xl p-8 cursor-pointer hover:border-purple/40 hover:bg-purple/5 transition-all group relative overflow-hidden">
              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Zap size={80} />
              </div>
-             <div className="bg-[#7c3aed10] text-[#7c3aed] w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+             <div className="bg-purple/10 text-purple w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
                 <Zap size={24} />
              </div>
-             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-white mb-2">PYQ Solver</h3>
-             <p className="text-xs text-gray-500 leading-relaxed mb-6">Full access to JEE Main & Advanced archive. Original ZEROday solving layout.</p>
-             <div className="flex items-center text-[#7c3aed] text-[10px] font-bold uppercase tracking-widest">
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">PYQ Solver</h3>
+             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Full access to JEE Main & Advanced archive. Original ZEROday solving layout.</p>
+             <div className="flex items-center text-purple text-[10px] font-bold uppercase tracking-widest">
                 Initiate <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
              </div>
           </div>
 
-          <div className="bg-[#12121a] border border-[#ffffff08] rounded-3xl p-8 opacity-50 relative overflow-hidden">
-             <div className="bg-[#00f0ff10] text-[#00f0ff] w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+          <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden">
+             <div className="bg-accent/10 text-accent w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
                 <BookOpen size={24} />
              </div>
-             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-white mb-2">Booklets</h3>
-             <p className="text-xs text-gray-500 leading-relaxed mb-6">Topic-wise modules and study material. Integrates soon.</p>
-             <div className="text-gray-600 text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">Booklets</h3>
+             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Topic-wise modules and study material. Integrates soon.</p>
+             <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
           </div>
 
-          <div className="bg-[#12121a] border border-[#ffffff08] rounded-3xl p-8 opacity-50 relative overflow-hidden">
-             <div className="bg-[#00e5a010] text-[#00e5a0] w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+          <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden">
+             <div className="bg-green/10 text-green w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
                 <BarChart3 size={24} />
              </div>
-             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-white mb-2">Mock Tests</h3>
-             <p className="text-xs text-gray-500 leading-relaxed mb-6">Full simulations with ranking systems. In calibration.</p>
-             <div className="text-gray-600 text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">Mock Tests</h3>
+             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Full simulations with ranking systems. In calibration.</p>
+             <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
           </div>
         </div>
       </div>
@@ -220,10 +220,10 @@ export default function SolvingPage() {
   if (view === 'pyq-selection') {
     return (
       <div className="an-content max-w-5xl mx-auto py-8 px-6 pb-32">
-        <div className="flex items-center gap-2 text-gray-500 text-[9px] font-bold uppercase tracking-widest mb-4">
-           <button onClick={() => setView('modes')} className="hover:text-white transition-colors">MODES</button>
+        <div className="flex items-center gap-2 text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-4">
+           <button onClick={() => setView('modes')} className="hover:text-foreground transition-colors">MODES</button>
            <span className="opacity-30">/</span>
-           <span className="text-gray-400">PYQ SELECTION</span>
+           <span className="text-muted-foreground/60">PYQ SELECTION</span>
         </div>
 
         <p className="text-gray-500 text-[10px] mb-8">Target high-yield concepts. Select your focus area to begin the deep-work session.</p>
@@ -239,7 +239,7 @@ export default function SolvingPage() {
               <button 
                 key={s}
                 onClick={() => setSubject(s)}
-                className={`flex flex-col gap-2 p-4 rounded-xl border transition-all ${subject === s ? 'bg-[#7c3aed]/20 border-[#7c3aed] text-white shadow-[0_0_15px_rgba(124,58,237,0.2)]' : 'bg-[#12121a] border-[#ffffff08] text-gray-500 hover:border-white/10'}`}
+                className={`flex flex-col gap-2 p-4 rounded-xl border transition-all ${subject === s ? 'bg-purple/20 border-purple text-foreground shadow-[0_0_15px_rgba(124,58,237,0.2)]' : 'bg-bg-2 border-white/5 text-muted-foreground hover:border-white/10'}`}
               >
                 <div className="text-2xl font-black">
                   {s === 'physics' ? 'Σ' : s === 'chemistry' ? 'Δ' : '∫'}
@@ -268,15 +268,15 @@ export default function SolvingPage() {
                 <button 
                   key={ch.name}
                   onClick={() => setSelectedChapter(ch.name)}
-                  className={`p-3 rounded-xl border text-left transition-all relative ${selectedChapter === ch.name ? 'bg-[#7c3aed]/10 border-[#7c3aed] text-white' : 'bg-[#12121a] border-white/[0.05] text-gray-400 hover:border-white/10'}`}
+                  className={`p-3 rounded-xl border text-left transition-all relative ${selectedChapter === ch.name ? 'bg-purple/10 border-purple text-foreground' : 'bg-bg-2 border-white/5 text-muted-foreground hover:border-white/10'}`}
                 >
                   <div className="font-bold text-[11px] mb-1 line-clamp-1">{ch.name}</div>
-                  <div className="flex items-center gap-1.5 text-[8px] font-bold text-[#7c3aed]/60 uppercase tracking-widest">
+                  <div className="flex items-center gap-1.5 text-[8px] font-bold text-purple/60 uppercase tracking-widest">
                      <BookOpen size={8} /> {ch.count} Q
                   </div>
                   {selectedChapter === ch.name && (
                     <div className="absolute top-3 right-3">
-                      <Check size={12} className="text-[#7c3aed]" />
+                      <Check size={12} className="text-purple" />
                     </div>
                   )}
                 </button>
@@ -300,7 +300,7 @@ export default function SolvingPage() {
                   <button
                     key={year}
                     onClick={() => setFilterYear(year)}
-                    className={`px-4 py-1.5 rounded-full text-[9px] font-bold transition-all ${filterYear === year ? 'bg-[#7c3aed] text-white' : 'bg-[#12121a] border border-white/5 text-gray-500 hover:text-white'}`}
+                    className={`px-4 py-1.5 rounded-full text-[9px] font-bold transition-all ${filterYear === year ? 'bg-purple text-white' : 'bg-bg-2 border border-white/5 text-muted-foreground hover:text-foreground'}`}
                   >
                     {year}
                   </button>
@@ -316,7 +316,7 @@ export default function SolvingPage() {
                     <button
                       key={diff}
                       onClick={() => setFilterDifficulty(diff)}
-                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterDifficulty === diff ? 'bg-[#7c3aed]/10 border-[#7c3aed] text-[#7c3aed]' : 'bg-[#12121a] border-white/5 text-gray-500 hover:text-white'}`}
+                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterDifficulty === diff ? 'bg-purple/10 border-purple text-purple' : 'bg-bg-2 border-white/5 text-muted-foreground hover:text-foreground'}`}
                     >
                       {diff}
                     </button>
@@ -331,7 +331,7 @@ export default function SolvingPage() {
                     <button
                       key={type}
                       onClick={() => setFilterType(type)}
-                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterType === type ? 'bg-[#7c3aed]/10 border-[#7c3aed] text-[#7c3aed]' : 'bg-[#12121a] border-white/5 text-gray-500 hover:text-white'}`}
+                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterType === type ? 'bg-purple/10 border-purple text-purple' : 'bg-bg-2 border-white/5 text-muted-foreground hover:text-foreground'}`}
                     >
                       {type}
                     </button>
@@ -347,15 +347,15 @@ export default function SolvingPage() {
            <div className="flex items-center gap-6 px-6">
               <div className="flex flex-col">
                 <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">SUBJECT</span>
-                <span className="text-[9px] text-white font-bold uppercase tracking-widest text-[#7c3aed]">{subject}</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">{subject}</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">CHAPTER</span>
-                <span className="text-[9px] text-white font-bold uppercase tracking-widest text-[#7c3aed]">{selectedChapter || '—'}</span>
+                <span className="text-[7px] text-muted-foreground font-bold uppercase tracking-widest">CHAPTER</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">{selectedChapter || '—'}</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">QUESTIONS</span>
-                <span className="text-[9px] text-white font-bold uppercase tracking-widest text-[#7c3aed]">
+                <span className="text-[7px] text-muted-foreground font-bold uppercase tracking-widest">QUESTIONS</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">
                   {selectedChapter ? questions.length : '—'}
                 </span>
               </div>
@@ -366,7 +366,7 @@ export default function SolvingPage() {
                 setView('solving');
                 setCurrentIndex(0);
               }}
-              className="bg-[#7c3aed] hover:bg-[#8b5cf6] text-white px-8 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]"
+              className="bg-purple hover:bg-purple-600 text-white px-8 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]"
             >
               <Zap size={12} /> START SOLVING
            </button>

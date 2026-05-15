@@ -45,25 +45,24 @@ export function useLeaderboard(mode: 'daily' | 'weekly' = 'weekly') {
             rank: idx + 1
           })));
         } else {
-          // Fallback: Fetch from aura_leaderboard view or similar
-          // For now, let's just return empty or attempt a limited direct query if RLS allows
-          console.warn('Leaderboard RPC failed or not found, falling back to basic query.');
-          const { data: profiles, error: pErr } = await supabase
-            .from('profiles')
-            .select('id, name, avatar_url, class, target_year, role')
+          // Fallback: Fetch from the dedicated aura_leaderboard table
+          console.warn('Leaderboard RPC failed or not found, falling back to aura_leaderboard table.');
+          const { data: leaderboardData, error: lErr } = await supabase
+            .from('aura_leaderboard')
+            .select('*')
             .order('aura_score', { ascending: false })
             .limit(10);
           
-          if (profiles) {
-              setEntries(profiles.map((p, idx) => ({
+          if (leaderboardData) {
+              setEntries(leaderboardData.map((p, idx) => ({
                   user_id: p.id,
                   name: p.name,
                   avatar_url: p.avatar_url,
                   class: p.class,
                   target_year: p.target_year,
-                  role: p.role,
-                  aura_score: p.aura_score || 0,
-                  rank: idx + 1
+                  role: p.role || 'user',
+                  aura_score: Number(p.aura_score) || 0,
+                  rank: p.rank || (idx + 1)
               })));
           }
         }
