@@ -18,7 +18,6 @@ const PRESET_TAGS = [
 
 export default function CommunityPage() {
   const { profile } = useProfile();
-  const { posts, setPosts, loading, refetch } = usePosts();
   const { toast, confirm } = useDialog();
   const [filter, setFilter] = useState<'all' | 'my' | 'popular'>('all');
   const [showFabMenu, setShowFabMenu] = useState(false);
@@ -30,6 +29,14 @@ export default function CommunityPage() {
   const [tagFilter, setTagFilter] = useState('ALL');
   const [timeFilter, setTimeFilter] = useState('ALL');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
+  const { posts, setPosts, loading, refetch } = usePosts({
+    type: filter,
+    targetYear: targetYearFilter,
+    class_: classFilter,
+    tag: tagFilter,
+    timeRange: timeFilter
+  });
 
   const isAnyFilterActive = targetYearFilter !== 'ALL' || classFilter !== 'ALL' || tagFilter !== 'ALL' || timeFilter !== 'ALL' || filter !== 'all';
 
@@ -78,34 +85,7 @@ export default function CommunityPage() {
     }
   };
 
-  const filteredPosts = posts.filter(post => {
-    // 1. Basic Filter (All/My/Popular)
-    if (filter === 'my' && post.user_id !== profile?.id) return false;
-    if (filter === 'popular' && post.score < 10) return false;
-
-    // 2. Target Year
-    if (targetYearFilter !== 'ALL' && post.profiles?.target_year !== targetYearFilter) return false;
-
-    // 3. Class
-    if (classFilter !== 'ALL' && post.profiles?.class !== classFilter) return false;
-
-    // 4. Tag
-    if (tagFilter !== 'ALL' && !(post.tags || []).includes(tagFilter)) return false;
-
-    // 5. Time
-    if (timeFilter !== 'ALL') {
-      const postDate = new Date(post.created_at);
-      const now = new Date();
-      const diffDays = Math.floor((now.getTime() - postDate.getTime()) / (1000 * 3600 * 24));
-
-      if (timeFilter === 'TODAY' && diffDays > 0) return false;
-      if (timeFilter === 'YESTERDAY' && (diffDays < 1 || diffDays >= 2)) return false;
-      if (timeFilter === '1_WEEK' && diffDays > 7) return false;
-      if (timeFilter === '1_MONTH' && diffDays > 30) return false;
-    }
-
-    return true;
-  });
+  const filteredPosts = posts; // Already filtered server-side
 
   const handleDelete = async (postId: string) => {
     const ok = await confirm({

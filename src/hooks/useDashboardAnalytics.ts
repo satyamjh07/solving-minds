@@ -42,12 +42,15 @@ export function useDashboardAnalytics(userId: string | undefined) {
       try {
         const now = new Date();
         const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
-        
-        // 1. Fetch user_attempts joined with questions
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+        // 1. Fetch recent user_attempts joined with questions
         const { data: attempts, error: attemptsErr } = await supabase
           .from('user_attempts')
-          .select('question_id, is_correct, created_at, questions!inner(subject, chapter, topic, difficulty)')
+          .select('id, is_correct, created_at, questions!inner(subject, chapter, topic)')
           .eq('user_id', userId)
+          .gte('created_at', threeMonthsAgo.toISOString())
           .order('created_at', { ascending: true });
 
         if (attemptsErr) throw attemptsErr;

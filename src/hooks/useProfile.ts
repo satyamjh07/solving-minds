@@ -23,7 +23,17 @@ export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (force = false) => {
+    // 1. Check Cache
+    if (!force) {
+      const cached = sessionStorage.getItem('user_profile');
+      if (cached) {
+        setProfile(JSON.parse(cached));
+        setLoading(false);
+        return;
+      }
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data, error } = await supabase
@@ -34,6 +44,7 @@ export function useProfile() {
       
       if (data) {
         setProfile(data);
+        sessionStorage.setItem('user_profile', JSON.stringify(data));
       }
     }
     setLoading(false);
@@ -43,5 +54,5 @@ export function useProfile() {
     fetchProfile();
   }, []);
 
-  return { profile, loading, refetch: fetchProfile };
+  return { profile, loading, refetch: () => fetchProfile(true) };
 }

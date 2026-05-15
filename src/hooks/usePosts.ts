@@ -24,7 +24,15 @@ export interface Post {
   myVote: number;
 }
 
-export function usePosts() {
+interface PostFilters {
+  type?: 'all' | 'my' | 'popular';
+  targetYear?: string;
+  class_?: string;
+  tag?: string;
+  timeRange?: string;
+}
+
+export function usePosts(filters: PostFilters = {}) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,18 +40,61 @@ export function usePosts() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { data: postsData, error } = await supabase
+    let query = supabase
       .from('posts')
-      .select('*, profiles(id, name, avatar_url, class, target_year, role)')
+      .select('id, user_id, title, content, image_urls, tags, created_at, profiles(id, name, avatar_url, class, target_year, role)')
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(30);
+
+    // Apply Filters Server-side
+    if (filters.type === 'my' && user) {
+      query = query.eq('user_id', user.id);
+    }
+    
+    if (filters.targetYear && filters.targetYear !== 'ALL') {
+      // We need to filter by related profile's target_year
+      // In Supabase, we can use !inner to filter by joined table columns
+      query = supabase
+        .from('posts')
+        .select('id, user_id, title, content, image_urls, tags, created_at, profiles!inner(id, name, avatar_url, class, target_year, role)')
+        .eq('profiles.target_year', filters.targetYear)
+        .order('created_at', { ascending: false })
+        .limit(30);
+    }
+
+    if (filters.class_ && filters.class_ !== 'ALL') {
+       query = query.eq('profiles.class', filters.class_);
+    }
+
+    if (filters.tag && filters.tag !== 'ALL') {
+      query = query.contains('tags', [filters.tag]);
+    }
+
+    if (filters.timeRange && filters.timeRange !== 'ALL') {
+      const now = new Date();
+      let dateLimit = new Date();
+      if (filters.timeRange === 'TODAY') dateLimit.setHours(0,0,0,0);
+      else if (filters.timeRange === 'WEEK') dateLimit.setDate(now.getDate() - 7);
+      else if (filters.timeRange === 'MONTH') dateLimit.setMonth(now.getMonth() - 1);
+      
+      query = query.gte('created_at', dateLimit.toISOString());
+    }
+
+    const { data: postsData, error } = await query;
 
     if (error || !postsData) {
+      console.error('Fetch error:', error);
       setLoading(false);
       return;
     }
 
     const postIds = postsData.map(p => p.id);
+    if (postIds.length === 0) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
     const [{ data: voteCounts }, { data: myVotes }] = await Promise.all([
       supabase.from('votes').select('post_id, value').in('post_id', postIds),
       user
@@ -61,15 +112,21 @@ export function usePosts() {
       ...p,
       score: scoreMap[p.id] || 0,
       myVote: myVoteMap[p.id] || 0,
-    }));
+    } as Post));
 
-    setPosts(formattedPosts);
+    // Client-side popular filter (since score isn't a column)
+    let finalPosts = formattedPosts;
+    if (filters.type === 'popular') {
+      finalPosts = formattedPosts.filter(p => p.score >= 10);
+    }
+
+    setPosts(finalPosts);
     setLoading(false);
   }
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [JSON.stringify(filters)]); // Re-run when filters change
 
   return { posts, setPosts, loading, refetch: fetchPosts };
 }
