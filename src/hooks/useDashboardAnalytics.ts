@@ -36,7 +36,10 @@ export function useDashboardAnalytics(userId: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
     async function loadData() {
       try {

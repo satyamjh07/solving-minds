@@ -119,6 +119,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     window.location.href = '/auth/login';
   };
 
+  const needsOnboarding = 
+    !loading && profile && (
+      !profile.name ||
+      profile.name.trim() === '' ||
+      !profile.class || 
+      profile.class.toLowerCase() === 'none' || 
+      profile.class === '' ||
+      !profile.target_year || 
+      profile.target_year.toLowerCase() === 'none' ||
+      profile.target_year === ''
+    );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a10]">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-[#00f0ff] mx-auto mb-4" />
+          <p className="text-xs uppercase tracking-widest text-white/40">Synchronizing Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsOnboarding && pathname !== '/auth/onboarding') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a10] p-4 relative overflow-hidden">
+        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-[#7c3aed]/10 blur-[150px] pointer-events-none" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-[#00f0ff]/5 blur-[150px] pointer-events-none" />
+        <div className="text-center relative z-10">
+          <Loader2 className="h-12 w-12 animate-spin text-[#00f0ff] mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-white mb-2 uppercase tracking-wider font-mono">Access Restricted</h3>
+          <p className="text-xs text-white/40 max-w-xs mx-auto">
+            Your user identity profile is not calibrated. Redirecting to Identity Calibration Protocol...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)]">
       {/* Topbar (Solving Minds Analytics Style) */}
