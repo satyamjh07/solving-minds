@@ -60,8 +60,32 @@ export function useProfile() {
         setProfile(data);
         sessionStorage.setItem('user_profile', JSON.stringify(data));
       } else {
-        setProfile(null);
-        sessionStorage.removeItem('user_profile');
+        // The profiles row does not exist yet (PostgREST status 406 or null)! Let's initialize a default one.
+        const defaultProfile = {
+          id: user.id,
+          email: user.email || '',
+          name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'New User',
+          avatar_url: user.user_metadata?.avatar_url || '',
+          class: '',
+          target_year: '',
+          bio: 'A fresh mind ready to solve.'
+        };
+        
+        // Attempt to insert default profile row in Supabase
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert(defaultProfile)
+          .select()
+          .single();
+        
+        if (newProfile) {
+          setProfile(newProfile);
+          sessionStorage.setItem('user_profile', JSON.stringify(newProfile));
+        } else {
+          // Fallback if DB insert has delays or RLS restrictions — return local mock until onboarding upsert
+          setProfile(defaultProfile as any);
+          sessionStorage.setItem('user_profile', JSON.stringify(defaultProfile));
+        }
       }
     } catch (err) {
       console.error('Error in useProfile:', err);

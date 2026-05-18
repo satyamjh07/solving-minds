@@ -37,8 +37,6 @@ export function useLeaderboard(mode: 'daily' | 'weekly' = 'weekly') {
         // 1. For Global ranking (or as fallback), use profiles table (Source of Truth for NEW Aura Score)
         // 2. For Daily/Weekly, we try the RPC to get active users, but map their activity to Aura Score logic
         
-        console.log(`Fetching ${mode} leaderboard...`);
-
         if (mode === 'daily' || mode === 'weekly') {
           // Attempt RPC for periodic data
           const { data: rpcData, error: rpcErr } = await supabase.rpc('get_leaderboard', {
@@ -47,7 +45,6 @@ export function useLeaderboard(mode: 'daily' | 'weekly' = 'weekly') {
           });
 
           if (!rpcErr && rpcData && rpcData.length > 0) {
-            console.log(`${mode} RPC data found:`, rpcData);
             setEntries(rpcData.map((r: any, idx: number) => ({
               user_id: r.user_id || r.id,
               name: r.name,
@@ -66,14 +63,14 @@ export function useLeaderboard(mode: 'daily' | 'weekly' = 'weekly') {
 
         // FALLBACK / GLOBAL: Query profiles directly
         // This ensures the NEW aura_score from the profiles table is used.
+        // Selecting ONLY public fields for security and privacy.
         const { data: profileData, error: pErr } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, name, avatar_url, class, target_year, role, aura_score')
           .order('aura_score', { ascending: false })
           .limit(10);
         
         if (profileData) {
-          console.log('Using profiles for leaderboard:', profileData);
           setEntries(profileData.map((p, idx) => ({
             user_id: p.id,
             name: p.name,
