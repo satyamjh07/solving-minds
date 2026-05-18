@@ -120,11 +120,11 @@ export default function QuestionsTab() {
         if (opt4Tab === 'file' && formData.opt4ImageFile) finalOpt4ImgUrl = await uploadToCloudinary(formData.opt4ImageFile);
 
         optionsArray = [
-          { text: formData.opt1, image_url: finalOpt1ImgUrl || null },
-          { text: formData.opt2, image_url: finalOpt2ImgUrl || null },
-          { text: formData.opt3, image_url: finalOpt3ImgUrl || null },
-          { text: formData.opt4, image_url: finalOpt4ImgUrl || null },
-        ].filter(o => o.text || o.image_url);
+          { text: formData.opt1, image: finalOpt1ImgUrl || null },
+          { text: formData.opt2, image: finalOpt2ImgUrl || null },
+          { text: formData.opt3, image: finalOpt3ImgUrl || null },
+          { text: formData.opt4, image: finalOpt4ImgUrl || null },
+        ].filter(o => o.text || o.image);
       }
 
       const payload = {
@@ -171,10 +171,10 @@ export default function QuestionsTab() {
   const qImgSrc = qImagePreview || formData.qImageUrl;
   const expImgSrc = expImagePreview || formData.expImageUrl;
   const liveOptions = [
-    { text: formData.opt1, image_url: opt1ImagePreview || formData.opt1ImageUrl },
-    { text: formData.opt2, image_url: opt2ImagePreview || formData.opt2ImageUrl },
-    { text: formData.opt3, image_url: opt3ImagePreview || formData.opt3ImageUrl },
-    { text: formData.opt4, image_url: opt4ImagePreview || formData.opt4ImageUrl },
+    { text: formData.opt1, image: opt1ImagePreview || formData.opt1ImageUrl },
+    { text: formData.opt2, image: opt2ImagePreview || formData.opt2ImageUrl },
+    { text: formData.opt3, image: opt3ImagePreview || formData.opt3ImageUrl },
+    { text: formData.opt4, image: opt4ImagePreview || formData.opt4ImageUrl },
   ];
   const correctIdx = formData.type === 'mcq' ? parseInt(formData.answer) - 1 : -1;
   const hasContent = !!(formData.text || formData.opt1 || formData.explanation);
@@ -437,7 +437,7 @@ export default function QuestionsTab() {
             )}
 
             {/* Options (MCQ) */}
-            {formData.type === 'mcq' && liveOptions.some(o => o.text || o.image_url) && (
+            {formData.type === 'mcq' && liveOptions.some(o => o.text || o.image) && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
                 {liveOptions.map((opt, i) => {
                   const isCorrect = i === correctIdx;
@@ -457,8 +457,8 @@ export default function QuestionsTab() {
                       </span>
                       <div className="flex-1 min-w-0">
                         {opt.text ? <MathText text={opt.text} className="text-sm text-[var(--text)]" /> : null}
-                        {opt.image_url ? <img src={opt.image_url} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-24 w-auto bg-[var(--bg)]" /> : null}
-                        {(!opt.text && !opt.image_url) && <span className="text-xs text-[var(--text2)] italic">Option {i + 1} empty</span>}
+                        {opt.image ? <img src={opt.image} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-24 w-auto bg-[var(--bg)]" /> : null}
+                        {(!opt.text && !opt.image) && <span className="text-xs text-[var(--text2)] italic">Option {i + 1} empty</span>}
                         {isCorrect && (
                           <div className="text-[9px] font-bold text-[var(--green)] uppercase tracking-widest mt-1">✓ Correct Answer</div>
                         )}

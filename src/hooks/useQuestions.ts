@@ -15,7 +15,7 @@ export interface Question {
   shift: string;
   text: string;
   image: string;
-  options: { text?: string; image_url?: string }[];
+  options: { text?: string; image?: string }[];
   correct: number;
   answer: string;
   explanation: string;

@@ -606,7 +606,7 @@ export default function SolvingPage() {
                             <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
                             <div className="flex-1 text-left">
                               {opt.text ? <QuestionText text={opt.text} /> : null}
-                              {opt.image_url ? <img src={opt.image_url} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-32 w-auto bg-[var(--bg)]" /> : null}
+                              {opt.image ? <img src={opt.image} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-32 w-auto bg-[var(--bg)]" /> : null}
                             </div>
                           </button>
                         );
