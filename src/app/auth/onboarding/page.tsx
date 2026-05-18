@@ -105,14 +105,14 @@ export default function OnboardingPage() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: profile.id,
           name: name.trim(),
           avatar_url: avatarUrl,
           class: userClass,
           target_year: targetYear,
           bio: bio.trim() || 'A fresh mind ready to solve.'
-        })
-        .eq('id', profile.id);
+        });
 
       if (error) throw error;
 
@@ -140,10 +140,16 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a10] p-4 relative overflow-hidden">
-      {/* Background gradients */}
-      <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-[#7c3aed]/10 blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-[#00f0ff]/5 blur-[150px] pointer-events-none" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.007)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.007)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
+      {/* Optimized background gradients to run at smooth 60+ FPS without layout paint lag */}
+      <div 
+        className="fixed top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-[#7c3aed]/05 blur-[120px] pointer-events-none" 
+        style={{ willChange: 'transform', transform: 'translate3d(0,0,0)' }} 
+      />
+      <div 
+        className="fixed bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-[#00f0ff]/03 blur-[120px] pointer-events-none" 
+        style={{ willChange: 'transform', transform: 'translate3d(0,0,0)' }} 
+      />
+      <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.004)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.004)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
 
       <div className="w-full max-w-xl relative z-10">
         

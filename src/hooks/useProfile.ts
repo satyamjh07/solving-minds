@@ -63,7 +63,6 @@ export function useProfile() {
         // The profiles row does not exist yet (PostgREST status 406 or null)! Let's initialize a default one.
         const defaultProfile = {
           id: user.id,
-          email: user.email || '',
           name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'New User',
           avatar_url: user.user_metadata?.avatar_url || '',
           class: '',
@@ -71,10 +70,16 @@ export function useProfile() {
           bio: 'A fresh mind ready to solve.'
         };
         
-        // Attempt to insert default profile row in Supabase
-        const { data: newProfile } = await supabase
+        // Attempt to insert default profile row in Supabase with minimum required columns
+        // to prevent check constraint violations (like empty string check constraints on class/year)
+        // or non-nullable column violations.
+        const { data: newProfile, error: dbErr } = await supabase
           .from('profiles')
-          .insert(defaultProfile)
+          .insert({
+            id: user.id,
+            name: defaultProfile.name,
+            avatar_url: defaultProfile.avatar_url
+          })
           .select()
           .single();
         
