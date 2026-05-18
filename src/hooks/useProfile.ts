@@ -24,18 +24,32 @@ export function useProfile() {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (force = false) => {
-    // 1. Check Cache
-    if (!force) {
-      const cached = sessionStorage.getItem('user_profile');
-      if (cached) {
-        setProfile(JSON.parse(cached));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        sessionStorage.removeItem('user_profile');
+        setProfile(null);
         setLoading(false);
         return;
       }
-    }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+      // Check Cache
+      if (!force) {
+        const cached = sessionStorage.getItem('user_profile');
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.id === user.id) {
+              setProfile(parsed);
+              setLoading(false);
+              return;
+            }
+          } catch (_) {
+            sessionStorage.removeItem('user_profile');
+          }
+        }
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -45,9 +59,16 @@ export function useProfile() {
       if (data) {
         setProfile(data);
         sessionStorage.setItem('user_profile', JSON.stringify(data));
+      } else {
+        setProfile(null);
+        sessionStorage.removeItem('user_profile');
       }
+    } catch (err) {
+      console.error('Error in useProfile:', err);
+      setProfile(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {

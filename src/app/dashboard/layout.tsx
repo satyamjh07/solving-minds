@@ -31,6 +31,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   const handleSignOut = async () => {
+    sessionStorage.clear();
     await supabase.auth.signOut();
     router.push('/auth/login');
   };

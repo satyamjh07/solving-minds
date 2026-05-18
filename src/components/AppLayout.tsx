@@ -114,6 +114,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isAdmin = profile?.role === 'admin';
 
   const handleSignOut = async () => {
+    sessionStorage.clear();
     await supabase.auth.signOut();
     window.location.href = '/auth/login';
   };
