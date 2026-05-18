@@ -35,13 +35,26 @@ export async function updateSession(request: NextRequest) {
     console.error('Middleware Supabase error:', error);
   }
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
-  const isProtectedRoute = 
-    request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/community') ||
-    request.nextUrl.pathname.startsWith('/solving') ||
-    request.nextUrl.pathname.startsWith('/settings') ||
-    request.nextUrl.pathname.startsWith('/admin')
+  // Routes that establish a session or require session mid-flow —
+  // excluded from the "unauthenticated" and "already-logged-in" guards.
+  const isCallbackRoute =
+    request.nextUrl.pathname === '/api/auth/callback' ||
+    request.nextUrl.pathname === '/auth/confirm' ||
+    // update-password must be reachable by a freshly-authed user coming
+    // from the password-reset callback — skip both guards for it.
+    request.nextUrl.pathname === '/auth/update-password'
+
+  const isAuthRoute =
+    !isCallbackRoute && request.nextUrl.pathname.startsWith('/auth')
+
+  const isProtectedRoute =
+    !isCallbackRoute && (
+      request.nextUrl.pathname.startsWith('/dashboard') ||
+      request.nextUrl.pathname.startsWith('/community') ||
+      request.nextUrl.pathname.startsWith('/solving') ||
+      request.nextUrl.pathname.startsWith('/settings') ||
+      request.nextUrl.pathname.startsWith('/admin')
+    )
 
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()

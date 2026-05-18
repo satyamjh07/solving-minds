@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { Eye, EyeOff, Zap } from 'lucide-react';
 
@@ -17,14 +17,22 @@ function validateEmail(email: string): string | null {
   return null;
 }
 
-export default function LoginPage() {
+// Inner component — uses useSearchParams, must be inside <Suspense>
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Show errors forwarded from auth callback (e.g. OAuth / password-reset failures)
+  useEffect(() => {
+    const callbackError = searchParams.get('error');
+    if (callbackError) setError(decodeURIComponent(callbackError));
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,19 +63,19 @@ export default function LoginPage() {
     }
   };
 
-
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    // Use the current origin for redirect
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { 
-        redirectTo: `${origin}/dashboard`,
+      options: {
+        // Must point to the server-side callback handler that exchanges the code
+        // for a session. The handler will then redirect to /dashboard.
+        redirectTo: `${origin}/api/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
-        }
+        },
       },
     });
     if (error) {
@@ -76,7 +84,6 @@ export default function LoginPage() {
       setGoogleLoading(false);
     }
   };
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a10] p-4">
@@ -167,5 +174,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Outer page wraps LoginForm in Suspense to satisfy Next.js useSearchParams requirement
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a10]">
+        <div className="w-8 h-8 border-2 border-[#00f0ff]/30 border-t-[#00f0ff] rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -20,8 +20,34 @@ const renderMath = (el: HTMLElement | null) => {
   });
 };
 
-const formatText = (t: string) =>
-  (t || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>');
+const formatText = (text: string) => {
+  if (!text) return '';
+  let clean = text;
+
+  // Global fixes for common legacy KaTeX syntax errors (matching 1 or more backslashes)
+  clean = clean.replace(/\\+text(?=\{)/g, '\\text');
+
+  // Split by math delimiters to safely replace text formatting outside math
+  const mathRegex = /(\$\$.*?\$\$|\$.*?\$|\\\[.*?\\\]|\\\(.*?\\\))/gs;
+  const parts = clean.split(mathRegex);
+
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 0) {
+      // Outside math
+      let p = parts[i];
+      p = p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      p = p.replace(/\\+textbf\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<strong>$1</strong>');
+      p = p.replace(/\\+textit\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<em>$1</em>');
+      // Replace literal \\ with <br/>
+      p = p.replace(/\\\\/g, '<br/>');
+      // Normal newlines
+      p = p.replace(/\n/g, '<br/>');
+      parts[i] = p;
+    }
+  }
+
+  return parts.join('');
+};
 
 // ── Rendered text block (memo so KaTeX doesn't re-run unnecessarily) ───────
 const MathText = memo(function MathText({ text, className }: { text: string; className?: string }) {
