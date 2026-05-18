@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import { 
@@ -25,6 +25,7 @@ import { LifeBuoy } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { profile, loading } = useProfile();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
@@ -34,6 +35,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   
   const notifyRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!loading && profile) {
+      const needsOnboarding = 
+        !profile.class || 
+        profile.class.toLowerCase() === 'none' || 
+        profile.class === '' ||
+        !profile.target_year || 
+        profile.target_year.toLowerCase() === 'none' ||
+        profile.target_year === '' ||
+        !profile.name ||
+        profile.name.trim() === '';
+
+      if (needsOnboarding && pathname !== '/auth/onboarding') {
+        router.push('/auth/onboarding');
+      }
+    }
+  }, [profile, loading, pathname, router]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

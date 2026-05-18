@@ -35,8 +35,6 @@ export async function updateSession(request: NextRequest) {
     console.error('Middleware Supabase error:', error);
   }
 
-  // Routes that establish a session or require session mid-flow —
-  // excluded from the "unauthenticated" and "already-logged-in" guards.
   const isCallbackRoute =
     request.nextUrl.pathname === '/api/auth/callback' ||
     request.nextUrl.pathname === '/auth/confirm' ||
@@ -44,8 +42,10 @@ export async function updateSession(request: NextRequest) {
     // from the password-reset callback — skip both guards for it.
     request.nextUrl.pathname === '/auth/update-password'
 
+  const isOnboardingRoute = request.nextUrl.pathname === '/auth/onboarding'
+
   const isAuthRoute =
-    !isCallbackRoute && request.nextUrl.pathname.startsWith('/auth')
+    !isCallbackRoute && !isOnboardingRoute && request.nextUrl.pathname.startsWith('/auth')
 
   const isProtectedRoute =
     !isCallbackRoute && (
@@ -53,7 +53,8 @@ export async function updateSession(request: NextRequest) {
       request.nextUrl.pathname.startsWith('/community') ||
       request.nextUrl.pathname.startsWith('/solving') ||
       request.nextUrl.pathname.startsWith('/settings') ||
-      request.nextUrl.pathname.startsWith('/admin')
+      request.nextUrl.pathname.startsWith('/admin') ||
+      isOnboardingRoute
     )
 
   if (isProtectedRoute && !user) {
