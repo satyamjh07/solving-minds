@@ -444,6 +444,8 @@
   .an-qa-panel     { grid-template-columns: repeat(2, 1fr); }
   .an-gauge-row    { grid-template-columns: 1fr; }
   .an-qstat-row    { grid-template-columns: 1fr; }
+  .an-topbar-chip  { display: none !important; }
+  .an-topbar-title { font-size: 1.15rem !important; }
 }
 
 /* ── Questions Solved ────────────────────────────────── */

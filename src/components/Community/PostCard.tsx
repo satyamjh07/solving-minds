@@ -101,7 +101,13 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
         )}
 
         {images.length > 0 && (
-          <div className={`grid gap-2 mb-3 ${images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <div className={`grid gap-2 mb-3 ${
+            images.length === 1 
+              ? 'grid-cols-1' 
+              : images.length === 2 
+                ? 'grid-cols-2' 
+                : 'grid-cols-2 md:grid-cols-3'
+          }`}>
             {images.map((img: string, i: number) => (
               <div
                 key={i}

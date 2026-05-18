@@ -41,6 +41,22 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/logo.png" />
         <link rel="apple-touch-icon" href="/logo.png" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#7c6fff" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/firebase-messaging-sw.js').then(function(reg) {
+                console.log('PWA Service Worker registered with scope: ', reg.scope);
+              }, function(err) {
+                console.log('PWA Service Worker registration failed: ', err);
+              });
+            });
+          }
+        `}} />
         <link rel="stylesheet" href="/css/themes.css" />
         <link rel="stylesheet" href="/css/style.css" />
         <link rel="stylesheet" href="/css/cloudinary-styles.css" />

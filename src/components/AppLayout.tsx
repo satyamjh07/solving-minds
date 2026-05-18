@@ -348,7 +348,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           bottom: 0 !important;
           left: 0 !important;
           right: 0 !important;
-          width: 100vw !important;
+          width: 100% !important;
           height: 62px !important;
           background: var(--glass) !important;
           backdrop-filter: blur(20px) !important;

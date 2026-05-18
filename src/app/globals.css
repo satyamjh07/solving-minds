@@ -31,6 +31,8 @@ html, body {
   font-family: 'Space Grotesk', sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 * {

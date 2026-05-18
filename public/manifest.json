@@ -1,0 +1,25 @@
+{
+  "name": "Solving Minds",
+  "short_name": "SolvingMinds",
+  "description": "Next-gen study environment for JEE / NEET aspirants. Track progress, solve PYQs, and connect with your community.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#080b12",
+  "theme_color": "#7c6fff",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

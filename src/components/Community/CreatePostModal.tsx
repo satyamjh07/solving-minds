@@ -61,8 +61,8 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length + selectedImages.length > 4) {
-      toast('Max 4 images allowed', 'warning');
+    if (files.length + selectedImages.length > 5) {
+      toast('Max 5 images allowed', 'warning');
       return;
     }
     setSelectedImages(prev => [...prev, ...files]);

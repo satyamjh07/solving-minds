@@ -109,9 +109,9 @@ export default function CommunityPage() {
 
         {/* Left Column: Posts (8 cols) */}
         <div className="lg:col-span-8 order-2 lg:order-1">
-          {/* Toggle Bar */}
-          <div className="flex justify-center lg:justify-start mb-6">
-            <div className="flex items-center bg-bg-2 border border-white/5 p-1 rounded-xl w-full max-w-lg">
+          {/* Toggle Bar & Direct Create Post Button */}
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
+            <div className="flex items-center bg-bg-2 border border-white/5 p-1 rounded-xl w-full md:max-w-md">
               <button
                 onClick={() => setFilter('all')}
                 className={`flex-1 py-2 px-4 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all ${filter === 'all' ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/20' : 'text-gray-500 hover:text-white'}`}
@@ -131,6 +131,13 @@ export default function CommunityPage() {
                 Popular
               </button>
             </div>
+
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="w-full md:w-auto bg-gradient-to-r from-cyan-400 to-blue-500 hover:scale-[1.02] active:scale-[0.98] text-black font-black text-[10px] uppercase tracking-[0.2em] px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/20"
+            >
+              <PenLine size={13} className="text-black" /> Create Post
+            </button>
           </div>
 
           {/* Posts List */}

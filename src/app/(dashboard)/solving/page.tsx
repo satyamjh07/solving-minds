@@ -934,6 +934,8 @@ export default function SolvingPage() {
           justify-content: space-between;
           align-items: center;
           margin-bottom: 1rem;
+          flex-wrap: wrap;
+          gap: 0.75rem;
         }
         .zd-qnav-title {
           font-family: 'Space Grotesk', sans-serif;
@@ -948,6 +950,7 @@ export default function SolvingPage() {
           font-size: 0.65rem;
           color: var(--text2);
           font-weight: 600;
+          flex-wrap: wrap;
         }
         .zd-pip {
           width: 10px;
@@ -1109,7 +1112,7 @@ export default function SolvingPage() {
 
         .zd-options-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
           gap: 0.75rem;
           margin-bottom: 2rem;
         }
@@ -1128,6 +1131,9 @@ export default function SolvingPage() {
           text-align: left;
           cursor: pointer;
           transition: all 0.2s;
+          max-width: 100%;
+          overflow-x: auto;
+          word-wrap: break-word;
         }
         .solver-option-btn:hover:not(.disabled) { border-color: var(--accent); background: var(--accent-glow); }
         .solver-option-btn.active { border-color: var(--accent); background: var(--accent-glow); }
