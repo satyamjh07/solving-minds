@@ -12,7 +12,11 @@ import {
   BookOpen,
   BarChart3,
   Check,
-  ChevronRight
+  ChevronRight,
+  Award,
+  Lock,
+  Sparkles,
+  ChevronLeft
 } from 'lucide-react';
 
 // ─── Module-level helpers (defined OUTSIDE the component so React never recreates them) ───
@@ -87,6 +91,7 @@ interface ChapterInfo {
 export default function SolvingPage() {
   const { profile } = useProfile();
   const [view, setView] = useState<SolverView>('modes');
+  const [selectedExam, setSelectedExam] = useState<string | null>(null);
   const [subject, setSubject] = useState('physics');
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [chapters, setChapters] = useState<ChapterInfo[]>([]);
@@ -284,13 +289,145 @@ export default function SolvingPage() {
 
   // View 2: PYQ Selection (Legacy Style)
   if (view === 'pyq-selection') {
+    if (!selectedExam) {
+      return (
+        <div className="an-content max-w-5xl mx-auto py-8 px-6 pb-32">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-6">
+             <button onClick={() => setView('modes')} className="hover:text-foreground transition-colors">MODES</button>
+             <span className="opacity-30">/</span>
+             <span className="text-muted-foreground/60">EXAM SELECTION</span>
+          </div>
+
+          <div className="mb-10">
+            <p className="font-mono text-[10px] text-purple uppercase tracking-[0.2em] mb-2">Select Target Qualification</p>
+            <h1 className="text-4xl font-[family-name:var(--font-bebas)] tracking-wider text-foreground mb-3">EXAM SELECTION PORTAL</h1>
+            <p className="text-gray-500 text-xs max-w-2xl leading-relaxed">
+              Select your target qualification. Solving Minds provides authentic past-year exam simulation engines calibrated to the latest syllabus standards.
+            </p>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card 1: JEE Main (Active) */}
+            <div 
+              onClick={() => setSelectedExam('jee-mains')}
+              className="bg-bg-2 border border-white/5 hover:border-purple/40 hover:bg-purple/5 rounded-3xl p-8 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-between min-h-[250px]"
+            >
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Award size={80} className="text-purple" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="bg-purple/10 text-purple w-12 h-12 rounded-2xl flex items-center justify-center">
+                    <Award size={24} />
+                  </div>
+                  <span className="bg-green/10 text-green border border-green/20 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                    ACTIVE ENGINE
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">JEE MAIN</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  Complete archive of JEE Main past year questions (2023-2026). Calibrated with chapter-wise micro analytics and custom solving modes.
+                </p>
+              </div>
+              <div className="flex items-center text-purple text-[10px] font-bold uppercase tracking-widest mt-auto">
+                 INITIATE SESSION <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+
+            {/* Card 2: JEE Advanced (Coming Soon) */}
+            <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden flex flex-col justify-between min-h-[250px]">
+              <div className="absolute top-0 right-0 p-6 opacity-5">
+                <Sparkles size={80} className="text-orange" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="bg-orange/10 text-orange w-12 h-12 rounded-2xl flex items-center justify-center">
+                    <Sparkles size={24} />
+                  </div>
+                  <span className="bg-white/5 text-muted-foreground border border-white/5 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1">
+                    <Lock size={8} /> COMING SOON
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">JEE ADVANCED</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  Rigorous multiple-correct, numerical decimal, and matrix-match simulation engines under active calibration.
+                </p>
+              </div>
+              <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-auto">
+                 PROTOCOL LOCKED
+              </div>
+            </div>
+
+            {/* Card 3: NEET (Coming Soon) */}
+            <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden flex flex-col justify-between min-h-[250px]">
+              <div className="absolute top-0 right-0 p-6 opacity-5">
+                <BookOpen size={80} className="text-blue" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="bg-blue/10 text-blue w-12 h-12 rounded-2xl flex items-center justify-center">
+                    <BookOpen size={24} />
+                  </div>
+                  <span className="bg-white/5 text-muted-foreground border border-white/5 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1">
+                    <Lock size={8} /> COMING SOON
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">NEET (UG)</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  High-speed biological & chemical entry drills. Authentic negative marking mock trials and error notebooks.
+                </p>
+              </div>
+              <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-auto">
+                 PROTOCOL LOCKED
+              </div>
+            </div>
+
+            {/* Card 4: BITSAT (Coming Soon) */}
+            <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden flex flex-col justify-between min-h-[250px]">
+              <div className="absolute top-0 right-0 p-6 opacity-5">
+                <Zap size={80} className="text-yellow" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="bg-yellow/10 text-yellow w-12 h-12 rounded-2xl flex items-center justify-center">
+                    <Zap size={24} />
+                  </div>
+                  <span className="bg-white/5 text-muted-foreground border border-white/5 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1">
+                    <Lock size={8} /> COMING SOON
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">BITSAT</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  Speed-accuracy optimizer focusing on rapid mathematical drills, logical reasoning, and English proficiency modules.
+                </p>
+              </div>
+              <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-auto">
+                 PROTOCOL LOCKED
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="an-content max-w-5xl mx-auto py-8 px-6 pb-32">
         <div className="flex items-center gap-2 text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-4">
            <button onClick={() => setView('modes')} className="hover:text-foreground transition-colors">MODES</button>
            <span className="opacity-30">/</span>
-           <span className="text-muted-foreground/60">PYQ SELECTION</span>
+           <button onClick={() => setSelectedExam(null)} className="hover:text-foreground transition-colors">EXAMS</button>
+           <span className="opacity-30">/</span>
+           <span className="text-muted-foreground/60">{selectedExam.toUpperCase().replace('-', ' ')}</span>
         </div>
+
+        <button 
+          onClick={() => setSelectedExam(null)}
+          className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-white transition-colors mb-6 uppercase tracking-wider font-bold"
+        >
+          <ChevronLeft size={14} /> Back to Exam Selection
+        </button>
 
         <p className="text-gray-500 text-[10px] mb-8">Target high-yield concepts. Select your focus area to begin the deep-work session.</p>
 
