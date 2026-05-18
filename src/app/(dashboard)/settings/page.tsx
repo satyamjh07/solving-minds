@@ -164,9 +164,9 @@ export default function SettingsPage() {
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-foreground focus:border-purple transition-all outline-none appearance-none"
                     >
                       <option value="" disabled>Select Class</option>
-                      <option value="Class 11">Class 11</option>
-                      <option value="Class 12">Class 12</option>
-                      <option value="Dropper">Dropper</option>
+                      <option value="11th">Class 11</option>
+                      <option value="12th">Class 12</option>
+                      <option value="dropper">Dropper</option>
                     </select>
                   </div>
                   <div>

@@ -309,9 +309,9 @@ export default function OnboardingPage() {
                       className="w-full bg-[#181822] border border-white/[0.07] rounded-xl pl-11 pr-4 py-3.5 text-sm text-white focus:outline-none focus:border-[#7c3aed]/40 transition-all appearance-none"
                     >
                       <option value="" disabled>Select your class</option>
-                      <option value="Class 11">Class 11 (High School Junior)</option>
-                      <option value="Class 12">Class 12 (High School Senior)</option>
-                      <option value="Dropper">Dropper / Repeater</option>
+                      <option value="11th">Class 11 (High School Junior)</option>
+                      <option value="12th">Class 12 (High School Senior)</option>
+                      <option value="dropper">Dropper / Repeater</option>
                     </select>
                   </div>
                 </div>
