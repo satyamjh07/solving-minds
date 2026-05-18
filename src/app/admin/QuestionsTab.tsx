@@ -50,6 +50,10 @@ export default function QuestionsTab() {
     qImageFile: null as File | null,
     qImageUrl: '',
     opt1: '', opt2: '', opt3: '', opt4: '',
+    opt1ImageFile: null as File | null, opt1ImageUrl: '',
+    opt2ImageFile: null as File | null, opt2ImageUrl: '',
+    opt3ImageFile: null as File | null, opt3ImageUrl: '',
+    opt4ImageFile: null as File | null, opt4ImageUrl: '',
     answer: '',
     explanation: '',
     expImageFile: null as File | null,
@@ -59,9 +63,18 @@ export default function QuestionsTab() {
   const [imgTab, setImgTab] = useState<'file' | 'url'>('file');
   const [expTab, setExpTab] = useState<'file' | 'url'>('file');
 
+  const [opt1Tab, setOpt1Tab] = useState<'file' | 'url'>('file');
+  const [opt2Tab, setOpt2Tab] = useState<'file' | 'url'>('file');
+  const [opt3Tab, setOpt3Tab] = useState<'file' | 'url'>('file');
+  const [opt4Tab, setOpt4Tab] = useState<'file' | 'url'>('file');
+
   // Local preview image from file picker
   const [qImagePreview, setQImagePreview] = useState('');
   const [expImagePreview, setExpImagePreview] = useState('');
+  const [opt1ImagePreview, setOpt1ImagePreview] = useState('');
+  const [opt2ImagePreview, setOpt2ImagePreview] = useState('');
+  const [opt3ImagePreview, setOpt3ImagePreview] = useState('');
+  const [opt4ImagePreview, setOpt4ImagePreview] = useState('');
 
   const handleChange = (e: any) => {
     const { name, value, files } = e.target;
@@ -69,6 +82,10 @@ export default function QuestionsTab() {
       setFormData(prev => ({ ...prev, [name]: files[0] }));
       if (name === 'qImageFile') setQImagePreview(URL.createObjectURL(files[0]));
       if (name === 'expImageFile') setExpImagePreview(URL.createObjectURL(files[0]));
+      if (name === 'opt1ImageFile') setOpt1ImagePreview(URL.createObjectURL(files[0]));
+      if (name === 'opt2ImageFile') setOpt2ImagePreview(URL.createObjectURL(files[0]));
+      if (name === 'opt3ImageFile') setOpt3ImagePreview(URL.createObjectURL(files[0]));
+      if (name === 'opt4ImageFile') setOpt4ImagePreview(URL.createObjectURL(files[0]));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -90,8 +107,24 @@ export default function QuestionsTab() {
 
       let optionsArray = null;
       if (formData.type === 'mcq') {
-        const opts = [formData.opt1, formData.opt2, formData.opt3, formData.opt4].filter(Boolean);
-        optionsArray = opts.map(t => ({ text: t }));
+        let finalOpt1ImgUrl = formData.opt1ImageUrl;
+        if (opt1Tab === 'file' && formData.opt1ImageFile) finalOpt1ImgUrl = await uploadToCloudinary(formData.opt1ImageFile);
+
+        let finalOpt2ImgUrl = formData.opt2ImageUrl;
+        if (opt2Tab === 'file' && formData.opt2ImageFile) finalOpt2ImgUrl = await uploadToCloudinary(formData.opt2ImageFile);
+
+        let finalOpt3ImgUrl = formData.opt3ImageUrl;
+        if (opt3Tab === 'file' && formData.opt3ImageFile) finalOpt3ImgUrl = await uploadToCloudinary(formData.opt3ImageFile);
+
+        let finalOpt4ImgUrl = formData.opt4ImageUrl;
+        if (opt4Tab === 'file' && formData.opt4ImageFile) finalOpt4ImgUrl = await uploadToCloudinary(formData.opt4ImageFile);
+
+        optionsArray = [
+          { text: formData.opt1, image_url: finalOpt1ImgUrl || null },
+          { text: formData.opt2, image_url: finalOpt2ImgUrl || null },
+          { text: formData.opt3, image_url: finalOpt3ImgUrl || null },
+          { text: formData.opt4, image_url: finalOpt4ImgUrl || null },
+        ].filter(o => o.text || o.image_url);
       }
 
       const payload = {
@@ -119,10 +152,13 @@ export default function QuestionsTab() {
         ...prev,
         text: '', qImageFile: null, qImageUrl: '',
         opt1: '', opt2: '', opt3: '', opt4: '',
+        opt1ImageFile: null, opt1ImageUrl: '', opt2ImageFile: null, opt2ImageUrl: '',
+        opt3ImageFile: null, opt3ImageUrl: '', opt4ImageFile: null, opt4ImageUrl: '',
         answer: '', explanation: '', expImageFile: null, expImageUrl: '',
       }));
       setQImagePreview('');
       setExpImagePreview('');
+      setOpt1ImagePreview(''); setOpt2ImagePreview(''); setOpt3ImagePreview(''); setOpt4ImagePreview('');
     } catch (err: any) {
       console.error(err);
       toast('Failed to upload question: ' + err.message, 'error');
@@ -134,7 +170,12 @@ export default function QuestionsTab() {
   // Determine preview image for question
   const qImgSrc = qImagePreview || formData.qImageUrl;
   const expImgSrc = expImagePreview || formData.expImageUrl;
-  const options = [formData.opt1, formData.opt2, formData.opt3, formData.opt4];
+  const liveOptions = [
+    { text: formData.opt1, image_url: opt1ImagePreview || formData.opt1ImageUrl },
+    { text: formData.opt2, image_url: opt2ImagePreview || formData.opt2ImageUrl },
+    { text: formData.opt3, image_url: opt3ImagePreview || formData.opt3ImageUrl },
+    { text: formData.opt4, image_url: opt4ImagePreview || formData.opt4ImageUrl },
+  ];
   const correctIdx = formData.type === 'mcq' ? parseInt(formData.answer) - 1 : -1;
   const hasContent = !!(formData.text || formData.opt1 || formData.explanation);
 
@@ -248,15 +289,33 @@ export default function QuestionsTab() {
               <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-2">
                 Options (MCQ) — LaTeX supported
               </label>
-              <div className="grid grid-cols-1 gap-2">
-                {(['opt1','opt2','opt3','opt4'] as const).map((k, i) => (
-                  <div key={k} className="flex items-center gap-2">
-                    <span className="w-6 h-6 flex items-center justify-center rounded bg-[var(--bg3)] border border-[var(--border)] text-[10px] font-bold text-[var(--text2)] flex-shrink-0">
-                      {String.fromCharCode(65 + i)}
-                    </span>
-                    <input type="text" name={k} value={formData[k]} onChange={handleChange}
-                      placeholder={`Option ${i + 1}`}
-                      className="flex-1 bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-2 text-sm outline-none focus:border-[var(--accent)] font-mono" />
+              <div className="grid grid-cols-1 gap-4">
+                {[
+                  { k: 'opt1', tab: opt1Tab, setTab: setOpt1Tab, imgKey: 'opt1ImageFile', urlKey: 'opt1ImageUrl' },
+                  { k: 'opt2', tab: opt2Tab, setTab: setOpt2Tab, imgKey: 'opt2ImageFile', urlKey: 'opt2ImageUrl' },
+                  { k: 'opt3', tab: opt3Tab, setTab: setOpt3Tab, imgKey: 'opt3ImageFile', urlKey: 'opt3ImageUrl' },
+                  { k: 'opt4', tab: opt4Tab, setTab: setOpt4Tab, imgKey: 'opt4ImageFile', urlKey: 'opt4ImageUrl' },
+                ].map(({ k, tab, setTab, imgKey, urlKey }, i) => (
+                  <div key={k} className="p-3 bg-[var(--bg3)] border border-[var(--border)] rounded-lg flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-[var(--text2)] uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center rounded bg-[var(--bg)] border border-[var(--border)]">{String.fromCharCode(65 + i)}</span>
+                        Option {String.fromCharCode(65 + i)}
+                      </span>
+                      <div className="flex gap-1">
+                        <button type="button" onClick={() => setTab('file')}
+                          className={`px-2 py-0.5 rounded text-[10px] transition-colors ${tab === 'file' ? 'bg-[var(--accent)] text-black' : 'bg-[var(--bg)] text-[var(--text2)]'}`}>FILE</button>
+                        <button type="button" onClick={() => setTab('url')}
+                          className={`px-2 py-0.5 rounded text-[10px] transition-colors ${tab === 'url' ? 'bg-[var(--accent)] text-black' : 'bg-[var(--bg)] text-[var(--text2)]'}`}>URL</button>
+                      </div>
+                    </div>
+                    <input type="text" name={k} value={(formData as any)[k]} onChange={handleChange}
+                      placeholder={`Option ${i + 1} text (LaTeX OK, blank = image-only)`}
+                      className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2 text-sm outline-none focus:border-[var(--accent)] font-mono" />
+                    {tab === 'file'
+                      ? <input type="file" name={imgKey} onChange={handleChange} accept="image/*" className="text-xs w-full" />
+                      : <input type="url" name={urlKey} value={(formData as any)[urlKey]} onChange={handleChange} placeholder="Image URL (https://...)"
+                          className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2 text-sm outline-none focus:border-[var(--accent)]" />}
                   </div>
                 ))}
               </div>
@@ -378,9 +437,9 @@ export default function QuestionsTab() {
             )}
 
             {/* Options (MCQ) */}
-            {formData.type === 'mcq' && options.some(Boolean) && (
+            {formData.type === 'mcq' && liveOptions.some(o => o.text || o.image_url) && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-                {options.map((opt, i) => {
+                {liveOptions.map((opt, i) => {
                   const isCorrect = i === correctIdx;
                   return (
                     <div key={i} className="flex items-start gap-3 p-3 rounded-xl border transition-all"
@@ -397,9 +456,9 @@ export default function QuestionsTab() {
                         {String.fromCharCode(65 + i)}
                       </span>
                       <div className="flex-1 min-w-0">
-                        {opt
-                          ? <MathText text={opt} className="text-sm text-[var(--text)]" />
-                          : <span className="text-xs text-[var(--text2)] italic">Option {i + 1} empty</span>}
+                        {opt.text ? <MathText text={opt.text} className="text-sm text-[var(--text)]" /> : null}
+                        {opt.image_url ? <img src={opt.image_url} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-24 w-auto bg-[var(--bg)]" /> : null}
+                        {(!opt.text && !opt.image_url) && <span className="text-xs text-[var(--text2)] italic">Option {i + 1} empty</span>}
                         {isCorrect && (
                           <div className="text-[9px] font-bold text-[var(--green)] uppercase tracking-widest mt-1">✓ Correct Answer</div>
                         )}

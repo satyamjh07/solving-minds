@@ -604,8 +604,9 @@ export default function SolvingPage() {
                             onClick={() => handleSubmit(i)}
                           >
                             <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
-                            <div className="flex-1">
-                              <QuestionText text={opt.text} />
+                            <div className="flex-1 text-left">
+                              {opt.text ? <QuestionText text={opt.text} /> : null}
+                              {opt.image_url ? <img src={opt.image_url} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-32 w-auto bg-[var(--bg)]" /> : null}
                             </div>
                           </button>
                         );
