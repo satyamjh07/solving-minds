@@ -182,9 +182,9 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
                       const { supabase } = await import('@/lib/supabase/client');
                       const { error } = await supabase.from('profiles').update({ muted_until: mutedUntil }).eq('id', post.user_id);
                       if (error) throw error;
-                      alert(profile.muted_until ? 'User unmuted' : 'User muted for 24h');
+                      toast(profile.muted_until ? 'User unmuted' : 'User muted for 24h', 'success');
                     } catch (e: any) {
-                      alert(e.message);
+                      toast(e.message, 'error');
                     }
                   }}
                 >

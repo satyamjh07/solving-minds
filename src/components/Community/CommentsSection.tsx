@@ -10,7 +10,7 @@ import { ImageLightbox } from './ImageLightbox';
 
 export function CommentsSection({ postId, onShowUser }: { postId: string; onShowUser: (userId: string) => void }) {
   const { profile } = useProfile();
-  const { toast } = useDialog();
+  const { toast, confirm } = useDialog();
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
@@ -308,9 +308,16 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
                             )}
                             {(profile.role === 'admin' || profile.role === 'mod' || profile.id === comment.user_id) && (
                               <button 
-                                onClick={() => {
-                                  if (confirm('Delete this transmission?')) handleDeleteComment(comment.id);
+                                onClick={async () => {
                                   setActiveMenu(null);
+                                  const ok = await confirm({
+                                    title: 'Delete Comment',
+                                    message: 'Are you sure you want to delete this transmission? This action cannot be undone.',
+                                    confirmLabel: 'Delete',
+                                    cancelLabel: 'Cancel',
+                                    danger: true
+                                  });
+                                  if (ok) handleDeleteComment(comment.id);
                                 }}
                                 className="w-full px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 text-red-400 transition-colors flex items-center gap-2"
                               >
