@@ -19,6 +19,51 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
   const [isPosting, setIsPosting] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [cooldownTime, setCooldownTime] = useState<number>(0);
+
+  const checkCooldown = async () => {
+    if (!profile) return;
+    try {
+      const { data: recentComments, error } = await supabase
+        .from('comments')
+        .select('created_at')
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!error && recentComments && recentComments.length >= 5) {
+        const oldestComment = recentComments[4]; // 5th newest
+        const oldestTime = new Date(oldestComment.created_at).getTime();
+        const cooldownExpiresAt = oldestTime + 10 * 60 * 1000;
+        const remainingMs = cooldownExpiresAt - Date.now();
+        if (remainingMs > 0) {
+          setCooldownTime(Math.ceil(remainingMs / 1000));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to check comment cooldown', e);
+    }
+  };
+
+  useEffect(() => {
+    if (profile) {
+      checkCooldown();
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (cooldownTime <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownTime(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownTime]);
 
   const fetchComments = async () => {
     setLoading(true);
@@ -112,6 +157,33 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
     setIsPosting(true);
 
     try {
+      // 1. Spam Rate Limit Check: max 5 comments per 10 minutes
+      const { data: recentComments, error: fetchRecentError } = await supabase
+        .from('comments')
+        .select('created_at')
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (fetchRecentError) throw fetchRecentError;
+
+      if (recentComments && recentComments.length >= 5) {
+        const oldestComment = recentComments[4]; // 5th newest comment
+        const oldestTime = new Date(oldestComment.created_at).getTime();
+        const cooldownExpiresAt = oldestTime + 10 * 60 * 1000;
+        const remainingMs = cooldownExpiresAt - Date.now();
+
+        if (remainingMs > 0) {
+          const remainingSecs = Math.ceil(remainingMs / 1000);
+          setCooldownTime(remainingSecs);
+          const mins = Math.floor(remainingSecs / 60);
+          const secs = remainingSecs % 60;
+          toast(`Spam protection: Maximum 5 comments per 10 minutes. Please wait ${mins}m ${secs}s before posting again.`, 'error');
+          setIsPosting(false);
+          return;
+        }
+      }
+
       let imageUrl = null;
       if (selectedImage) {
         imageUrl = await uploadToCloudinary(selectedImage, { folder: 'study_aura/comments' });
@@ -324,24 +396,25 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Broadcast your thoughts..."
+                placeholder={cooldownTime > 0 ? `Spam protection: Wait ${Math.floor(cooldownTime / 60)}m ${cooldownTime % 60}s...` : "Broadcast your thoughts..."}
+                disabled={cooldownTime > 0}
                 rows={1}
-                className="w-full bg-[#ffffff08] border border-[#ffffff10] rounded-2xl px-4 py-3 pr-24 text-sm text-white focus:outline-none focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20 transition-all resize-none min-h-[46px]"
+                className="w-full bg-[#ffffff08] border border-[#ffffff10] rounded-2xl px-4 py-3 pr-24 text-sm text-white focus:outline-none focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20 transition-all resize-none min-h-[46px] disabled:opacity-50 disabled:cursor-not-allowed"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && cooldownTime === 0) {
                     e.preventDefault();
                     handlePostComment();
                   }
                 }}
               />
               <div className="absolute right-2 bottom-1.5 flex items-center gap-1">
-                <label className="p-2 text-gray-500 hover:text-cyan-400 transition-colors cursor-pointer">
+                <label className={`p-2 transition-colors ${cooldownTime > 0 ? 'pointer-events-none opacity-30' : 'text-gray-500 hover:text-cyan-400 cursor-pointer'}`}>
                   <ImageIcon size={18} />
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} disabled={cooldownTime > 0} />
                 </label>
                 <button
                   onClick={handlePostComment}
-                  disabled={(!newComment.trim() && !selectedImage) || isPosting}
+                  disabled={(!newComment.trim() && !selectedImage) || isPosting || cooldownTime > 0}
                   className="bg-cyan-500 hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed text-black w-8 h-8 rounded-lg flex items-center justify-center transition-all shadow-lg shadow-cyan-500/10"
                 >
                   {isPosting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
