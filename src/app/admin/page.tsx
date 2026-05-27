@@ -11,6 +11,7 @@ import { ReportsTab } from '@/components/Admin/ReportsTab';
 import { TicketsTab } from '@/components/Admin/TicketsTab';
 import QuestionsTab from './QuestionsTab';
 import BookletsTab from './BookletsTab';
+import MockTestsTab from './MockTestsTab';
 
 export default function AdminPage() {
   const { profile, loading: profileLoading } = useProfile();
@@ -126,6 +127,12 @@ export default function AdminPage() {
           📚 Booklets
         </button>
         <button 
+          className={`px-6 py-3 font-bold text-sm uppercase tracking-widest transition-colors ${activeTab === 'mocks' ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]' : 'text-[var(--text2)] hover:text-[var(--text)]'}`}
+          onClick={() => setActiveTab('mocks')}
+        >
+          ⏱️ Mocks
+        </button>
+        <button 
           className={`px-6 py-3 font-bold text-sm uppercase tracking-widest transition-colors ${activeTab === 'tickets' ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]' : 'text-[var(--text2)] hover:text-[var(--text)]'}`}
           onClick={() => setActiveTab('tickets')}
         >
@@ -139,6 +146,7 @@ export default function AdminPage() {
         {activeTab === 'posts' && <PostsTab />}
         {activeTab === 'questions' && <QuestionsTab />}
         {activeTab === 'booklets' && <BookletsTab />}
+        {activeTab === 'mocks' && <MockTestsTab />}
         {activeTab === 'tickets' && <TicketsTab />}
       </div>
       </div>

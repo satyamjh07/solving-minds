@@ -84,6 +84,8 @@ export default function QuestionsTab() {
     explanation: '',
     expImageFile: null as File | null,
     expImageUrl: '',
+    exam_type: 'jee-main',
+    booklet_id: '',
   });
 
   const [imgTab, setImgTab] = useState<'file' | 'url'>('file');
@@ -101,6 +103,38 @@ export default function QuestionsTab() {
   const [opt2ImagePreview, setOpt2ImagePreview] = useState('');
   const [opt3ImagePreview, setOpt3ImagePreview] = useState('');
   const [opt4ImagePreview, setOpt4ImagePreview] = useState('');
+
+  const [bookletsList, setBookletsList] = useState<any[]>([]);
+  const [mocksList, setMocksList] = useState<any[]>([]);
+  const [loadingTargets, setLoadingTargets] = useState(false);
+
+  useEffect(() => {
+    async function fetchTargets() {
+      setLoadingTargets(true);
+      try {
+        const { data, error } = await supabase.from('booklets').select('id, title, tags');
+        if (error) throw error;
+        
+        const booklets = (data || []).filter(b => {
+          const tags = b.tags || [];
+          return tags.includes('booklet') || (!tags.includes('mock-test') && !tags.includes('mock'));
+        });
+        
+        const mocks = (data || []).filter(b => {
+          const tags = b.tags || [];
+          return tags.includes('mock-test') || tags.includes('mock');
+        });
+
+        setBookletsList(booklets);
+        setMocksList(mocks);
+      } catch (err: any) {
+        console.error('Error fetching booklet/mock targets:', err);
+      } finally {
+        setLoadingTargets(false);
+      }
+    }
+    fetchTargets();
+  }, []);
 
   const handleChange = (e: any) => {
     const { name, value, files } = e.target;
@@ -167,7 +201,8 @@ export default function QuestionsTab() {
         year: formData.year ? parseInt(formData.year) : null,
         shift: formData.shift || null,
         options: optionsArray,
-        exam_type: 'pyq',
+        exam_type: formData.exam_type,
+        booklet_id: (formData.exam_type === 'booklet' || formData.exam_type === 'mock-test') && formData.booklet_id ? formData.booklet_id : null,
       };
 
       const { error } = await supabase.from('questions').insert([payload]);
@@ -181,6 +216,7 @@ export default function QuestionsTab() {
         opt1ImageFile: null, opt1ImageUrl: '', opt2ImageFile: null, opt2ImageUrl: '',
         opt3ImageFile: null, opt3ImageUrl: '', opt4ImageFile: null, opt4ImageUrl: '',
         answer: '', explanation: '', expImageFile: null, expImageUrl: '',
+        booklet_id: '',
       }));
       setQImagePreview('');
       setExpImagePreview('');
@@ -214,6 +250,63 @@ export default function QuestionsTab() {
           <h3 className="font-bold text-[var(--text)] mb-2 uppercase tracking-widest text-sm border-b border-[var(--border)] pb-2">
             1. Classification
           </h3>
+
+          <div>
+            <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-1">
+              Exam Type <span className="text-[var(--accent)]">*</span>
+            </label>
+            <select name="exam_type" value={formData.exam_type} onChange={handleChange} required
+              className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-2.5 text-[var(--text)] outline-none focus:border-[var(--accent)] text-sm">
+              <option value="jee-main">JEE Main</option>
+              <option value="jee-advanced">JEE Advanced</option>
+              <option value="neet">NEET UG</option>
+              <option value="bitsat">BITSAT</option>
+              <option value="mht-cet">MHT CET</option>
+              <option value="iat">IAT</option>
+              <option value="viteee">VITEEE</option>
+              <option value="wbjee">WBJEE</option>
+              <option value="booklet">Booklets</option>
+              <option value="mock-test">Mock Tests</option>
+            </select>
+          </div>
+
+          {formData.exam_type === 'booklet' && (
+            <div>
+              <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-1">
+                Which Booklet? <span className="text-[var(--accent)]">*</span>
+              </label>
+              {loadingTargets ? (
+                <div className="text-xs text-[var(--text2)] flex items-center gap-1.5 p-2"><Loader2 size={12} className="animate-spin" /> Fetching booklets...</div>
+              ) : (
+                <select name="booklet_id" value={formData.booklet_id} onChange={handleChange} required
+                  className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-2.5 text-[var(--text)] outline-none focus:border-[var(--accent)] text-sm">
+                  <option value="">Select Booklet</option>
+                  {bookletsList.map(b => (
+                    <option key={b.id} value={b.id}>{b.title}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {formData.exam_type === 'mock-test' && (
+            <div>
+              <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-1">
+                Which Mock Test? <span className="text-[var(--accent)]">*</span>
+              </label>
+              {loadingTargets ? (
+                <div className="text-xs text-[var(--text2)] flex items-center gap-1.5 p-2"><Loader2 size={12} className="animate-spin" /> Fetching mock tests...</div>
+              ) : (
+                <select name="booklet_id" value={formData.booklet_id} onChange={handleChange} required
+                  className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-2.5 text-[var(--text)] outline-none focus:border-[var(--accent)] text-sm">
+                  <option value="">Select Mock Test</option>
+                  {mocksList.map(m => (
+                    <option key={m.id} value={m.id}>{m.title}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-1">
