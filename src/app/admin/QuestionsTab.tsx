@@ -147,7 +147,11 @@ export default function QuestionsTab() {
       if (name === 'opt3ImageFile') setOpt3ImagePreview(URL.createObjectURL(files[0]));
       if (name === 'opt4ImageFile') setOpt4ImagePreview(URL.createObjectURL(files[0]));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      if (name === 'type') {
+        setFormData(prev => ({ ...prev, [name]: value, answer: '' }));
+      } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+      }
     }
   };
 
@@ -166,7 +170,7 @@ export default function QuestionsTab() {
       if (expTab === 'file' && formData.expImageFile) finalExpImgUrl = await uploadToCloudinary(formData.expImageFile);
 
       let optionsArray = null;
-      if (formData.type === 'mcq') {
+      if (formData.type === 'mcq' || formData.type === 'multi-select') {
         let finalOpt1ImgUrl = formData.opt1ImageUrl;
         if (opt1Tab === 'file' && formData.opt1ImageFile) finalOpt1ImgUrl = await uploadToCloudinary(formData.opt1ImageFile);
 
@@ -239,6 +243,9 @@ export default function QuestionsTab() {
     { text: formData.opt4, image: opt4ImagePreview || formData.opt4ImageUrl },
   ];
   const correctIdx = formData.type === 'mcq' ? parseInt(formData.answer) - 1 : -1;
+  const correctIdxs = formData.type === 'multi-select'
+    ? (formData.answer ? formData.answer.split(',').filter(Boolean).map(s => parseInt(s.trim())) : [])
+    : [];
   const hasContent = !!(formData.text || formData.opt1 || formData.explanation);
 
   return (
@@ -340,6 +347,7 @@ export default function QuestionsTab() {
             <select name="type" value={formData.type} onChange={handleChange}
               className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-2.5 text-[var(--text)] outline-none focus:border-[var(--accent)] text-sm">
               <option value="mcq">Multiple Choice (MCQ)</option>
+              <option value="multi-select">Multiple Correct (Multi-Select MCQ)</option>
               <option value="integer">Numerical / Integer</option>
             </select>
           </div>
@@ -403,7 +411,7 @@ export default function QuestionsTab() {
                   className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-2.5 text-sm outline-none focus:border-[var(--accent)]" />}
           </div>
 
-          {formData.type === 'mcq' && (
+          {(formData.type === 'mcq' || formData.type === 'multi-select') && (
             <div>
               <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-2">
                 Options (MCQ) — LaTeX supported
@@ -445,12 +453,47 @@ export default function QuestionsTab() {
             <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-1">
               Correct Answer <span className="text-[var(--accent)]">*</span>
             </label>
-            <input type="text" name="answer" value={formData.answer} onChange={handleChange}
-              placeholder={formData.type === 'mcq' ? 'Option number: 1, 2, 3 or 4' : 'Numerical value e.g. 42'}
-              className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-2.5 text-sm outline-none focus:border-[var(--accent)]"
-              required />
-            {formData.type === 'mcq' && (
-              <p className="text-[10px] text-[var(--text2)] mt-1">Enter 1 for Option A, 2 for Option B, etc.</p>
+            {formData.type === 'multi-select' ? (
+              <div className="flex flex-col gap-2 p-3 bg-[var(--bg3)] border border-[var(--border)] rounded-lg">
+                <div className="flex gap-4">
+                  {[0, 1, 2, 3].map((idx) => {
+                    const label = String.fromCharCode(65 + idx);
+                    const isChecked = formData.answer.split(',').filter(Boolean).map(x => parseInt(x)).includes(idx);
+                    return (
+                      <label key={idx} className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            let current = formData.answer ? formData.answer.split(',').filter(Boolean).map(x => parseInt(x)) : [];
+                            if (e.target.checked) {
+                              if (!current.includes(idx)) current.push(idx);
+                            } else {
+                              current = current.filter(x => x !== idx);
+                            }
+                            current.sort((a, b) => a - b);
+                            setFormData(prev => ({ ...prev, answer: current.join(',') }));
+                          }}
+                          className="rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] bg-[var(--bg)]"
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+                <input type="hidden" name="answer" value={formData.answer} required />
+                <p className="text-[10px] text-[var(--text2)]">Selected correct options (0-indexed): <span className="font-mono font-bold text-[var(--accent)]">{formData.answer || 'None'}</span></p>
+              </div>
+            ) : (
+              <>
+                <input type="text" name="answer" value={formData.answer} onChange={handleChange}
+                  placeholder={formData.type === 'mcq' ? 'Option number: 1, 2, 3 or 4' : 'Numerical value e.g. 42'}
+                  className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-2.5 text-sm outline-none focus:border-[var(--accent)]"
+                  required />
+                {formData.type === 'mcq' && (
+                  <p className="text-[10px] text-[var(--text2)] mt-1">Enter 1 for Option A, 2 for Option B, etc.</p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -530,7 +573,7 @@ export default function QuestionsTab() {
                 </span>
               )}
               <span style={{ fontFamily: 'Space Grotesk,sans-serif', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '3px 10px', borderRadius: 4, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)' }}>
-                {formData.type === 'integer' ? 'Numerical' : 'MCQ'}
+                {formData.type === 'integer' ? 'Numerical' : formData.type === 'multi-select' ? 'Multi-Select MCQ' : 'MCQ'}
               </span>
               {formData.year && (
                 <span style={{ fontFamily: 'Space Grotesk,sans-serif', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '3px 10px', borderRadius: 4, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)' }}>
@@ -556,10 +599,10 @@ export default function QuestionsTab() {
             )}
 
             {/* Options (MCQ) */}
-            {formData.type === 'mcq' && liveOptions.some(o => o.text || o.image) && (
+            {(formData.type === 'mcq' || formData.type === 'multi-select') && liveOptions.some(o => o.text || o.image) && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
                 {liveOptions.map((opt, i) => {
-                  const isCorrect = i === correctIdx;
+                  const isCorrect = formData.type === 'mcq' ? i === correctIdx : correctIdxs.includes(i);
                   return (
                     <div key={i} className="flex items-start gap-3 p-3 rounded-xl border transition-all"
                       style={{

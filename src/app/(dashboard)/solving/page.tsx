@@ -100,6 +100,7 @@ export default function SolvingPage() {
   const [showSolution, setShowSolution] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [integerInput, setIntegerInput] = useState('');
+  const [selectedMultiOptions, setSelectedMultiOptions] = useState<number[]>([]);
   // Ref-based cache like legacy solver's _pyqAttemptCache — updated synchronously,
   // no re-render needed, acts as the authoritative in-session store.
   const attemptCacheRef = useRef<Record<string, Attempt>>({});
@@ -114,17 +115,21 @@ export default function SolvingPage() {
   // Fetch chapters and counts for the subject
   useEffect(() => {
     async function fetchChapters() {
+      if (!selectedExam) return;
       setLoadingChapters(true);
+      const mappedExam = selectedExam === 'jee-mains' ? 'jee-main' : selectedExam;
       const { data } = await supabase
         .from('questions')
         .select('chapter')
         .eq('subject', subject.toLowerCase())
-        .eq('exam_type', 'pyq');
+        .eq('exam_type', mappedExam);
       
       if (data) {
         const counts: Record<string, number> = {};
         data.forEach(d => {
-          counts[d.chapter] = (counts[d.chapter] || 0) + 1;
+          if (d.chapter) {
+            counts[d.chapter] = (counts[d.chapter] || 0) + 1;
+          }
         });
         const sorted = Object.entries(counts)
           .map(([name, count]) => ({ name, count }))
@@ -134,9 +139,9 @@ export default function SolvingPage() {
       setLoadingChapters(false);
     }
     fetchChapters();
-  }, [subject]);
+  }, [subject, selectedExam]);
 
-  const { questions: rawQuestions, loading: qLoading } = useQuestions(subject, selectedChapter);
+  const { questions: rawQuestions, loading: qLoading } = useQuestions(subject, selectedChapter, selectedExam);
 
   // KEY FIX: Memoize the filter so `questions` has a stable reference.
   // Previously this ran inline → new array every render → qIds changed every render
@@ -159,6 +164,10 @@ export default function SolvingPage() {
     attemptCacheRef.current = {};
     setLocalAttempts({});
   }, [selectedChapter, subject]);
+
+  useEffect(() => {
+    setSelectedMultiOptions([]);
+  }, [currentIndex, selectedChapter]);
 
   // KEY FIX: MERGE fetched attempts into local state instead of replacing.
   // Replacing would clobber any optimistic updates already in local state.
@@ -192,6 +201,13 @@ export default function SolvingPage() {
       if (!integerInput) return;
       isCorrect = Number(integerInput) === Number(currentQuestion.answer);
       answerValue = integerInput;
+    } else if (currentQuestion.type === 'multi-select') {
+      if (selectedMultiOptions.length === 0) return;
+      const sortedSelected = [...selectedMultiOptions].sort((a, b) => a - b);
+      answerValue = sortedSelected.join(',');
+      const correctAnswerStr = currentQuestion.correct_answer || '';
+      const correctArr = correctAnswerStr.split(',').filter(Boolean).map(x => parseInt(x.trim())).sort((a, b) => a - b);
+      isCorrect = sortedSelected.length === correctArr.length && sortedSelected.every((v, i) => v === correctArr[i]);
     } else {
       if (optionIdx === undefined || optionIdx === null) return;
       isCorrect = optionIdx === currentQuestion.correct;
@@ -741,36 +757,78 @@ export default function SolvingPage() {
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="zd-options-grid">
-                      {currentQuestion.options.map((opt, i) => {
-                        const isCorrectOpt = i === currentQuestion.correct;
-                        const selectedIdx = isAnswered ? Number(currentAttempt?.selected_answer) : -1;
-                        const isUserOpt = isAnswered && selectedIdx === i;
+                  ) : (<>
+                      <div className="zd-options-grid">
+                        {currentQuestion.options.map((opt, i) => {
+                          const isMulti = currentQuestion.type === 'multi-select';
+                          
+                          let isCorrectOpt = false;
+                          let isUserOpt = false;
+                          let isSelected = false;
 
-                        let cls = 'solver-option-btn';
-                        if (isAnswered) {
-                          cls += ' disabled';
-                          if (isCorrectOpt) cls += ' correct';
-                          if (isUserOpt && !isCorrectOpt) cls += ' wrong';
-                        }
+                          if (isMulti) {
+                            const correctIdxs = currentQuestion.correct_answer 
+                              ? currentQuestion.correct_answer.split(',').filter(Boolean).map(x => parseInt(x.trim())) 
+                              : [];
+                            const userSelectedIdxs = currentAttempt?.selected_answer 
+                              ? currentAttempt.selected_answer.split(',').filter(Boolean).map(x => parseInt(x.trim())) 
+                              : [];
+                            isCorrectOpt = correctIdxs.includes(i);
+                            isUserOpt = userSelectedIdxs.includes(i);
+                            isSelected = selectedMultiOptions.includes(i);
+                          } else {
+                            isCorrectOpt = i === currentQuestion.correct;
+                            const selectedIdx = isAnswered ? Number(currentAttempt?.selected_answer) : -1;
+                            isUserOpt = isAnswered && selectedIdx === i;
+                          }
 
-                        return (
-                          <button
-                            key={i}
-                            className={cls}
-                            disabled={isAnswered}
-                            onClick={() => handleSubmit(i)}
+                          let cls = 'solver-option-btn';
+                          if (isAnswered) {
+                            cls += ' disabled';
+                            if (isCorrectOpt) cls += ' correct';
+                            if (isUserOpt && !isCorrectOpt) cls += ' wrong';
+                          } else {
+                            if (isMulti && isSelected) cls += ' active';
+                          }
+
+                          const handleOptionClick = () => {
+                            if (isMulti) {
+                              setSelectedMultiOptions(prev => 
+                                prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+                              );
+                            } else {
+                              handleSubmit(i);
+                            }
+                          };
+
+                          return (
+                            <button
+                              key={i}
+                              className={cls}
+                              disabled={isAnswered}
+                              onClick={handleOptionClick}
+                            >
+                              <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
+                              <div className="flex-1 text-left">
+                                {opt.text ? <QuestionText text={opt.text} /> : null}
+                                {opt.image ? <img src={opt.image} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-32 w-auto bg-[var(--bg)]" /> : null}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {currentQuestion.type === 'multi-select' && !isAnswered && (
+                        <div className="flex justify-end mb-6">
+                          <button 
+                            className="zd-btn zd-btn-check flex items-center gap-2"
+                            onClick={() => handleSubmit()}
+                            disabled={selectedMultiOptions.length === 0}
                           >
-                            <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
-                            <div className="flex-1 text-left">
-                              {opt.text ? <QuestionText text={opt.text} /> : null}
-                              {opt.image ? <img src={opt.image} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-32 w-auto bg-[var(--bg)]" /> : null}
-                            </div>
+                            <Check size={14} /> CHECK ANSWER
                           </button>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <div className={`zd-explanation ${isAnswered || showSolution ? 'show' : ''}`}>

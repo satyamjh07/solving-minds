@@ -18,29 +18,31 @@ export interface Question {
   options: { text?: string; image?: string }[];
   correct: number;
   answer: string;
+  correct_answer?: string;
   explanation: string;
   explanation_image_url: string;
-  type: 'mcq' | 'integer';
+  type: 'mcq' | 'integer' | 'multi-select';
 }
 
-export function useQuestions(subject: string, chapter: string | null) {
+export function useQuestions(subject: string, chapter: string | null, examType: string | null) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!subject || !chapter) {
+    if (!subject || !chapter || !examType) {
       setQuestions([]);
       return;
     }
 
     async function fetchQuestions() {
       setLoading(true);
+      const mappedExam = examType === 'jee-mains' ? 'jee-main' : examType;
       const { data, error } = await supabase
         .from('questions')
         .select('*')
         .eq('subject', subject.toLowerCase())
         .eq('chapter', chapter)
-        .eq('exam_type', 'pyq')
+        .eq('exam_type', mappedExam)
         .order('year', { ascending: false });
 
       if (error || !data) {
@@ -57,7 +59,8 @@ export function useQuestions(subject: string, chapter: string | null) {
         image: q.question_image_url || '',
         options: q.options || [],
         correct: q.type === 'mcq' ? Number(q.correct_answer) : undefined,
-        answer: q.type === 'integer' ? q.correct_answer : undefined,
+        answer: q.type === 'integer' ? q.correct_answer : (q.type === 'multi-select' ? q.correct_answer : undefined),
+        correct_answer: q.correct_answer,
         type: q.type || 'mcq'
       }));
 
@@ -66,7 +69,7 @@ export function useQuestions(subject: string, chapter: string | null) {
     }
 
     fetchQuestions();
-  }, [subject, chapter]);
+  }, [subject, chapter, examType]);
 
   return { questions, loading };
 }

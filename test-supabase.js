@@ -20,21 +20,23 @@ const url = env.NEXT_PUBLIC_SUPABASE_URL;
 const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(url, key);
 
-async function testInsert() {
-  const payload = {
-    title: 'Test Booklet From Node',
-    description: 'Testing if subject and target_year columns exist',
-    subject: 'physics',
-    target_year: 2025
-  };
-
-  const { data, error } = await supabase.from('booklets').insert([payload]).select();
+async function inspectConstraint() {
+  const { data, error } = await supabase.rpc('inspect_constraint_helper');
   if (error) {
-    console.log('Insert failed:', error.message);
+    console.log('RPC failed:', error.message);
+    // If RPC doesn't exist, let's run a select query on pg_constraint if public has permissions,
+    // though usually Postgrest restricts direct access to catalog.
+    // Let's try select from pg_catalog.
+    const { data: catData, error: catError } = await supabase
+      .from('pg_constraint')
+      .select('*');
+    if (catError) {
+      console.log('Direct catalog select failed:', catError.message);
+    } else {
+      console.log('Catalog data:', catData);
+    }
   } else {
-    console.log('Insert succeeded! Created row:', data);
-    // clean up
-    await supabase.from('booklets').delete().eq('id', data[0].id);
+    console.log('Constraint details:', data);
   }
 }
-testInsert();
+inspectConstraint();
