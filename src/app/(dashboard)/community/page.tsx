@@ -258,7 +258,7 @@ export default function CommunityPage() {
             </div>
 
             {/* Time Filter */}
-            <div className="bg-[#12121a] border border-[#ffffff08] rounded-2xl p-6">
+            <div className="bg-bg-2 border border-border rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
                 <Calendar size={14} /> Temporal Sync
               </div>
@@ -291,9 +291,9 @@ export default function CommunityPage() {
           <div className="flex flex-col items-end gap-2 animate-fade-in">
             <button 
               onClick={() => { setShowFabMenu(false); setShowCreateModal(true); }} 
-              className="flex items-center gap-3 bg-[#12121a] border border-[#ffffff12] text-white px-4 py-3 rounded-2xl shadow-xl hover:border-cyan-400/50 transition-all group"
+              className="flex items-center gap-3 bg-bg-2 border border-border text-foreground px-4 py-3 rounded-2xl shadow-xl hover:border-cyan-400/50 transition-all group"
             >
-              <span className="text-sm font-bold text-gray-200 group-hover:text-white">Create Post</span>
+              <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground">Create Post</span>
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
                 <PenLine size={15} className="text-black" />
               </div>

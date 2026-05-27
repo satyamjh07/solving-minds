@@ -42,7 +42,7 @@ const formatText = (text: string) => {
   clean = clean.replace(/\\+text(?=\{)/g, '\\text');
 
   // Split by math delimiters to safely replace text formatting outside math
-  const mathRegex = /(\$\$.*?\$\$|\$.*?\$|\\\[.*?\\\]|\\\(.*?\\\))/gs;
+  const mathRegex = /(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g;
   const parts = clean.split(mathRegex);
 
   for (let i = 0; i < parts.length; i++) {

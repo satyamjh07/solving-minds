@@ -117,7 +117,7 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
                 <img
                   src={img}
                   alt="post"
-                  className="rounded-lg object-cover w-full h-48 border border-[#ffffff10] transition-all duration-200 group-hover:brightness-90 group-hover:scale-[1.01]"
+                  className="rounded-lg object-cover w-full h-48 border border-border transition-all duration-200 group-hover:brightness-90 group-hover:scale-[1.01]"
                 />
                 <div className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/10 transition-all duration-200 flex items-center justify-center">
                   <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 text-white text-xs px-2 py-1 rounded-full font-mono">
@@ -130,9 +130,9 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
         )}
 
         <div className="post-actions-row flex items-center gap-4">
-          <div className="emoji-vote-group flex items-center bg-[#ffffff08] rounded-full px-1 py-0.5">
+          <div className="emoji-vote-group flex items-center bg-bg-3 rounded-full px-1 py-0.5">
             <button
-              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === 1 ? 'text-purple bg-purple/20' : 'text-muted-foreground/60 hover:bg-white/10'}`}
+              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === 1 ? 'text-purple bg-purple/20' : 'text-muted-foreground/60 hover:bg-foreground/10'}`}
               onClick={() => onVote(post.id, 1)}
             >
               <ChevronUp size={20} fill={post.myVote === 1 ? 'currentColor' : 'none'} />
@@ -141,7 +141,7 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
               {post.score !== 0 ? (post.score > 0 ? `+${post.score}` : post.score) : 'Vote'}
             </span>
             <button
-              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === -1 ? 'text-red bg-red/20' : 'text-muted-foreground/60 hover:bg-white/10'}`}
+              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === -1 ? 'text-red bg-red/20' : 'text-muted-foreground/60 hover:bg-foreground/10'}`}
               onClick={() => onVote(post.id, -1)}
             >
               <ChevronDown size={20} fill={post.myVote === -1 ? 'currentColor' : 'none'} />

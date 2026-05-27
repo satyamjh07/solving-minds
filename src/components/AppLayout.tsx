@@ -133,10 +133,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a10]">
+      <div className="min-h-screen flex items-center justify-center bg-bg-1">
         <div className="text-center">
           <Loader2 className="h-10 w-10 animate-spin text-[#00f0ff] mx-auto mb-4" />
-          <p className="text-xs uppercase tracking-widest text-white/40">Synchronizing Session...</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Synchronizing Session...</p>
         </div>
       </div>
     );
@@ -144,13 +144,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (needsOnboarding && pathname !== '/auth/onboarding') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a10] p-4 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center bg-bg-1 p-4 relative overflow-hidden">
         <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-[#7c3aed]/10 blur-[150px] pointer-events-none" />
         <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-[#00f0ff]/5 blur-[150px] pointer-events-none" />
         <div className="text-center relative z-10">
           <Loader2 className="h-12 w-12 animate-spin text-[#00f0ff] mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-white mb-2 uppercase tracking-wider font-mono">Access Restricted</h3>
-          <p className="text-xs text-white/40 max-w-xs mx-auto">
+          <h3 className="text-lg font-bold text-foreground mb-2 uppercase tracking-wider font-mono">Access Restricted</h3>
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
             Your user identity profile is not calibrated. Redirecting to Identity Calibration Protocol...
           </p>
         </div>

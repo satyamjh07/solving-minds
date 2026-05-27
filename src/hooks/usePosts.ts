@@ -8,7 +8,7 @@ export interface Post {
   user_id: string;
   content: string;
   title: string;
-  image_url: string;
+  image_url?: string;
   image_urls: string[] | string;
   created_at: string;
   profiles: {
@@ -57,7 +57,7 @@ export function usePosts(filters: PostFilters = {}) {
       // In Supabase, we can use !inner to filter by joined table columns
       query = supabase
         .from('posts')
-        .select('id, user_id, title, content, image_urls, tags, created_at, profiles!inner(id, name, avatar_url, class, target_year, role)')
+        .select('id, user_id, title, content, image_urls, tags, created_at, profiles!inner(id, name, avatar_url, class, target_year, role, muted_until)')
         .eq('profiles.target_year', filters.targetYear)
         .order('created_at', { ascending: false })
         .limit(30);
@@ -111,9 +111,10 @@ export function usePosts(filters: PostFilters = {}) {
 
     const formattedPosts = postsData.map(p => ({
       ...p,
+      profiles: Array.isArray(p.profiles) ? p.profiles[0] : p.profiles,
       score: scoreMap[p.id] || 0,
       myVote: myVoteMap[p.id] || 0,
-    } as Post));
+    } as unknown as Post));
 
     // Client-side popular filter (since score isn't a column)
     let finalPosts = formattedPosts;

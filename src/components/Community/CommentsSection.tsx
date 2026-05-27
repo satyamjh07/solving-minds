@@ -294,7 +294,7 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
                             className="absolute right-0 top-full mt-1 w-32 bg-bg-2 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
                             onMouseLeave={() => setActiveMenu(null)}
                           >
-                            {(profile.role === 'admin' || profile.role === 'mod') && profile.id !== comment.user_id && (
+                            {(profile?.role === 'admin' || profile?.role === 'mod') && profile?.id !== comment.user_id && (
                               <button 
                                 onClick={() => {
                                   handleMuteUser(comment.user_id, !!comment.profiles?.muted_until);
@@ -306,7 +306,7 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
                                 {comment.profiles?.muted_until ? 'Unmute' : 'Mute'}
                               </button>
                             )}
-                            {(profile.role === 'admin' || profile.role === 'mod' || profile.id === comment.user_id) && (
+                            {(profile?.role === 'admin' || profile?.role === 'mod' || profile?.id === comment.user_id) && (
                               <button 
                                 onClick={async () => {
                                   setActiveMenu(null);

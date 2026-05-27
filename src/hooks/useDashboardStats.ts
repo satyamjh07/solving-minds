@@ -86,7 +86,7 @@ export function useDashboardStats(userId: string | undefined) {
       const atts = attempts || [];
       const subjs: Record<string, { t: number, c: number }> = { physics: {t:0,c:0}, chemistry: {t:0,c:0}, mathematics: {t:0,c:0} };
       atts.forEach(row => {
-        const s = (row.questions?.subject || '').toLowerCase();
+        const s = ((row.questions as any)?.subject || '').toLowerCase();
         const normS = s === 'math' || s === 'maths' ? 'mathematics' : s;
         if (subjs[normS]) {
           subjs[normS].t++;

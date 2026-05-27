@@ -85,10 +85,10 @@ export function useDashboardAnalytics(userId: string | undefined) {
 
         rows.forEach(row => {
           const date = isoDate(new Date(row.created_at));
-          const subj = (row.questions?.subject || '').toLowerCase();
+          const subj = ((row.questions as any)?.subject || '').toLowerCase();
           const normSubj = subj === 'math' || subj === 'maths' ? 'mathematics' : subj;
-          const chap = row.questions?.chapter || 'Unknown';
-          const topic = row.questions?.topic || '';
+          const chap = (row.questions as any)?.chapter || 'Unknown';
+          const topic = (row.questions as any)?.topic || '';
           const isCorr = !!row.is_correct;
 
           activityMap[date] = (activityMap[date] || 0) + 1;

@@ -64,6 +64,7 @@ export function useProfile() {
         const defaultProfile = {
           id: user.id,
           name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'New User',
+          email: user.email || '',
           avatar_url: user.user_metadata?.avatar_url || '',
           class: '',
           target_year: '',
@@ -78,6 +79,7 @@ export function useProfile() {
           .insert({
             id: user.id,
             name: defaultProfile.name,
+            email: defaultProfile.email,
             avatar_url: defaultProfile.avatar_url
           })
           .select()
