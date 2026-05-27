@@ -152,6 +152,7 @@ export default function SolvingPage() {
     if (filterType !== 'ALL') {
       if (filterType === 'NUMERICAL' && q.type !== 'integer') return false;
       if (filterType === 'MCQ' && q.type !== 'mcq') return false;
+      if (filterType === 'MULTI-CORRECT' && q.type !== 'multi-select') return false;
     }
     return true;
   }), [rawQuestions, filterYear, filterDifficulty, filterType]);
@@ -352,9 +353,12 @@ export default function SolvingPage() {
               </div>
             </div>
 
-            {/* Card 2: JEE Advanced (Coming Soon) */}
-            <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden flex flex-col justify-between min-h-[250px]">
-              <div className="absolute top-0 right-0 p-6 opacity-5">
+            {/* Card 2: JEE Advanced (Active) */}
+            <div
+              onClick={() => setSelectedExam('jee-advanced')}
+              className="bg-bg-2 border border-white/5 hover:border-orange/40 hover:bg-orange/5 rounded-3xl p-8 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-between min-h-[250px]"
+            >
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Sparkles size={80} className="text-orange" />
               </div>
               <div>
@@ -362,17 +366,17 @@ export default function SolvingPage() {
                   <div className="bg-orange/10 text-orange w-12 h-12 rounded-2xl flex items-center justify-center">
                     <Sparkles size={24} />
                   </div>
-                  <span className="bg-white/5 text-muted-foreground border border-white/5 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1">
-                    <Lock size={8} /> COMING SOON
+                  <span className="bg-green/10 text-green border border-green/20 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                    ACTIVE ENGINE
                   </span>
                 </div>
                 <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">JEE ADVANCED</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                  Rigorous multiple-correct, numerical decimal, and matrix-match simulation engines under active calibration.
+                  Full archive of JEE Advanced past year questions. Supports single-correct, multiple-correct, and numerical answer types.
                 </p>
               </div>
-              <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-auto">
-                 PROTOCOL LOCKED
+              <div className="flex items-center text-orange text-[10px] font-bold uppercase tracking-widest mt-auto">
+                INITIATE SESSION <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
 
@@ -546,7 +550,7 @@ export default function SolvingPage() {
               <div>
                 <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">QUESTION TYPE</label>
                 <div className="flex gap-2">
-                  {['ALL', 'MCQ', 'NUMERICAL'].map(type => (
+                  {['ALL', 'MCQ', 'MULTI-CORRECT', 'NUMERICAL'].map(type => (
                     <button
                       key={type}
                       onClick={() => setFilterType(type)}
@@ -716,7 +720,7 @@ export default function SolvingPage() {
                       {currentQuestion.difficulty}
                     </span>
                     <span className={`solver-badge solver-badge-${currentQuestion.type}`}>
-                      {currentQuestion.type === 'mcq' ? 'MCQ' : 'Numerical'}
+                      {currentQuestion.type === 'mcq' ? 'MCQ' : currentQuestion.type === 'multi-select' ? 'Multi-Correct' : 'Numerical'}
                     </span>
                     <span className="solver-badge solver-badge-year">{currentQuestion.year}</span>
                     {isAnswered && (
