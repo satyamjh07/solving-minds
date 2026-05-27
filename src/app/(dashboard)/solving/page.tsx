@@ -167,7 +167,9 @@ export default function SolvingPage() {
   }, [selectedChapter, subject]);
 
   useEffect(() => {
+    setSelectedOption(null);
     setSelectedMultiOptions([]);
+    setIntegerInput('');
   }, [currentIndex, selectedChapter]);
 
   // KEY FIX: MERGE fetched attempts into local state instead of replacing.
@@ -210,9 +212,10 @@ export default function SolvingPage() {
       const correctArr = correctAnswerStr.split(',').filter(Boolean).map(x => parseInt(x.trim())).sort((a, b) => a - b);
       isCorrect = sortedSelected.length === correctArr.length && sortedSelected.every((v, i) => v === correctArr[i]);
     } else {
-      if (optionIdx === undefined || optionIdx === null) return;
-      isCorrect = optionIdx === currentQuestion.correct;
-      answerValue = optionIdx.toString();
+      const activeIdx = optionIdx !== undefined && optionIdx !== null ? optionIdx : selectedOption;
+      if (activeIdx === null || activeIdx === undefined) return;
+      isCorrect = activeIdx === currentQuestion.correct;
+      answerValue = activeIdx.toString();
     }
 
     const newAttempt: Attempt = {
@@ -751,9 +754,6 @@ export default function SolvingPage() {
                           onChange={(e) => setIntegerInput(e.target.value)}
                           disabled={isAnswered}
                         />
-                        {!isAnswered && (
-                          <button className="zd-btn zd-btn-check" onClick={() => handleSubmit()}>CHECK</button>
-                        )}
                       </div>
                       {isAnswered && (
                         <div className={`zd-integer-feedback ${currentAttempt?.is_correct ? 'correct' : 'wrong'}`}>
@@ -784,6 +784,7 @@ export default function SolvingPage() {
                             isCorrectOpt = i === currentQuestion.correct;
                             const selectedIdx = isAnswered ? Number(currentAttempt?.selected_answer) : -1;
                             isUserOpt = isAnswered && selectedIdx === i;
+                            isSelected = !isAnswered && selectedOption === i;
                           }
 
                           let cls = 'solver-option-btn';
@@ -792,16 +793,17 @@ export default function SolvingPage() {
                             if (isCorrectOpt) cls += ' correct';
                             if (isUserOpt && !isCorrectOpt) cls += ' wrong';
                           } else {
-                            if (isMulti && isSelected) cls += ' active';
+                            if (isSelected) cls += ' active';
                           }
 
                           const handleOptionClick = () => {
+                            if (isAnswered) return;
                             if (isMulti) {
                               setSelectedMultiOptions(prev => 
                                 prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
                               );
                             } else {
-                              handleSubmit(i);
+                              setSelectedOption(i);
                             }
                           };
 
@@ -821,17 +823,6 @@ export default function SolvingPage() {
                           );
                         })}
                       </div>
-                      {currentQuestion.type === 'multi-select' && !isAnswered && (
-                        <div className="flex justify-end mb-6">
-                          <button 
-                            className="zd-btn zd-btn-check flex items-center gap-2"
-                            onClick={() => handleSubmit()}
-                            disabled={selectedMultiOptions.length === 0}
-                          >
-                            <Check size={14} /> CHECK ANSWER
-                          </button>
-                        </div>
-                      )}
                     </>
                   )}
 
@@ -849,19 +840,37 @@ export default function SolvingPage() {
                   </div>
 
                   <div className="zd-q-actions">
-                    <button 
-                      className="zd-btn zd-btn-ghost" 
-                      onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
-                    >
-                      SKIP
-                    </button>
-                    <button 
-                      className="zd-btn zd-btn-primary"
-                      onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
-                      disabled={currentIndex === questions.length - 1}
-                    >
-                      NEXT →
-                    </button>
+                    {!isAnswered && (
+                      <button 
+                        className="zd-btn zd-btn-ghost" 
+                        onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
+                        disabled={currentIndex === questions.length - 1}
+                      >
+                        SKIP
+                      </button>
+                    )}
+                    
+                    {!isAnswered ? (
+                      <button 
+                        className="zd-btn zd-btn-primary"
+                        onClick={() => handleSubmit()}
+                        disabled={
+                          (currentQuestion.type === 'integer' && !integerInput.trim()) ||
+                          (currentQuestion.type === 'multi-select' && selectedMultiOptions.length === 0) ||
+                          (currentQuestion.type === 'mcq' && selectedOption === null)
+                        }
+                      >
+                        SUBMIT
+                      </button>
+                    ) : (
+                      <button 
+                        className="zd-btn zd-btn-primary"
+                        onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
+                        disabled={currentIndex === questions.length - 1}
+                      >
+                        NEXT →
+                      </button>
+                    )}
                     <span className="zd-q-progress">
                       {currentIndex + 1} / {questions.length}
                     </span>
@@ -892,8 +901,14 @@ export default function SolvingPage() {
             display: none;
           }
         }
+        .zd-right {
+          min-width: 0;
+          max-width: 100%;
+        }
         .zd-main-wrapper {
           padding-bottom: 100px;
+          max-width: 100%;
+          overflow-x: hidden;
         }
         .zd-breadcrumb {
           display: flex;
@@ -1227,6 +1242,8 @@ export default function SolvingPage() {
           border-radius: 16px;
           padding: 1.5rem;
           margin-bottom: 2rem;
+          max-width: 100%;
+          overflow-x: auto;
         }
         .zd-explanation.show { display: block; }
         .zd-explanation-label {
@@ -1241,6 +1258,20 @@ export default function SolvingPage() {
           text-transform: uppercase;
         }
         .zd-explanation-text { font-size: 0.95rem; line-height: 1.6; color: var(--text); }
+        .zd-explanation img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 12px;
+        }
+
+        /* Inline KaTeX Responsive Fix */
+        .zd-q-text :global(.katex), .zd-explanation-text :global(.katex) {
+          max-width: 100%;
+          overflow-x: auto;
+          overflow-y: hidden;
+          display: inline-block;
+          vertical-align: middle;
+        }
 
         .zd-q-actions { display: flex; gap: 1rem; align-items: center; }
         .zd-q-progress { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--text2); }
