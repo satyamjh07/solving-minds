@@ -172,7 +172,7 @@
 /* Accuracy Gauges */
 .an-gauge-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
 }
 .an-gauge-card {
@@ -242,7 +242,7 @@
 }
 
 /* Weak Topics */
-.an-topic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.6rem; }
+.an-topic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; overflow: hidden; }
 .an-topic-chip {
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: 9px; padding: 0.7rem 0.85rem;
@@ -510,6 +510,51 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  /* Subject Mastery — compact 3-col on mobile (like Questions Solved) */
+  .an-gauge-row {
+    grid-template-columns: repeat(3, 1fr) !important;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1rem 0.2rem;
+    gap: 0;
+  }
+  .an-gauge-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0.6rem 0.2rem !important;
+    box-shadow: none !important;
+  }
+  .an-gauge-card:not(:last-child) {
+    border-right: 1px solid var(--border) !important;
+  }
+  .an-gauge-wrap {
+    width: 60px !important;
+    height: 60px !important;
+  }
+  .an-gauge-pct {
+    font-size: 1rem !important;
+  }
+  .an-gauge-subject {
+    font-size: 0.5rem !important;
+    margin-top: 0.4rem !important;
+  }
+  .an-gauge-trend {
+    font-size: 0.5rem !important;
+  }
+  /* Weak Topics — prevent overflow */
+  .an-topic-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+  }
+  .an-topic-chip {
+    padding: 0.5rem 0.6rem !important;
+    overflow: hidden;
+  }
+  .an-topic-score {
+    font-size: 0.8rem !important;
+    flex-shrink: 0;
   }
 }
 
