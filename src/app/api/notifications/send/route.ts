@@ -23,29 +23,20 @@ export async function POST(req: Request) {
   try {
     const { title, body, audience, targetId } = await req.json();
 
-    // 1. Fetch tokens and user IDs based on audience
-    let tokens: string[] = [];
-    let userIds: string[] = [];
+    // 1. Fetch tokens and user IDs based on audience via secure RPC (bypassing RLS)
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc('get_push_tokens', { 
+        audience_filter: audience, 
+        target_user_id: targetId || null 
+      });
 
-    if (audience === 'everyone') {
-      const { data } = await supabase.from('push_tokens').select('token, user_id');
-      tokens = data?.map(t => t.token) || [];
-      userIds = Array.from(new Set(data?.map(t => t.user_id) || []));
-    } else if (['11th', '12th', 'dropper'].includes(audience)) {
-      const { data } = await supabase
-        .from('push_tokens')
-        .select('token, user_id, profiles!inner(class)')
-        .eq('profiles.class', audience);
-      tokens = data?.map(t => t.token) || [];
-      userIds = Array.from(new Set(data?.map(t => t.user_id) || []));
-    } else if (audience === 'user' && targetId) {
-      const { data } = await supabase
-        .from('push_tokens')
-        .select('token, user_id')
-        .eq('user_id', targetId);
-      tokens = data?.map(t => t.token) || [];
-      userIds = [targetId];
+    if (rpcError) {
+      console.error('RPC get_push_tokens error:', rpcError);
+      throw rpcError;
     }
+
+    const tokens: string[] = rpcData?.map((t: any) => t.token) || [];
+    const userIds: string[] = Array.from(new Set(rpcData?.map((t: any) => t.user_id) || []));
 
     if (tokens.length === 0) {
       return NextResponse.json({ success: true, message: 'No tokens found' });
