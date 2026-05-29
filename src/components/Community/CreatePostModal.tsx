@@ -116,13 +116,13 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200]"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1050]"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="fixed inset-x-0 bottom-0 z-[201] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-xl animate-slide-up">
-        <div className="bg-[#0f0f1a] border border-[#ffffff12] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden">
+      <div className="fixed inset-x-0 bottom-0 z-[1100] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-xl animate-slide-up" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="bg-[#0f0f1a] border border-[#ffffff12] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden mb-[62px] sm:mb-0">
           
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#ffffff08]">

@@ -1,3 +1,7 @@
+// Service Worker Version — bump this to force cache refresh for offline/PWA users
+const SW_VERSION = 'v2.1.0';
+const CACHE_NAME = `solvingminds-${SW_VERSION}`;
+
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
@@ -19,8 +23,40 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: '/logo.png', // Replace with your app logo
+    icon: '/logo.png',
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Install: cache critical shell assets and activate immediately
+self.addEventListener('install', (event) => {
+  console.log(`[SW ${SW_VERSION}] Installing...`);
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll([
+        '/logo.png',
+        '/manifest.json',
+      ]);
+    })
+  );
+  self.skipWaiting(); // Activate new SW immediately
+});
+
+// Activate: clean up old caches
+self.addEventListener('activate', (event) => {
+  console.log(`[SW ${SW_VERSION}] Activating...`);
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys
+          .filter((key) => key.startsWith('solvingminds-') && key !== CACHE_NAME)
+          .map((key) => {
+            console.log(`[SW] Deleting old cache: ${key}`);
+            return caches.delete(key);
+          })
+      );
+    })
+  );
+  self.clients.claim(); // Take control of all clients immediately
 });
