@@ -8,6 +8,7 @@ export interface Attempt {
   question_id: string;
   is_correct: boolean;
   selected_answer: string;
+  time_taken: number | null;
   created_at: string;
 }
 

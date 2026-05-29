@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, memo } from 'react';
+import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react';
 import { useQuestions, Question } from '@/hooks/useQuestions';
 import { useAttempts, Attempt } from '@/hooks/useAttempts';
 import { useProfile } from '@/hooks/useProfile';
@@ -106,6 +106,11 @@ export default function SolvingPage() {
   const attemptCacheRef = useRef<Record<string, Attempt>>({});
   const [localAttempts, setLocalAttempts] = useState<Record<string, Attempt>>({});
 
+  // ─── Question Timer ───
+  const timerRef = useRef<number>(0);                          // elapsed seconds (mutable, no re-render)
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // interval handle
+  const [displayTime, setDisplayTime] = useState(0);           // for live UI display
+
 
   // Filters
   const [filterYear, setFilterYear] = useState('ALL');
@@ -172,6 +177,34 @@ export default function SolvingPage() {
     setIntegerInput('');
   }, [currentIndex, selectedChapter]);
 
+  // ─── Timer: auto-start on question visit, reset on question change ───
+  useEffect(() => {
+    // Stop any existing timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    // Reset
+    timerRef.current = 0;
+    setDisplayTime(0);
+
+    // Only start if there's a question AND it's not already answered (on cooldown)
+    if (!currentQuestion || isOnCooldown(attempts[currentQuestion._dbId])) return;
+
+    timerIntervalRef.current = setInterval(() => {
+      timerRef.current += 1;
+      setDisplayTime(timerRef.current);
+    }, 1000);
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?._dbId]);
+
   // KEY FIX: MERGE fetched attempts into local state instead of replacing.
   // Replacing would clobber any optimistic updates already in local state.
   useEffect(() => {
@@ -218,11 +251,19 @@ export default function SolvingPage() {
       answerValue = activeIdx.toString();
     }
 
+    // ─── Stop the timer and capture elapsed seconds ───
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    const timeTaken = timerRef.current;
+
     const newAttempt: Attempt = {
       id: 'temp-' + Date.now(),
       question_id: currentQuestion._dbId,
       is_correct: isCorrect,
       selected_answer: answerValue,
+      time_taken: timeTaken,
       created_at: new Date().toISOString(),
     };
 
@@ -242,6 +283,7 @@ export default function SolvingPage() {
         question_id: currentQuestion._dbId,
         is_correct: isCorrect,
         selected_answer: answerValue,
+        time_taken: timeTaken,
       }).then(({ data, error }) => {
         if (error) {
           console.error('[Solver] Failed to save attempt:', error.message);
@@ -729,6 +771,18 @@ export default function SolvingPage() {
                     {isAnswered && (
                       <span className="solver-badge" style={{ background: 'rgba(255,147,64,0.15)', color: '#ff9340', border: '1px solid rgba(255,147,64,0.3)' }}>
                         ⏳ COOLDOWN ACTIVE
+                      </span>
+                    )}
+                    {/* Live Timer — ticking while user is solving */}
+                    {!isAnswered && currentQuestion && (
+                      <span className="solver-badge" style={{ background: 'rgba(0,240,255,0.08)', color: 'var(--accent)', border: '1px solid rgba(0,240,255,0.2)', fontFamily: "'DM Mono', monospace" }}>
+                        ⏱ {Math.floor(displayTime / 60).toString().padStart(2, '0')}:{(displayTime % 60).toString().padStart(2, '0')}
+                      </span>
+                    )}
+                    {/* Time taken — shown during cooldown */}
+                    {isAnswered && currentAttempt?.time_taken != null && currentAttempt.time_taken > 0 && (
+                      <span className="solver-badge" style={{ background: 'rgba(0,229,160,0.1)', color: 'var(--green)', border: '1px solid rgba(0,229,160,0.25)', fontFamily: "'DM Mono', monospace" }}>
+                        ⏱ Solved in {currentAttempt.time_taken >= 60 ? `${Math.floor(currentAttempt.time_taken / 60)}m ` : ''}{currentAttempt.time_taken % 60}s
                       </span>
                     )}
                   </div>
