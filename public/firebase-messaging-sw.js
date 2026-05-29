@@ -1,5 +1,5 @@
 // Service Worker Version — bump this to force cache refresh for offline/PWA users
-const SW_VERSION = 'v2.1.0';
+const SW_VERSION = 'v3.1.0';
 const CACHE_NAME = `solvingminds-${SW_VERSION}`;
 
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
