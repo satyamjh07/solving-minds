@@ -44,7 +44,7 @@ export function useLeaderboard(mode: 'daily' | 'weekly' = 'weekly') {
             row_limit: 10
           });
 
-          if (!rpcErr && rpcData && rpcData.length > 0) {
+          if (!rpcErr && rpcData) {
             setEntries(rpcData.map((r: any, idx: number) => ({
               user_id: r.user_id || r.id,
               name: r.name,

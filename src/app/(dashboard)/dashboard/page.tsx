@@ -256,9 +256,12 @@ export default function DashboardPage() {
             <div className="an-card-header">
                <div>
                   <div className="an-card-title text-yellow-400">
-                     <Award size={16} className="mr-2" /> Global Leaderboard
+                     <Award size={16} className="mr-2" />
+                     {lbMode === 'daily' ? 'Daily Leaderboard' : lbMode === 'weekly' ? 'Weekly Leaderboard' : 'Global Leaderboard'}
                   </div>
-                  <div className="an-card-sub">Ranked by aura score</div>
+                  <div className="an-card-sub">
+                    {lbMode === 'daily' ? "Ranked by today's study time" : lbMode === 'weekly' ? "Ranked by this week's study time" : 'Ranked by total aura score'}
+                  </div>
                </div>
                <div className="an-lb-tabs">
                   <div className={`an-lb-tab ${lbMode === 'daily' ? 'active' : ''}`} onClick={() => setLbMode('daily')}>Daily</div>
@@ -290,7 +293,7 @@ export default function DashboardPage() {
                            </div>
                            <div className="an-lb-score">
                               <div className="an-lb-val">{entry.aura_score.toLocaleString()}</div>
-                              <div className="an-lb-label">aura points</div>
+                              <div className="an-lb-label">{lbMode === 'daily' ? 'pts today' : lbMode === 'weekly' ? 'pts this week' : 'aura points'}</div>
                            </div>
                         </div>
                      ))

@@ -450,4 +450,67 @@
 .badge-med { background: rgba(255,147,64,0.1); color: var(--orange); }
 .badge-crit { background: rgba(255,77,106,0.1); color: var(--red); }
 
+@media (max-width: 600px) {
+  .an-qstat-row {
+    grid-template-columns: repeat(3, 1fr) !important;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1rem 0.4rem;
+    gap: 0;
+  }
+  .an-qstat-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0.5rem 0.2rem !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.4rem;
+    box-shadow: none !important;
+  }
+  .an-qstat-card:not(:last-child) {
+    border-right: 1px solid var(--border) !important;
+  }
+  .an-qstat-ring {
+    width: 42px !important;
+    height: 42px !important;
+  }
+  .an-qstat-ring-label {
+    font-size: 0.7rem !important;
+  }
+  .an-qstat-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  .an-qstat-period {
+    font-size: 0.55rem !important;
+    margin-bottom: 2px;
+  }
+  .an-qstat-num {
+    font-size: 1.4rem !important;
+    margin: 1px 0 !important;
+  }
+  .an-qstat-sub {
+    font-size: 0.55rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    color: var(--text3);
+  }
+  .an-chapter-bar-wrap {
+    display: none !important;
+  }
+  .an-topic-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 

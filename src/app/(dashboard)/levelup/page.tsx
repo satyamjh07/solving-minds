@@ -81,14 +81,42 @@ export default function LevelUpPage() {
           className="absolute inset-0 w-full h-full pointer-events-none" 
           viewBox="0 0 400 1200" 
           fill="none" 
+          preserveAspectRatio="none"
           xmlns="http://www.w3.org/2000/svg"
         >
+          <defs>
+            <clipPath id="progress-clip">
+              <path 
+                d="M200 0 C250 150, 150 300, 200 450 S250 750, 200 900 S150 1150, 200 1200" 
+                stroke="white" 
+                strokeWidth="20" 
+                fill="none"
+                pathLength="100"
+                strokeDasharray={`${((aura.level - 1 + (aura.progress || 0) / 100) / 9) * 100} ${100 - ((aura.level - 1 + (aura.progress || 0) / 100) / 9) * 100}`}
+                strokeDashoffset="0"
+                strokeLinecap="round"
+              />
+            </clipPath>
+          </defs>
+          {/* Faint Background Dotted Line */}
           <path 
             d="M200 0 C250 150, 150 300, 200 450 S250 750, 200 900 S150 1150, 200 1200" 
             stroke="var(--accent)" 
             strokeWidth="4" 
             strokeDasharray="8 12" 
-            className="opacity-20"
+            className="opacity-10"
+          />
+          {/* Active Glowing Filled Dotted Line */}
+          <path 
+            d="M200 0 C250 150, 150 300, 200 450 S250 750, 200 900 S150 1150, 200 1200" 
+            stroke="var(--accent)" 
+            strokeWidth="4" 
+            strokeDasharray="8 12" 
+            strokeLinecap="round"
+            clipPath="url(#progress-clip)"
+            style={{
+              filter: 'drop-shadow(0 0 6px var(--accent))',
+            }}
           />
         </svg>
 
@@ -136,13 +164,6 @@ export default function LevelUpPage() {
                       </div>
                    </div>
                 </div>
-
-                {/* Connector Line Progress (Fake visual) */}
-                {isCurrent && (
-                   <div className="absolute top-24 w-1 bg-cyan-500/30 h-16 rounded-full overflow-hidden">
-                      <div className="w-full bg-cyan-500 h-1/2 animate-bounce-slow"></div>
-                   </div>
-                )}
               </div>
             );
           })}
