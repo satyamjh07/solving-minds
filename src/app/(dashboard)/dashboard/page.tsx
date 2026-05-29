@@ -79,6 +79,45 @@ export default function DashboardPage() {
     return 'Good evening';
   };
 
+  const handleExportCSV = () => {
+    if (!data || !data.resourceAllocation || !data.resourceAllocation.length) {
+      toast('No data available to export', 'error');
+      return;
+    }
+
+    const headers = ['Subject', 'Time Spent (s)', 'Time Spent (Formatted)', 'Questions Solved', 'Correct Questions', 'Accuracy (%)', 'Avg Time/Q (s)', 'Status'];
+    const rows = data.resourceAllocation.map(s => {
+      const formattedTime = `${Math.floor(s.timeSpent / 3600)}h ${Math.floor((s.timeSpent % 3600) / 60)}m`;
+      const status = s.accuracy > 75 ? 'Excellent' : s.accuracy > 50 ? 'Optimized' : s.accuracy > 30 ? 'Warning' : 'Critical';
+      return [
+        s.subject.toUpperCase(),
+        s.timeSpent,
+        formattedTime,
+        s.totalQuestions,
+        s.correctQuestions,
+        s.accuracy,
+        s.avgTimePerQ,
+        status
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${val}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `solvingminds_resource_allocation_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast('Resource allocation exported successfully!', 'success');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -146,7 +185,14 @@ export default function DashboardPage() {
           </div>
           <div className="an-kpi-card an-c-orange">
             <div className="an-kpi-icon"><Clock size={20} /></div>
-            <div className="an-kpi-val">{Math.round((data?.resourceAllocation.reduce((a, b) => a + b.timeSpent, 0) || 0) / 3600)}h</div>
+            <div className="an-kpi-val">
+              {(() => {
+                const totalSecs = data?.resourceAllocation.reduce((a, b) => a + b.timeSpent, 0) || 0;
+                if (totalSecs === 0) return '0h';
+                if (totalSecs < 3600) return `${Math.round(totalSecs / 60)}m`;
+                return `${(totalSecs / 3600).toFixed(1)}h`;
+              })()}
+            </div>
             <div className="an-kpi-label">Total Focused</div>
             <div className="an-kpi-delta">
               Target: 42h / week
@@ -347,10 +393,10 @@ export default function DashboardPage() {
             </div>
             
             {/* Mini Stats */}
-            <div className="space-y-2">
-               <MiniStat icon={<Clock size={12} />} label="Avg time / question" value={`${Math.round((data?.resourceAllocation.reduce((a, b) => a + b.avgTimePerQ, 0) || 0) / (data?.resourceAllocation.length || 1))}s`} color="var(--accent)" />
-               <MiniStat icon={<Zap size={12} />} label="Questions Attempted" value={data?.questionsSolved.month.toString() || '0'} color="var(--purple)" />
-            </div>
+             <div className="space-y-2">
+                <MiniStat icon={<Clock size={12} />} label="Avg time / question" value={`${data?.globalAvgTimePerQ != null ? data.globalAvgTimePerQ : 0}s`} color="var(--accent)" />
+                <MiniStat icon={<Zap size={12} />} label="Questions Attempted" value={data?.questionsSolved.month.toString() || '0'} color="var(--purple)" />
+             </div>
           </div>
  
           {/* Study Streak */}
@@ -393,14 +439,17 @@ export default function DashboardPage() {
       {/* Resource Allocation Table */}
       <section className="mb-8 an-anim an-anim-5">
          <div className="an-card">
-            <div className="an-card-header">
-               <div className="an-card-title">
-                  <Table size={16} className="mr-2" /> Resource Allocation
-               </div>
-               <button className="an-btn-primary flex items-center gap-2 px-3 py-1 bg-cyan-500 text-black font-bold rounded-md text-[10px]">
-                  <Download size={14} /> EXPORT CSV
-               </button>
-            </div>
+             <div className="an-card-header">
+                <div className="an-card-title">
+                   <Table size={16} className="mr-2" /> Resource Allocation
+                </div>
+                <button 
+                  onClick={handleExportCSV}
+                  className="an-btn-primary flex items-center gap-2 px-3 py-1 bg-cyan-500 text-black font-bold rounded-md text-[10px]"
+                >
+                   <Download size={14} /> EXPORT CSV
+                </button>
+             </div>
             <div className="overflow-x-auto">
                <table className="an-tbl">
                   <thead>

@@ -29,6 +29,7 @@ export interface DashboardAnalytics {
   resourceAllocation: any[];
   activityMap: Record<string, number>;
   studySessions: any[];
+  globalAvgTimePerQ?: number;
 }
 
 export function useDashboardAnalytics(userId: string | undefined) {
@@ -48,12 +49,11 @@ export function useDashboardAnalytics(userId: string | undefined) {
         const threeMonthsAgo = new Date();
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-        // 1. Fetch recent user_attempts joined with questions
+        // 1. Fetch all user_attempts joined with questions (to compute all-time total focus time, accurate heatmap, and resource allocation)
         const { data: attempts, error: attemptsErr } = await supabase
           .from('user_attempts')
-          .select('id, is_correct, created_at, questions!inner(subject, chapter, topic)')
+          .select('id, is_correct, time_taken, created_at, questions!inner(subject, chapter, topic)')
           .eq('user_id', userId)
-          .gte('created_at', threeMonthsAgo.toISOString())
           .order('created_at', { ascending: true });
 
         if (attemptsErr) throw attemptsErr;
@@ -74,10 +74,10 @@ export function useDashboardAnalytics(userId: string | undefined) {
 
         const activityMap: Record<string, number> = {};
         const chapterMap: Record<string, any> = {};
-        const subjectMap: Record<string, { total: number; correct: number; time: number }> = {
-          physics: { total: 0, correct: 0, time: 0 },
-          chemistry: { total: 0, correct: 0, time: 0 },
-          mathematics: { total: 0, correct: 0, time: 0 }
+        const subjectMap: Record<string, { total: number; correct: number; time: number; timedAttemptsCount: number }> = {
+          physics: { total: 0, correct: 0, time: 0, timedAttemptsCount: 0 },
+          chemistry: { total: 0, correct: 0, time: 0, timedAttemptsCount: 0 },
+          mathematics: { total: 0, correct: 0, time: 0, timedAttemptsCount: 0 }
         };
         const sessionByDay: Record<string, any> = {};
 
@@ -90,6 +90,7 @@ export function useDashboardAnalytics(userId: string | undefined) {
           const chap = (row.questions as any)?.chapter || 'Unknown';
           const topic = (row.questions as any)?.topic || '';
           const isCorr = !!row.is_correct;
+          const timeTk = (row as any).time_taken || 0;
 
           activityMap[date] = (activityMap[date] || 0) + 1;
 
@@ -111,21 +112,16 @@ export function useDashboardAnalytics(userId: string | undefined) {
           if (subjectMap[normSubj]) {
             subjectMap[normSubj].total++;
             if (isCorr) subjectMap[normSubj].correct++;
+            if ((row as any).time_taken != null && (row as any).time_taken > 0) {
+              subjectMap[normSubj].time += timeTk;
+              subjectMap[normSubj].timedAttemptsCount++;
+            }
           }
 
           const daySubjKey = date + '/' + normSubj;
           if (!sessionByDay[daySubjKey]) sessionByDay[daySubjKey] = { total: 0, correct: 0 };
           sessionByDay[daySubjKey].total++;
           if (isCorr) sessionByDay[daySubjKey].correct++;
-        });
-
-        // Add time from sessions to subjectMap
-        sessRows.forEach(s => {
-            const subj = (s.subject || 'physics').toLowerCase();
-            const normSubj = subj === 'math' || subj === 'maths' ? 'mathematics' : subj;
-            if (subjectMap[normSubj]) {
-                subjectMap[normSubj].time += (s.duration_seconds || 0);
-            }
         });
 
         // Compute streak
@@ -184,8 +180,12 @@ export function useDashboardAnalytics(userId: string | undefined) {
           totalQuestions: stats.total,
           correctQuestions: stats.correct,
           accuracy: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
-          avgTimePerQ: stats.total > 0 ? Math.round(stats.time / stats.total) : 0
+          avgTimePerQ: stats.timedAttemptsCount > 0 ? Math.round(stats.time / stats.timedAttemptsCount) : 0
         }));
+
+        const totalTimedAttempts = Object.values(subjectMap).reduce((acc, curr) => acc + curr.timedAttemptsCount, 0);
+        const totalTimeSpent = Object.values(subjectMap).reduce((acc, curr) => acc + curr.time, 0);
+        const globalAvgTimePerQ = totalTimedAttempts > 0 ? Math.round(totalTimeSpent / totalTimedAttempts) : 0;
 
         setData({
           streak: { current: currentStreak, best: bestStreak },
@@ -208,7 +208,8 @@ export function useDashboardAnalytics(userId: string | undefined) {
           weakTopics: weakTopics.slice(0, 8),
           resourceAllocation,
           activityMap,
-          studySessions: sessRows
+          studySessions: sessRows,
+          globalAvgTimePerQ
         });
 
         // 3. Update profile with new aura score (debounced or simple)
