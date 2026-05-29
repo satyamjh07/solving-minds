@@ -165,6 +165,18 @@ export default function SolvingPage() {
   const qIds = useMemo(() => questions.map(q => q._dbId), [questions]);
   const { attempts: fetchedAttempts, refetch: refetchAttempts } = useAttempts(qIds);
 
+  const attempts = localAttempts;
+  const currentQuestion = questions[currentIndex];
+  const currentAttempt = currentQuestion ? attempts[currentQuestion._dbId] : null;
+  
+  const isOnCooldown = (attempt: Attempt | null) => {
+    if (!attempt) return false;
+    const age = Date.now() - new Date(attempt.created_at).getTime();
+    return age < COOLDOWN_MS;
+  };
+
+  const isAnswered = isOnCooldown(currentAttempt);
+
   // Reset attempt cache when chapter changes so old answers don’t bleed through.
   useEffect(() => {
     attemptCacheRef.current = {};
@@ -210,19 +222,6 @@ export default function SolvingPage() {
   useEffect(() => {
     setLocalAttempts(prev => ({ ...fetchedAttempts, ...prev }));
   }, [fetchedAttempts]);
-
-  const attempts = localAttempts;
-
-  const currentQuestion = questions[currentIndex];
-  const currentAttempt = currentQuestion ? attempts[currentQuestion._dbId] : null;
-  
-  const isOnCooldown = (attempt: Attempt | null) => {
-    if (!attempt) return false;
-    const age = Date.now() - new Date(attempt.created_at).getTime();
-    return age < COOLDOWN_MS;
-  };
-
-  const isAnswered = isOnCooldown(currentAttempt);
 
   const handleSubmit = (optionIdx?: number) => {
     if (!currentQuestion || isAnswered) return;
