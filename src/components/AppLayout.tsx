@@ -18,15 +18,24 @@ import {
   AlertTriangle,
   ShieldCheck
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { SupportModal } from '@/components/Support/SupportModal';
 import { LifeBuoy } from 'lucide-react';
 
+function SearchParamsTracker({ onChange }: { onChange: (q: string | null) => void }) {
+  const searchParams = useSearchParams();
+  const q = searchParams.get('q');
+  useEffect(() => {
+    onChange(q);
+  }, [q, onChange]);
+  return null;
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [qParam, setQParam] = useState<string | null>(null);
   const { profile, loading } = useProfile();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
@@ -113,7 +122,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'mod';
   const isAdmin = profile?.role === 'admin';
-  const isSolving = pathname.startsWith('/solving') && searchParams.get('q') !== null;
+  const isSolving = pathname.startsWith('/solving') && qParam !== null;
 
   const handleSignOut = async () => {
     sessionStorage.clear();
@@ -162,6 +171,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)]">
+      <Suspense fallback={null}>
+        <SearchParamsTracker onChange={setQParam} />
+      </Suspense>
       {/* Topbar (Solving Minds Analytics Style) */}
       <header className="an-topbar">
         <div className="an-topbar-left">
