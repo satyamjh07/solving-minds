@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react';
 import { useQuestions, Question } from '@/hooks/useQuestions';
@@ -713,503 +713,425 @@ export default function SolvingPage() {
     );
   }
 
-  // View 3: Solving Environment
+  // View 3: Solving Environment — Distraction-Free Focus Mode
   return (
-    <div className="zd-main-wrapper" style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
-      <div className="ps-4 pe-4 pt-6 max-w-[1400px] mx-auto">
-        <div className="zd-breadcrumb mb-6">
-          <button className="zd-breadcrumb-btn" onClick={() => setView('modes')}>
-            Modes
-          </button>
-          <span className="zd-breadcrumb-sep">/</span>
-          <button className="zd-breadcrumb-btn" onClick={() => setView('pyq-selection')}>
-            PYQ SELECTION
-          </button>
-          <span className="zd-breadcrumb-sep">/</span>
-          <span className="zd-breadcrumb-current">{selectedChapter || 'Solving'}</span>
+    <div className="sf-wrapper">
+      {/* Top bar: chapter name + back button */}
+      <div className="sf-topbar">
+        <div className="sf-topbar-chapter">
+          <span className="sf-topbar-label">{subject.toUpperCase()}</span>
+          <span className="sf-topbar-sep">/</span>
+          <span className="sf-topbar-title">{selectedChapter || 'Solving'}</span>
+          <span className="sf-topbar-count">({questions.length})</span>
         </div>
+        <button
+          className="sf-back-btn"
+          onClick={() => setView('pyq-selection')}
+          title="Back to selection"
+        >
+          <ChevronLeft size={18} />
+          <span className="sf-back-label">Back</span>
+        </button>
+      </div>
 
-        <div className="zd-layout">
-          {/* Left Sidebar */}
-          <div className="zd-left">
-            <div className="zd-card">
-              <div className="zd-section-label">SUBJECT</div>
-              <button 
-                className={`zd-subject-btn ${subject === 'physics' ? 'active' : ''}`}
-                onClick={() => setSubject('physics')}
-              >
-                <span className="zd-dot" style={{ background: 'var(--blue)' }}></span>PHYSICS
-              </button>
-              <button 
-                className={`zd-subject-btn ${subject === 'chemistry' ? 'active' : ''}`}
-                onClick={() => setSubject('chemistry')}
-              >
-                <span className="zd-dot" style={{ background: 'var(--purple)' }}></span>CHEMISTRY
-              </button>
-              <button 
-                className={`zd-subject-btn ${subject === 'mathematics' ? 'active' : ''}`}
-                onClick={() => setSubject('mathematics')}
-              >
-                <span className="zd-dot" style={{ background: 'var(--orange)' }}></span>MATHEMATICS
-              </button>
-              
-              <div className="zd-divider"></div>
-              
-              <div className="zd-section-label">CHAPTER</div>
-              <div className="zd-chapter-list">
-                {chapters.map(ch => (
-                  <button 
-                    key={ch.name}
-                    className={`zd-chapter-btn ${selectedChapter === ch.name ? 'active' : ''}`}
-                    onClick={() => {
-                      setSelectedChapter(ch.name);
-                      setCurrentIndex(0);
-                      setShowSolution(false);
-                    }}
-                  >
-                    {ch.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+      {/* Main layout: question (80%) | navigator (20%) */}
+      <div className="sf-layout">
 
-          {/* Right Main Column */}
-          <div className="zd-right">
-            {/* Question Navigator */}
-            <div className="zd-card zd-qnav-card mb-4">
-              <div className="zd-qnav-header">
-                <span className="zd-qnav-title">
-                  {selectedChapter ? `${selectedChapter.toUpperCase()} (${questions.length})` : 'SELECT A CHAPTER'}
-                </span>
-                <div className="zd-qnav-legend">
-                  <span className="zd-pip" style={{ background: 'var(--green)' }}></span>Correct
-                  <span className="zd-pip" style={{ background: 'var(--red)' }}></span>Wrong
-                  <span className="zd-pip" style={{ background: 'var(--orange)' }}></span>Skipped
-                  <span className="zd-pip" style={{ background: 'var(--bg3)' }}></span>Unseen
-                </div>
+        {/* ── LEFT: Question Area (80%) ── */}
+        <div className="sf-question-col">
+          <div className="sf-q-card">
+            {qLoading ? (
+              <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[#7c3aed]" />
               </div>
-              <div className="zd-qnav-grid">
-                {questions.map((q, i) => {
-                  const att = attempts[q._dbId];
-                  const isReattempting = reattemptingQIds.has(q._dbId);
-                  // Show a result only if there's an attempt AND we're not mid-reattempt
-                  const hasResult = !!att && !isReattempting;
-                  let status = 'unseen';
-                  if (hasResult) status = att.is_correct ? 'correct' : 'wrong';
-                  
-                  return (
-                    <button 
-                      key={i}
-                      className={`solver-q-box ${status} ${i === currentIndex ? 'current' : ''}`}
-                      onClick={() => jumpToQ(i)}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                })}
+            ) : questions.length === 0 ? (
+              <div className="sf-empty">
+                <BarChart3 size={40} className="mb-3 opacity-20" />
+                <p>No questions match your filters.</p>
               </div>
-            </div>
-
-            {/* Question Card */}
-            <div className="zd-card zd-q-card">
-              {qLoading ? (
-                <div className="flex h-64 items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#7c3aed]" />
-                </div>
-              ) : !selectedChapter ? (
-                <div className="zd-empty-state">
-                  <BookOpen size={48} className="mb-4 opacity-20" />
-                  <h3>SELECT A CHAPTER TO BEGIN</h3>
-                  <p>Choose a subject and chapter from the left panel</p>
-                </div>
-              ) : questions.length === 0 ? (
-                <div className="zd-empty-state">
-                  <BarChart3 size={48} className="mb-4 opacity-20" />
-                  <h3>NO QUESTIONS MATCH FILTERS</h3>
-                  <p>Try adjusting your fine-tune settings</p>
-                </div>
-              ) : currentQuestion ? (
-                <div id="q-content">
-                  <div className="zd-q-meta">
-                    <span className="solver-badge solver-badge-chapter">{currentQuestion.chapter}</span>
-                    <span className={`solver-badge solver-badge-${currentQuestion.difficulty?.toLowerCase()}`}>
-                      {currentQuestion.difficulty}
+            ) : currentQuestion ? (
+              <div id="q-content">
+                {/* Meta badges */}
+                <div className="zd-q-meta">
+                  <span className="solver-badge solver-badge-chapter">{currentQuestion.chapter}</span>
+                  <span className={`solver-badge solver-badge-${currentQuestion.difficulty?.toLowerCase()}`}>
+                    {currentQuestion.difficulty}
+                  </span>
+                  <span className={`solver-badge solver-badge-${currentQuestion.type}`}>
+                    {currentQuestion.type === 'mcq' ? 'MCQ' : currentQuestion.type === 'multi-select' ? 'Multi-Correct' : 'Numerical'}
+                  </span>
+                  <span className="solver-badge solver-badge-year">{currentQuestion.year}</span>
+                  {isAnswered && isOnCooldown(currentAttempt) && (
+                    <span className="solver-badge" style={{ background: 'rgba(255,147,64,0.15)', color: '#ff9340', border: '1px solid rgba(255,147,64,0.3)' }}>
+                      ⏳ COOLDOWN ACTIVE
                     </span>
-                    <span className={`solver-badge solver-badge-${currentQuestion.type}`}>
-                      {currentQuestion.type === 'mcq' ? 'MCQ' : currentQuestion.type === 'multi-select' ? 'Multi-Correct' : 'Numerical'}
+                  )}
+                  {!isAnswered && currentQuestion && (
+                    <span className="solver-badge" style={{ background: 'rgba(0,240,255,0.08)', color: 'var(--accent)', border: '1px solid rgba(0,240,255,0.2)', fontFamily: "'DM Mono', monospace" }}>
+                      ⏱ {Math.floor(displayTime / 60).toString().padStart(2, '0')}:{(displayTime % 60).toString().padStart(2, '0')}
                     </span>
-                    <span className="solver-badge solver-badge-year">{currentQuestion.year}</span>
+                  )}
+                  {isAnswered && currentAttempt?.time_taken != null && currentAttempt.time_taken > 0 && (
+                    <span className="solver-badge" style={{ background: 'rgba(0,229,160,0.1)', color: 'var(--green)', border: '1px solid rgba(0,229,160,0.25)', fontFamily: "'DM Mono', monospace" }}>
+                      ⏱ Solved in {currentAttempt.time_taken >= 60 ? `${Math.floor(currentAttempt.time_taken / 60)}m ` : ''}{currentAttempt.time_taken % 60}s
+                    </span>
+                  )}
+                </div>
+
+                {/* Question text */}
+                <QuestionText text={currentQuestion.text} className="zd-q-text" />
+
+                {currentQuestion.image && (
+                  <img src={currentQuestion.image} className="zd-q-image" alt="Question" />
+                )}
+
+                {/* Answer input */}
+                {currentQuestion.type === 'integer' ? (
+                  <div className="zd-integer-box">
+                    <label>ENTER YOUR NUMERICAL ANSWER:</label>
+                    <div className="zd-integer-row">
+                      <input
+                        type="number"
+                        step="any"
+                        className={`zd-integer-input ${isAnswered ? (currentAttempt?.is_correct ? 'correct' : 'wrong') : ''}`}
+                        value={isAnswered ? currentAttempt?.selected_answer : integerInput}
+                        onChange={(e) => setIntegerInput(e.target.value)}
+                        disabled={isAnswered}
+                      />
+                    </div>
                     {isAnswered && (
-                      <span className="solver-badge" style={{ background: 'rgba(255,147,64,0.15)', color: '#ff9340', border: '1px solid rgba(255,147,64,0.3)' }}>
-                        ⏳ COOLDOWN ACTIVE
-                      </span>
-                    )}
-                    {/* Live Timer — ticking while user is solving */}
-                    {!isAnswered && currentQuestion && (
-                      <span className="solver-badge" style={{ background: 'rgba(0,240,255,0.08)', color: 'var(--accent)', border: '1px solid rgba(0,240,255,0.2)', fontFamily: "'DM Mono', monospace" }}>
-                        ⏱ {Math.floor(displayTime / 60).toString().padStart(2, '0')}:{(displayTime % 60).toString().padStart(2, '0')}
-                      </span>
-                    )}
-                    {/* Time taken — shown during cooldown */}
-                    {isAnswered && currentAttempt?.time_taken != null && currentAttempt.time_taken > 0 && (
-                      <span className="solver-badge" style={{ background: 'rgba(0,229,160,0.1)', color: 'var(--green)', border: '1px solid rgba(0,229,160,0.25)', fontFamily: "'DM Mono', monospace" }}>
-                        ⏱ Solved in {currentAttempt.time_taken >= 60 ? `${Math.floor(currentAttempt.time_taken / 60)}m ` : ''}{currentAttempt.time_taken % 60}s
-                      </span>
+                      <div className={`zd-integer-feedback ${currentAttempt?.is_correct ? 'correct' : 'wrong'}`}>
+                        {currentAttempt?.is_correct ? '✓ Correct!' : `✗ Wrong. Answer: ${currentQuestion.answer}`}
+                      </div>
                     )}
                   </div>
+                ) : (
+                  <div className="zd-options-grid">
+                    {currentQuestion.options.map((opt, i) => {
+                      const isMulti = currentQuestion.type === 'multi-select';
+                      let isCorrectOpt = false, isUserOpt = false, isSelected = false;
+                      if (isMulti) {
+                        const correctIdxs = currentQuestion.correct_answer
+                          ? currentQuestion.correct_answer.split(',').filter(Boolean).map(x => parseInt(x.trim()))
+                          : [];
+                        const userSelectedIdxs = currentAttempt?.selected_answer
+                          ? currentAttempt.selected_answer.split(',').filter(Boolean).map(x => parseInt(x.trim()))
+                          : [];
+                        isCorrectOpt = correctIdxs.includes(i);
+                        isUserOpt = userSelectedIdxs.includes(i);
+                        isSelected = selectedMultiOptions.includes(i);
+                      } else {
+                        isCorrectOpt = i === currentQuestion.correct;
+                        const selectedIdx = isAnswered ? Number(currentAttempt?.selected_answer) : -1;
+                        isUserOpt = isAnswered && selectedIdx === i;
+                        isSelected = !isAnswered && selectedOption === i;
+                      }
+                      let cls = 'solver-option-btn';
+                      if (isAnswered) {
+                        cls += ' disabled';
+                        if (isCorrectOpt) cls += ' correct';
+                        if (isUserOpt && !isCorrectOpt) cls += ' wrong';
+                      } else {
+                        if (isSelected) cls += ' active';
+                      }
+                      const handleOptionClick = () => {
+                        if (isAnswered) return;
+                        if (isMulti) {
+                          setSelectedMultiOptions(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
+                        } else {
+                          setSelectedOption(i);
+                        }
+                      };
+                      return (
+                        <button key={i} className={cls} disabled={isAnswered} onClick={handleOptionClick}>
+                          <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
+                          <div className="flex-1 text-left">
+                            {opt.text ? <QuestionText text={opt.text} /> : null}
+                            {opt.image ? <img src={opt.image} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-32 w-auto bg-[var(--bg)]" /> : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-                  <QuestionText 
-                    text={currentQuestion.text} 
-                    className="zd-q-text" 
-                  />
+                {/* ── Action buttons: shown ABOVE the explanation ── */}
+                <div className="sf-actions">
+                  {/* PREVIOUS */}
+                  <button
+                    className="sf-btn sf-btn-ghost"
+                    onClick={() => jumpToQ(Math.max(0, currentIndex - 1))}
+                    disabled={currentIndex === 0}
+                  >
+                    ← PREV
+                  </button>
 
-                  {currentQuestion.image && (
-                    <img src={currentQuestion.image} className="zd-q-image" alt="Question" />
-                  )}
-
-                  {currentQuestion.type === 'integer' ? (
-                    <div className="zd-integer-box">
-                      <label>ENTER YOUR NUMERICAL ANSWER:</label>
-                      <div className="zd-integer-row">
-                        <input 
-                          type="number" 
-                          step="any" 
-                          className={`zd-integer-input ${isAnswered ? (currentAttempt?.is_correct ? 'correct' : 'wrong') : ''}`}
-                          value={isAnswered ? currentAttempt?.selected_answer : integerInput}
-                          onChange={(e) => setIntegerInput(e.target.value)}
-                          disabled={isAnswered}
-                        />
-                      </div>
-                      {isAnswered && (
-                        <div className={`zd-integer-feedback ${currentAttempt?.is_correct ? 'correct' : 'wrong'}`}>
-                          {currentAttempt?.is_correct ? '✓ Correct!' : `✗ Wrong. Answer: ${currentQuestion.answer}`}
-                        </div>
+                  {/* SUBMIT / REATTEMPT / NEXT */}
+                  {!isAnswered ? (
+                    <button
+                      className="sf-btn sf-btn-primary"
+                      onClick={() => handleSubmit()}
+                      disabled={
+                        (currentQuestion.type === 'integer' && !integerInput.trim()) ||
+                        (currentQuestion.type === 'multi-select' && selectedMultiOptions.length === 0) ||
+                        (currentQuestion.type === 'mcq' && selectedOption === null)
+                      }
+                    >
+                      SUBMIT
+                    </button>
+                  ) : (
+                    <>
+                      {currentAttempt && !isOnCooldown(currentAttempt) && getAttemptCount(currentQuestion._dbId) < MAX_ATTEMPTS && (
+                        <button
+                          className="sf-btn sf-btn-reattempt"
+                          onClick={handleReattempt}
+                        >
+                          ↺ REATTEMPT ({MAX_ATTEMPTS - getAttemptCount(currentQuestion._dbId)} LEFT)
+                        </button>
                       )}
-                    </div>
-                  ) : (<>
-                      <div className="zd-options-grid">
-                        {currentQuestion.options.map((opt, i) => {
-                          const isMulti = currentQuestion.type === 'multi-select';
-                          
-                          let isCorrectOpt = false;
-                          let isUserOpt = false;
-                          let isSelected = false;
-
-                          if (isMulti) {
-                            const correctIdxs = currentQuestion.correct_answer 
-                              ? currentQuestion.correct_answer.split(',').filter(Boolean).map(x => parseInt(x.trim())) 
-                              : [];
-                            const userSelectedIdxs = currentAttempt?.selected_answer 
-                              ? currentAttempt.selected_answer.split(',').filter(Boolean).map(x => parseInt(x.trim())) 
-                              : [];
-                            isCorrectOpt = correctIdxs.includes(i);
-                            isUserOpt = userSelectedIdxs.includes(i);
-                            isSelected = selectedMultiOptions.includes(i);
-                          } else {
-                            isCorrectOpt = i === currentQuestion.correct;
-                            const selectedIdx = isAnswered ? Number(currentAttempt?.selected_answer) : -1;
-                            isUserOpt = isAnswered && selectedIdx === i;
-                            isSelected = !isAnswered && selectedOption === i;
-                          }
-
-                          let cls = 'solver-option-btn';
-                          if (isAnswered) {
-                            cls += ' disabled';
-                            if (isCorrectOpt) cls += ' correct';
-                            if (isUserOpt && !isCorrectOpt) cls += ' wrong';
-                          } else {
-                            if (isSelected) cls += ' active';
-                          }
-
-                          const handleOptionClick = () => {
-                            if (isAnswered) return;
-                            if (isMulti) {
-                              setSelectedMultiOptions(prev => 
-                                prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
-                              );
-                            } else {
-                              setSelectedOption(i);
-                            }
-                          };
-
-                          return (
-                            <button
-                              key={i}
-                              className={cls}
-                              disabled={isAnswered}
-                              onClick={handleOptionClick}
-                            >
-                              <span className="solver-option-key">{String.fromCharCode(65 + i)}</span>
-                              <div className="flex-1 text-left">
-                                {opt.text ? <QuestionText text={opt.text} /> : null}
-                                {opt.image ? <img src={opt.image} alt={`Option ${String.fromCharCode(65 + i)}`} className="mt-2 rounded-xl border border-[var(--border)] max-h-32 w-auto bg-[var(--bg)]" /> : null}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-
-                  <div className={`zd-explanation ${isAnswered || showSolution ? 'show' : ''}`}>
-                    <div className="zd-explanation-label">
-                      <Zap size={12} /> SOLUTION
-                    </div>
-                    <QuestionText 
-                      text={currentQuestion.explanation} 
-                      className="zd-explanation-text" 
-                    />
-                    {currentQuestion.explanation_image_url && (
-                      <img src={currentQuestion.explanation_image_url} className="mt-4 rounded-xl w-full border border-white/5" alt="Explanation" />
-                    )}
-                  </div>
-
-                  <div className="zd-q-actions">
-                    {!isAnswered && (
-                      <button 
-                        className="zd-btn zd-btn-ghost" 
+                      <button
+                        className="sf-btn sf-btn-primary"
                         onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
                         disabled={currentIndex === questions.length - 1}
                       >
-                        SKIP
+                        NEXT →
                       </button>
-                    )}
-                    
-                    {!isAnswered ? (
-                      <button 
-                        className="zd-btn zd-btn-primary"
-                        onClick={() => handleSubmit()}
-                        disabled={
-                          (currentQuestion.type === 'integer' && !integerInput.trim()) ||
-                          (currentQuestion.type === 'multi-select' && selectedMultiOptions.length === 0) ||
-                          (currentQuestion.type === 'mcq' && selectedOption === null)
-                        }
-                      >
-                        SUBMIT
-                      </button>
-                    ) : (
-                      <>
-                        {/* REATTEMPT button — visible only when:
-                            1. Question has a result (isAnswered)
-                            2. It is NOT locked on a correct cooldown
-                            3. Total attempts < MAX_ATTEMPTS
-                        */}
-                        {currentAttempt && !isOnCooldown(currentAttempt) && getAttemptCount(currentQuestion._dbId) < MAX_ATTEMPTS && (
-                          <button
-                            className="zd-btn"
-                            style={{
-                              background: 'rgba(124,58,237,0.15)',
-                              border: '1px solid rgba(124,58,237,0.4)',
-                              color: 'var(--purple)',
-                              fontWeight: 800,
-                            }}
-                            onClick={handleReattempt}
-                          >
-                            ↺ REATTEMPT ({MAX_ATTEMPTS - getAttemptCount(currentQuestion._dbId)} LEFT)
-                          </button>
-                        )}
-                        <button 
-                          className="zd-btn zd-btn-primary"
-                          onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
-                          disabled={currentIndex === questions.length - 1}
-                        >
-                          NEXT →
-                        </button>
-                      </>
-                    )}
-                    <span className="zd-q-progress">
-                      {currentIndex + 1} / {questions.length}
-                    </span>
+                    </>
+                  )}
+
+                  {/* Progress counter */}
+                  <span className="sf-progress">{currentIndex + 1} / {questions.length}</span>
+                </div>
+
+                {/* Explanation — below actions */}
+                <div className={`zd-explanation ${isAnswered || showSolution ? 'show' : ''}`}>
+                  <div className="zd-explanation-label">
+                    <Zap size={12} /> SOLUTION
                   </div>
+                  <QuestionText text={currentQuestion.explanation} className="zd-explanation-text" />
+                  {currentQuestion.explanation_image_url && (
+                    <img src={currentQuestion.explanation_image_url} className="mt-4 rounded-xl w-full border border-white/5" alt="Explanation" />
+                  )}
                 </div>
-              ) : (
-                <div className="zd-empty-state">
-                  <p>Question Protocol Error: Contact AURA Support</p>
-                </div>
-              )}
+              </div>
+            ) : (
+              <div className="sf-empty"><p>Question Protocol Error</p></div>
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Navigator (20%) — desktop only ── */}
+        <div className="sf-nav-col">
+          <div className="sf-nav-card">
+            <div className="sf-nav-header">
+              <span className="sf-nav-title">{selectedChapter?.toUpperCase()}</span>
+            </div>
+            <div className="sf-nav-legend">
+              <span><span className="zd-pip" style={{ background: 'var(--green)' }}></span>Correct</span>
+              <span><span className="zd-pip" style={{ background: 'var(--red)' }}></span>Wrong</span>
+              <span><span className="zd-pip" style={{ background: 'var(--bg3)' }}></span>Unseen</span>
+            </div>
+            <div className="sf-nav-grid">
+              {questions.map((q, i) => {
+                const att = attempts[q._dbId];
+                const isReattempting = reattemptingQIds.has(q._dbId);
+                const hasResult = !!att && !isReattempting;
+                let status = 'unseen';
+                if (hasResult) status = att.is_correct ? 'correct' : 'wrong';
+                return (
+                  <button
+                    key={i}
+                    className={`solver-q-box ${status} ${i === currentIndex ? 'current' : ''}`}
+                    onClick={() => jumpToQ(i)}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
+
       </div>
 
       <style jsx global>{`
-        .zd-layout {
-          display: grid;
-          grid-template-columns: 280px minmax(0, 1fr);
-          gap: 1.5rem;
-          align-items: start;
+        /* ── Distraction-free solving wrapper ── */
+        .sf-wrapper {
+          min-height: 100vh;
+          background: var(--bg);
+          color: var(--text);
+          display: flex;
+          flex-direction: column;
+          padding-bottom: 40px;
         }
-        @media (max-width: 1024px) {
-          .zd-layout {
-            grid-template-columns: 1fr;
-          }
-          .zd-left {
-            display: none;
-          }
-        }
-        .zd-right {
-          min-width: 0;
-          max-width: 100%;
-        }
-        .zd-main-wrapper {
-          padding-bottom: 100px;
-          max-width: 100%;
-          overflow-x: hidden;
-        }
-        .zd-breadcrumb {
+
+        /* ── Top bar ── */
+        .sf-topbar {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          justify-content: space-between;
+          padding: 0.75rem 1.25rem;
+          border-bottom: 1px solid var(--border);
+          background: var(--bg);
+          position: sticky;
+          top: 0;
+          z-index: 50;
+        }
+        .sf-topbar-chapter {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
           font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.6rem;
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+        }
+        .sf-topbar-label { color: var(--accent); }
+        .sf-topbar-sep   { color: var(--border); }
+        .sf-topbar-title { color: var(--text); }
+        .sf-topbar-count { color: var(--text2); }
+        .sf-back-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.45rem 0.9rem;
+          background: var(--bg3);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--text2);
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.65rem;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-        }
-        .zd-breadcrumb-btn {
-          color: var(--text2);
-          background: none;
-          border: none;
           cursor: pointer;
+          transition: all 0.18s;
         }
-        .zd-breadcrumb-btn:hover { color: var(--accent); }
-        .zd-breadcrumb-current { color: var(--accent); }
-        .zd-breadcrumb-sep { color: var(--border); }
+        .sf-back-btn:hover { background: var(--bg2); color: var(--text); border-color: var(--border-hover); }
+        .sf-back-label { display: inline; }
 
-        .zd-card {
+        /* ── Main layout ── */
+        .sf-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 220px;
+          gap: 1rem;
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 1rem 1rem 0;
+          align-items: start;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        /* ── Question column ── */
+        .sf-question-col { min-width: 0; }
+        .sf-q-card {
           background: var(--card);
           border: 1px solid var(--border);
           border-radius: 16px;
-          padding: 1.25rem;
+          padding: 1.5rem;
         }
-        .zd-section-label {
+
+        /* ── Navigator column (desktop only) ── */
+        .sf-nav-col {
+          position: sticky;
+          top: 56px;
+        }
+        .sf-nav-card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 1rem;
+        }
+        .sf-nav-header { margin-bottom: 0.5rem; }
+        .sf-nav-title {
           font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.65rem;
+          font-size: 0.6rem;
           font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
           color: var(--text2);
-          margin-bottom: 0.75rem;
-          padding-bottom: 0.5rem;
-          border-bottom: 1px solid var(--border);
+          letter-spacing: 0.12em;
+          word-break: break-word;
         }
-        .zd-subject-btn {
-          display: flex;
-          align-items: center;
-          width: 100%;
-          padding: 0.75rem;
-          background: none;
-          border: 1px solid transparent;
-          border-radius: 10px;
-          color: var(--text2);
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.75rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          cursor: pointer;
-          transition: all 0.2s;
-          margin-bottom: 0.25rem;
-        }
-        .zd-subject-btn:hover { background: var(--bg3); color: var(--text); }
-        .zd-subject-btn.active {
-          background: var(--accent-glow);
-          color: var(--accent);
-          border-color: var(--accent);
-        }
-        .zd-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          margin-right: 10px;
-        }
-        .zd-divider {
-          height: 1px;
-          background: var(--border);
-          margin: 1rem 0;
-        }
-        .zd-chapter-list {
+        .sf-nav-legend {
           display: flex;
           flex-direction: column;
-          gap: 2px;
-          max-height: 500px;
-          overflow-y: auto;
-        }
-        .zd-chapter-btn {
-          padding: 0.6rem 0.75rem;
-          text-align: left;
-          background: none;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          color: var(--text2);
-          font-size: 0.8rem;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .zd-chapter-btn:hover { background: var(--bg3); color: var(--text); }
-        .zd-chapter-btn.active {
-          background: var(--bg3);
-          color: var(--text);
-          border-color: var(--border-hover);
-        }
-
-        .zd-qnav-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-          flex-wrap: wrap;
-          gap: 0.75rem;
-        }
-        .zd-qnav-title {
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: var(--text2);
-          letter-spacing: 0.1em;
-        }
-        .zd-qnav-legend {
-          display: flex;
-          gap: 1rem;
-          font-size: 0.65rem;
+          gap: 0.3rem;
+          font-size: 0.6rem;
           color: var(--text2);
           font-weight: 600;
-          flex-wrap: wrap;
+          margin-bottom: 0.75rem;
         }
-        .zd-pip {
-          width: 10px;
-          height: 10px;
-          border-radius: 2px;
-          display: inline-block;
-          margin-right: 4px;
-          vertical-align: middle;
-        }
-        .zd-qnav-grid {
+        .sf-nav-grid {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.5rem;
+          gap: 0.35rem;
         }
-        .solver-q-box {
-          width: 32px;
-          height: 32px;
-          border-radius: 6px;
-          border: 1px solid var(--border);
-          background: var(--bg3);
+
+        /* ── Action buttons (above explanation) ── */
+        .sf-actions {
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+          margin: 1.25rem 0 1rem;
+          flex-wrap: wrap;
+        }
+        .sf-progress {
+          margin-left: auto;
+          font-family: 'DM Mono', monospace;
+          font-size: 0.75rem;
           color: var(--text2);
+          white-space: nowrap;
+        }
+        .sf-btn {
+          padding: 0.65rem 1.25rem;
+          border-radius: 10px;
+          font-family: 'Space Grotesk', sans-serif;
           font-size: 0.7rem;
-          font-weight: 700;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
           cursor: pointer;
+          transition: all 0.18s;
+          border: none;
+          white-space: nowrap;
+        }
+        .sf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .sf-btn-primary {
+          background: var(--accent-grad);
+          color: white;
+          box-shadow: 0 0 14px var(--accent-glow);
+        }
+        .sf-btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+        .sf-btn-ghost {
+          background: transparent;
+          border: 1px solid var(--border);
+          color: var(--text2);
+        }
+        .sf-btn-ghost:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
+        .sf-btn-reattempt {
+          background: rgba(124,58,237,0.15);
+          border: 1px solid rgba(124,58,237,0.4);
+          color: var(--purple);
+          font-weight: 800;
+        }
+        .sf-btn-reattempt:hover { background: rgba(124,58,237,0.25); }
+
+        /* ── Empty state ── */
+        .sf-empty {
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          font-family: 'DM Mono', monospace;
+          padding: 3rem;
+          color: var(--text2);
+          font-size: 0.85rem;
+          text-align: center;
+          gap: 0.5rem;
         }
-        .solver-q-box.current { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
-        .solver-q-box.correct { border-color: var(--green); color: var(--green); background: rgba(39, 174, 96, 0.1); }
-        .solver-q-box.wrong { border-color: var(--red); color: var(--red); background: rgba(231, 76, 60, 0.1); }
-        .solver-q-box.skipped { border-color: var(--orange); color: var(--orange); background: rgba(243, 156, 18, 0.1); }
 
-        .zd-q-meta { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        /* ── Shared question styles (kept from original) ── */
+        .zd-q-meta { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .solver-badge {
           font-family: 'Space Grotesk', sans-serif;
           font-size: 0.6rem;
@@ -1222,131 +1144,36 @@ export default function SolvingPage() {
           border: 1px solid var(--border);
           color: var(--text2);
         }
-        .solver-badge-hard { color: var(--red); border-color: var(--red); background: rgba(231, 76, 60, 0.05); }
-        .solver-badge-medium { color: var(--orange); border-color: var(--orange); background: rgba(243, 156, 18, 0.05); }
-        .solver-badge-easy { color: var(--green); border-color: var(--green); background: rgba(39, 174, 96, 0.05); }
-
+        .solver-badge-hard   { color: var(--red);    border-color: var(--red);    background: rgba(231,76,60,0.05); }
+        .solver-badge-medium { color: var(--orange);  border-color: var(--orange);  background: rgba(243,156,18,0.05); }
+        .solver-badge-easy   { color: var(--green);   border-color: var(--green);   background: rgba(39,174,96,0.05); }
         .zd-q-text {
-          font-size: 0.95rem;
-          line-height: 1.65;
+          font-size: 0.97rem;
+          line-height: 1.7;
           color: var(--text);
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.25rem;
           font-weight: 500;
           word-wrap: break-word;
         }
-        .zd-q-text :global(.katex-display) {
-          margin: 1.5rem 0;
-          overflow-x: auto;
-          overflow-y: hidden;
-        }
-        .zd-explanation-text :global(.katex-display) {
-          margin: 1rem 0;
-        }
-        .zd-options-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0.75rem;
-          margin-bottom: 2rem;
-        }
-        @media (min-width: 768px) {
-          .zd-options-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-        }
-        .solver-option-btn {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem 1.25rem;
-          background: var(--bg3);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          color: var(--text);
-          font-size: 0.85rem;
-          text-align: left;
-          cursor: pointer;
-          transition: all 0.2s;
-          min-height: 60px;
-          width: 100%;
+        .zd-q-text :global(.katex-display)        { margin: 1.5rem 0; overflow-x: auto; overflow-y: hidden; }
+        .zd-explanation-text :global(.katex-display) { margin: 1rem 0; }
+        .zd-q-text :global(.katex), .zd-explanation-text :global(.katex) {
+          max-width: 100%; overflow-x: auto; overflow-y: hidden;
+          display: inline-block; vertical-align: middle;
         }
         .zd-q-image {
-          width: 100%;
-          max-height: 280px;
-          object-fit: contain;
-          border-radius: 10px;
-          border: 1px solid var(--border);
-          background: var(--bg);
-          margin-bottom: 1rem;
+          width: 100%; max-height: 280px; object-fit: contain;
+          border-radius: 10px; border: 1px solid var(--border);
+          background: var(--bg); margin-bottom: 1rem;
         }
-
-        /* ── Integer input ───────────────────────────────────── */
-        .zd-integer-box {
-          background: var(--bg2);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 1rem 1.1rem;
-          margin-bottom: 1rem;
-        }
-        .zd-integer-box label {
-          display: block;
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.65rem;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--text2);
-          margin-bottom: 0.7rem;
-        }
-        .zd-integer-row {
-          display: flex;
-          gap: 0.7rem;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-        .zd-integer-input {
-          background: var(--card);
-          border: 1px solid var(--border-hover);
-          border-radius: 8px;
-          color: var(--text);
-          font-family: 'DM Mono', monospace;
-          font-size: 1.05rem;
-          font-weight: 700;
-          padding: 0.6rem 1rem;
-          width: 200px;
-          outline: none;
-          transition: border-color 0.16s, box-shadow 0.16s;
-        }
-        .zd-integer-input:focus {
-          border-color: var(--accent);
-          box-shadow: 0 0 0 2px var(--accent-glow);
-        }
-        .zd-integer-input.correct { border-color: var(--green); }
-        .zd-integer-input.wrong   { border-color: var(--red); }
-
-        .zd-integer-feedback {
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.8rem;
-          font-weight: 700;
-          letter-spacing: 0.04em;
-          margin-top: 0.5rem;
-          min-height: 1.2em;
-        }
-        .zd-integer-feedback.correct { color: var(--green); }
-        .zd-integer-feedback.wrong   { color: var(--red); }
-
         .zd-options-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
           gap: 0.75rem;
-          margin-bottom: 2rem;
-        }
-        @media (max-width: 768px) {
-          .zd-options-grid { grid-template-columns: 1fr; }
+          margin-bottom: 1rem;
         }
         .solver-option-btn {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
+          display: flex; align-items: center; gap: 1rem;
           padding: 1rem;
           background: var(--bg2);
           border: 1px solid var(--border);
@@ -1355,94 +1182,119 @@ export default function SolvingPage() {
           text-align: left;
           cursor: pointer;
           transition: all 0.2s;
-          max-width: 100%;
-          overflow-x: auto;
-          word-wrap: break-word;
+          max-width: 100%; overflow-x: auto; word-wrap: break-word;
         }
         .solver-option-btn:hover:not(.disabled) { border-color: var(--accent); background: var(--accent-glow); }
-        .solver-option-btn.active { border-color: var(--accent); background: var(--accent-glow); }
-        .solver-option-btn.correct { border-color: var(--green); background: rgba(39, 174, 96, 0.05); color: var(--green); }
-        .solver-option-btn.wrong { border-color: var(--red); background: rgba(231, 76, 60, 0.05); color: var(--red); }
+        .solver-option-btn.active  { border-color: var(--accent); background: var(--accent-glow); }
+        .solver-option-btn.correct { border-color: var(--green); background: rgba(39,174,96,0.05); color: var(--green); }
+        .solver-option-btn.wrong   { border-color: var(--red);   background: rgba(231,76,60,0.05);  color: var(--red); }
         .solver-option-btn.disabled { cursor: not-allowed; }
-
         .solver-option-key {
-          width: 30px;
-          height: 30px;
-          border-radius: 6px;
-          background: var(--bg3);
-          border: 1px solid var(--border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 700;
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.75rem;
-          flex-shrink: 0;
+          width: 30px; height: 30px; border-radius: 6px;
+          background: var(--bg3); border: 1px solid var(--border);
+          display: flex; align-items: center; justify-content: center;
+          font-weight: 700; font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.75rem; flex-shrink: 0;
         }
         .solver-option-btn.correct .solver-option-key { background: var(--green); color: white; border-color: var(--green); }
-        .solver-option-btn.wrong .solver-option-key { background: var(--red); color: white; border-color: var(--red); }
+        .solver-option-btn.wrong   .solver-option-key { background: var(--red);   color: white; border-color: var(--red); }
 
+        /* Integer input */
+        .zd-integer-box {
+          background: var(--bg2); border: 1px solid var(--border);
+          border-radius: 12px; padding: 1rem 1.1rem; margin-bottom: 1rem;
+        }
+        .zd-integer-box label {
+          display: block; font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+          text-transform: uppercase; color: var(--text2); margin-bottom: 0.7rem;
+        }
+        .zd-integer-row { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; }
+        .zd-integer-input {
+          background: var(--card); border: 1px solid var(--border-hover);
+          border-radius: 8px; color: var(--text);
+          font-family: 'DM Mono', monospace; font-size: 1.05rem;
+          font-weight: 700; padding: 0.6rem 1rem; width: 200px;
+          outline: none; transition: border-color 0.16s, box-shadow 0.16s;
+        }
+        .zd-integer-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+        .zd-integer-input.correct { border-color: var(--green); }
+        .zd-integer-input.wrong   { border-color: var(--red); }
+        .zd-integer-feedback {
+          font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem;
+          font-weight: 700; letter-spacing: 0.04em; margin-top: 0.5rem;
+        }
+        .zd-integer-feedback.correct { color: var(--green); }
+        .zd-integer-feedback.wrong   { color: var(--red); }
+
+        /* Explanation */
         .zd-explanation {
           display: none;
-          background: rgba(39, 174, 96, 0.03);
-          border: 1px solid rgba(39, 174, 96, 0.1);
-          border-radius: 16px;
-          padding: 1.5rem;
-          margin-bottom: 2rem;
-          max-width: 100%;
-          overflow-x: auto;
+          background: rgba(39,174,96,0.03);
+          border: 1px solid rgba(39,174,96,0.1);
+          border-radius: 16px; padding: 1.5rem; margin-top: 0.25rem;
+          max-width: 100%; overflow-x: auto;
         }
         .zd-explanation.show { display: block; }
         .zd-explanation-label {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.65rem;
-          font-weight: 700;
-          color: var(--green);
-          margin-bottom: 1rem;
-          text-transform: uppercase;
+          display: flex; align-items: center; gap: 6px;
+          font-family: 'Space Grotesk', sans-serif; font-size: 0.65rem;
+          font-weight: 700; color: var(--green);
+          margin-bottom: 1rem; text-transform: uppercase;
         }
         .zd-explanation-text { font-size: 0.95rem; line-height: 1.6; color: var(--text); }
-        .zd-explanation img {
-          max-width: 100%;
-          height: auto;
-          border-radius: 12px;
-        }
+        .zd-explanation img { max-width: 100%; height: auto; border-radius: 12px; }
 
-        /* Inline KaTeX Responsive Fix */
-        .zd-q-text :global(.katex), .zd-explanation-text :global(.katex) {
-          max-width: 100%;
-          overflow-x: auto;
-          overflow-y: hidden;
-          display: inline-block;
-          vertical-align: middle;
+        /* Question navigator pip/box */
+        .zd-pip {
+          width: 8px; height: 8px; border-radius: 2px;
+          display: inline-block; margin-right: 4px; vertical-align: middle;
         }
+        .solver-q-box {
+          width: 30px; height: 30px; border-radius: 6px;
+          border: 1px solid var(--border); background: var(--bg3);
+          color: var(--text2); font-size: 0.65rem; font-weight: 700;
+          cursor: pointer; display: flex; align-items: center;
+          justify-content: center; font-family: 'DM Mono', monospace;
+          transition: all 0.15s;
+        }
+        .solver-q-box.current { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+        .solver-q-box.correct { border-color: var(--green); color: var(--green); background: rgba(39,174,96,0.1); }
+        .solver-q-box.wrong   { border-color: var(--red);   color: var(--red);   background: rgba(231,76,60,0.1); }
 
-        .zd-q-actions { display: flex; gap: 1rem; align-items: center; }
-        .zd-q-progress { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--text2); }
-        .zd-btn {
-          padding: 0.75rem 1.5rem;
-          border-radius: 10px;
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.75rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          cursor: pointer;
-          transition: all 0.2s;
+        /* ── MOBILE overrides ── */
+        @media (max-width: 768px) {
+          .sf-layout {
+            grid-template-columns: 1fr;
+            padding: 0;
+            gap: 0;
+          }
+          /* Hide navigator on mobile */
+          .sf-nav-col { display: none; }
+
+          .sf-q-card {
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            padding: 1rem 0.875rem;
+          }
+          .sf-topbar { padding: 0.6rem 0.875rem; }
+          .sf-back-label { display: none; }
+
+          /* Single-column options on mobile */
+          .zd-options-grid { grid-template-columns: 1fr; }
+
+          /* Actions bar: full width, centred */
+          .sf-actions {
+            justify-content: center;
+            gap: 0.5rem;
+          }
+          .sf-progress { margin-left: 0; }
+          .sf-btn { flex: 1; text-align: center; justify-content: center; display: flex; }
         }
-        .zd-btn-primary { background: var(--accent-grad); color: white; border: none; box-shadow: 0 0 15px var(--accent-glow); }
-        .zd-btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text2); }
-        .zd-btn-ghost:hover { background: var(--bg3); color: var(--text); }
-        .zd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .zd-btn-check {
-          background: rgba(39,174,96,0.1);
-          color: var(--green);
-          border: 1px solid rgba(39,174,96,0.25);
-        }
-        .zd-btn-check:hover { background: rgba(39,174,96,0.18); }
       `}</style>
     </div>
   );
 }
+

@@ -112,6 +112,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'mod';
   const isAdmin = profile?.role === 'admin';
+  const isSolving = pathname.startsWith('/solving');
 
   const handleSignOut = async () => {
     sessionStorage.clear();
@@ -297,47 +298,49 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="sidebar" id="bottom-nav">
-        <ul className="nav-links">
-          {navLinks.map((link) => (
-            <li key={link.href}>
-              <Link 
-                href={link.href} 
-                className={`nav-link ${pathname === link.href ? 'active' : ''}`}
-              >
-                <div className="nav-svg">
-                  {link.icon}
-                  {link.badge && <span className="nav-badge">{link.badge}</span>}
-                </div>
-                <span>{link.name}</span>
-              </Link>
-            </li>
-          ))}
-          {profile?.role === 'mod' && (
-            <li>
-              <Link 
-                href="/moderation" 
-                className={`nav-link ${pathname === '/moderation' ? 'active' : ''}`}
-              >
-                <div className="nav-svg"><ShieldCheck size={18} /></div>
-                <span>Mod</span>
-              </Link>
-            </li>
-          )}
-          {profile?.role === 'admin' && (
-            <li>
-              <Link 
-                href="/admin" 
-                className={`nav-link nav-link-admin ${pathname === '/admin' ? 'active' : ''}`}
-              >
-                <div className="nav-svg"><ShieldAlert size={18} /></div>
-                <span>Admin</span>
-              </Link>
-            </li>
-          )}
-        </ul>
-      </nav>
+      {/* Bottom Navigation — hidden on /solving for distraction-free focus mode */}
+      {!isSolving && (
+        <nav className="sidebar" id="bottom-nav">
+          <ul className="nav-links">
+            {navLinks.map((link) => (
+              <li key={link.href}>
+                <Link 
+                  href={link.href} 
+                  className={`nav-link ${pathname === link.href ? 'active' : ''}`}
+                >
+                  <div className="nav-svg">
+                    {link.icon}
+                    {link.badge && <span className="nav-badge">{link.badge}</span>}
+                  </div>
+                  <span>{link.name}</span>
+                </Link>
+              </li>
+            ))}
+            {profile?.role === 'mod' && (
+              <li>
+                <Link 
+                  href="/moderation" 
+                  className={`nav-link ${pathname === '/moderation' ? 'active' : ''}`}
+                >
+                  <div className="nav-svg"><ShieldCheck size={18} /></div>
+                  <span>Mod</span>
+                </Link>
+              </li>
+            )}
+            {profile?.role === 'admin' && (
+              <li>
+                <Link 
+                  href="/admin" 
+                  className={`nav-link nav-link-admin ${pathname === '/admin' ? 'active' : ''}`}
+                >
+                  <div className="nav-svg"><ShieldAlert size={18} /></div>
+                  <span>Admin</span>
+                </Link>
+              </li>
+            )}
+          </ul>
+        </nav>
+      )}
 
       {isSupportOpen && <SupportModal onClose={() => setIsSupportOpen(false)} />}
 
