@@ -265,7 +265,7 @@ export default function SolvingPage() {
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
+  }, [qIds.join(',')]);
 
   const handleSubmit = (optionIdx?: number) => {
     if (!currentQuestion || isAnswered) return;
