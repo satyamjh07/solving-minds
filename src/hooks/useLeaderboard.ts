@@ -52,9 +52,8 @@ export function useLeaderboard(mode: 'daily' | 'weekly' = 'weekly') {
               class: r.class,
               target_year: r.target_year,
               role: r.role,
-              // Map legacy total_seconds to a relative aura score for the period
-              // Formula: (seconds / 360) * 10 (approx 10 points per 6 mins of work)
-              aura_score: Math.floor((r.total_seconds || 0) / 36) || 0,
+              // Map pre-calculated total_points from the updated stored procedure
+              aura_score: Number(r.total_points) || 0,
               rank: idx + 1
             })));
             return;

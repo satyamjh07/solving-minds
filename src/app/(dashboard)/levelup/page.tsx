@@ -85,20 +85,21 @@ export default function LevelUpPage() {
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
+            {/*
+              FIX: Browsers ignore stroke-dasharray / stroke-width inside <clipPath>.
+              A simple <rect> that covers from y=0 to y=(progressRatio * 1200) reliably
+              clips the glowing path to exactly the user's current progress level.
+            */}
             <clipPath id="progress-clip">
-              <path 
-                d="M200 0 C250 150, 150 300, 200 450 S250 750, 200 900 S150 1150, 200 1200" 
-                stroke="white" 
-                strokeWidth="20" 
-                fill="none"
-                pathLength="100"
-                strokeDasharray={`${((aura.level - 1 + (aura.progress || 0) / 100) / 9) * 100} ${100 - ((aura.level - 1 + (aura.progress || 0) / 100) / 9) * 100}`}
-                strokeDashoffset="0"
-                strokeLinecap="round"
+              <rect
+                x="0"
+                y="0"
+                width="400"
+                height={((aura.level - 1 + (aura.progress || 0) / 100) / (LEVEL_DATA.length - 1)) * 1200}
               />
             </clipPath>
           </defs>
-          {/* Faint Background Dotted Line */}
+          {/* Faint Background Dotted Line (full height, dim) */}
           <path 
             d="M200 0 C250 150, 150 300, 200 450 S250 750, 200 900 S150 1150, 200 1200" 
             stroke="var(--accent)" 
@@ -106,7 +107,7 @@ export default function LevelUpPage() {
             strokeDasharray="8 12" 
             className="opacity-10"
           />
-          {/* Active Glowing Filled Dotted Line */}
+          {/* Active Glowing Filled Dotted Line (clipped to user progress) */}
           <path 
             d="M200 0 C250 150, 150 300, 200 450 S250 750, 200 900 S150 1150, 200 1200" 
             stroke="var(--accent)" 

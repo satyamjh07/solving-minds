@@ -54,6 +54,8 @@ const formatText = (text: string) => {
       p = p.replace(/\\+textit\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<em>$1</em>');
       // Replace literal \\ with <br/>
       p = p.replace(/\\\\/g, '<br/>');
+      // Replace Markdown image syntax: ![alt](url)
+      p = p.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="q-inline-img" />');
       // Normal newlines
       p = p.replace(/\n/g, '<br/>');
       parts[i] = p;
@@ -80,6 +82,7 @@ const QuestionText = memo(function QuestionText({ text, className = '' }: { text
 });
 
 const COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
+const MAX_ATTEMPTS = 3;
 
 type SolverView = 'modes' | 'pyq-selection' | 'solving';
 
@@ -105,6 +108,10 @@ export default function SolvingPage() {
   // no re-render needed, acts as the authoritative in-session store.
   const attemptCacheRef = useRef<Record<string, Attempt>>({});
   const [localAttempts, setLocalAttempts] = useState<Record<string, Attempt>>({});
+  // Tracks total number of attempts per question (across all sessions)
+  const [attemptsCount, setAttemptsCount] = useState<Record<string, number>>({});
+  // Tracks questions currently being reattempted (UI reset state)
+  const [reattemptingQIds, setReattemptingQIds] = useState<Set<string>>(new Set());
 
   // ─── Question Timer ───
   const timerRef = useRef<number>(0);                          // elapsed seconds (mutable, no re-render)
@@ -169,18 +176,34 @@ export default function SolvingPage() {
   const currentQuestion = questions[currentIndex];
   const currentAttempt = currentQuestion ? attempts[currentQuestion._dbId] : null;
   
+  // A question is "on cooldown" only if the LATEST attempt is correct AND within 12 hrs.
   const isOnCooldown = (attempt: Attempt | null) => {
     if (!attempt) return false;
+    if (!attempt.is_correct) return false; // wrong answers don't trigger cooldown
     const age = Date.now() - new Date(attempt.created_at).getTime();
     return age < COOLDOWN_MS;
   };
 
-  const isAnswered = isOnCooldown(currentAttempt);
+  // A question is locked if:
+  //   (a) on cooldown (correct + within 12 hrs), OR
+  //   (b) reached max attempts
+  const getAttemptCount = (qId: string) => attemptsCount[qId] || 0;
+  const isAttemptLocked = (attempt: Attempt | null, qId: string) => {
+    if (isOnCooldown(attempt)) return true;
+    if (getAttemptCount(qId) >= MAX_ATTEMPTS) return true;
+    return false;
+  };
+
+  // isAnswered: question is in a "show result" state (has a latest attempt but NOT being reattempted)
+  const isAnswered = currentQuestion
+    ? !!currentAttempt && !reattemptingQIds.has(currentQuestion._dbId)
+    : false;
 
   // Reset attempt cache when chapter changes so old answers don’t bleed through.
   useEffect(() => {
     attemptCacheRef.current = {};
     setLocalAttempts({});
+    setReattemptingQIds(new Set());
   }, [selectedChapter, subject]);
 
   useEffect(() => {
@@ -219,15 +242,38 @@ export default function SolvingPage() {
 
   // KEY FIX: MERGE fetched attempts into local state instead of replacing.
   // Replacing would clobber any optimistic updates already in local state.
+  // Also build the attempts-count map from fetched data.
   useEffect(() => {
     setLocalAttempts(prev => ({ ...fetchedAttempts, ...prev }));
   }, [fetchedAttempts]);
 
+  // Sync attempt counts from DB on question set change
+  useEffect(() => {
+    if (!qIds.length) return;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('user_attempts')
+        .select('question_id')
+        .eq('user_id', user.id)
+        .in('question_id', qIds);
+      if (data) {
+        const countMap: Record<string, number> = {};
+        data.forEach(a => { countMap[a.question_id] = (countMap[a.question_id] || 0) + 1; });
+        setAttemptsCount(prev => ({ ...prev, ...countMap }));
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey]);
+
   const handleSubmit = (optionIdx?: number) => {
     if (!currentQuestion || isAnswered) return;
 
-    // Guard using the ref cache (synchronous, no re-render lag)
-    if (attemptCacheRef.current[currentQuestion._dbId]) return;
+    const qId = currentQuestion._dbId;
+
+    // If user is reattempting, clear the reattempting state first
+    const isReattempt = reattemptingQIds.has(qId);
 
     let isCorrect = false;
     let answerValue = '';
@@ -259,27 +305,28 @@ export default function SolvingPage() {
 
     const newAttempt: Attempt = {
       id: 'temp-' + Date.now(),
-      question_id: currentQuestion._dbId,
+      question_id: qId,
       is_correct: isCorrect,
       selected_answer: answerValue,
       time_taken: timeTaken,
       created_at: new Date().toISOString(),
     };
 
-    // KEY FIX: Update the ref synchronously FIRST (like legacy's qState.answered = true)
-    // This prevents double-submission even before the React state update.
-    attemptCacheRef.current[currentQuestion._dbId] = newAttempt;
+    // Remove from reattempting set, update local attempts
+    if (isReattempt) {
+      setReattemptingQIds(prev => { const s = new Set(prev); s.delete(qId); return s; });
+    }
+    attemptCacheRef.current[qId] = newAttempt;
+    setLocalAttempts(prev => ({ ...prev, [qId]: newAttempt }));
+    // Optimistically increment the local attempt count
+    setAttemptsCount(prev => ({ ...prev, [qId]: (prev[qId] || 0) + 1 }));
 
-    // Then update React state to trigger re-render with result — instant, no await.
-    setLocalAttempts(prev => ({ ...prev, [currentQuestion._dbId]: newAttempt }));
-
-    // KEY FIX: Fire-and-forget DB save (like legacy solver's .then() pattern).
-    // UI never waits for the network — result shows instantly.
+    // Fire-and-forget DB save
     const userId = profile?.id;
     if (userId) {
       supabase.from('user_attempts').insert({
         user_id: userId,
-        question_id: currentQuestion._dbId,
+        question_id: qId,
         is_correct: isCorrect,
         selected_answer: answerValue,
         time_taken: timeTaken,
@@ -287,11 +334,35 @@ export default function SolvingPage() {
         if (error) {
           console.error('[Solver] Failed to save attempt:', error.message);
         } else if (data && (data as any)[0]) {
-          // Upgrade temp id to real DB row id in the cache
-          attemptCacheRef.current[currentQuestion._dbId] = (data as any)[0];
+          attemptCacheRef.current[qId] = (data as any)[0];
         }
       });
     }
+  };
+
+  // ─── Reattempt Handler ───
+  const handleReattempt = () => {
+    if (!currentQuestion) return;
+    const qId = currentQuestion._dbId;
+    // Clear inputs and timer for a fresh attempt
+    setSelectedOption(null);
+    setSelectedMultiOptions([]);
+    setIntegerInput('');
+    // Reset timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    timerRef.current = 0;
+    setDisplayTime(0);
+    timerIntervalRef.current = setInterval(() => {
+      timerRef.current += 1;
+      setDisplayTime(timerRef.current);
+    }, 1000);
+    // Mark as reattempting so isAnswered flips to false
+    setReattemptingQIds(prev => new Set(prev).add(qId));
+    // Remove from ref cache so guard doesn't block submission
+    delete attemptCacheRef.current[qId];
   };
 
   // formatText and QuestionText are now module-level (see top of file)
@@ -721,9 +792,11 @@ export default function SolvingPage() {
               <div className="zd-qnav-grid">
                 {questions.map((q, i) => {
                   const att = attempts[q._dbId];
-                  const answered = isOnCooldown(att);
+                  const isReattempting = reattemptingQIds.has(q._dbId);
+                  // Show a result only if there's an attempt AND we're not mid-reattempt
+                  const hasResult = !!att && !isReattempting;
                   let status = 'unseen';
-                  if (answered) status = att.is_correct ? 'correct' : 'wrong';
+                  if (hasResult) status = att.is_correct ? 'correct' : 'wrong';
                   
                   return (
                     <button 
@@ -916,13 +989,34 @@ export default function SolvingPage() {
                         SUBMIT
                       </button>
                     ) : (
-                      <button 
-                        className="zd-btn zd-btn-primary"
-                        onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
-                        disabled={currentIndex === questions.length - 1}
-                      >
-                        NEXT →
-                      </button>
+                      <>
+                        {/* REATTEMPT button — visible only when:
+                            1. Question has a result (isAnswered)
+                            2. It is NOT locked on a correct cooldown
+                            3. Total attempts < MAX_ATTEMPTS
+                        */}
+                        {currentAttempt && !isOnCooldown(currentAttempt) && getAttemptCount(currentQuestion._dbId) < MAX_ATTEMPTS && (
+                          <button
+                            className="zd-btn"
+                            style={{
+                              background: 'rgba(124,58,237,0.15)',
+                              border: '1px solid rgba(124,58,237,0.4)',
+                              color: 'var(--purple)',
+                              fontWeight: 800,
+                            }}
+                            onClick={handleReattempt}
+                          >
+                            ↺ REATTEMPT ({MAX_ATTEMPTS - getAttemptCount(currentQuestion._dbId)} LEFT)
+                          </button>
+                        )}
+                        <button 
+                          className="zd-btn zd-btn-primary"
+                          onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
+                          disabled={currentIndex === questions.length - 1}
+                        >
+                          NEXT →
+                        </button>
+                      </>
                     )}
                     <span className="zd-q-progress">
                       {currentIndex + 1} / {questions.length}

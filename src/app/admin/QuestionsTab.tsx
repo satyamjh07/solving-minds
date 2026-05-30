@@ -40,6 +40,8 @@ const formatText = (text: string) => {
       p = p.replace(/\\+textit\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<em>$1</em>');
       // Replace literal \\ with <br/>
       p = p.replace(/\\\\/g, '<br/>');
+      // Replace Markdown image syntax: ![alt](url)
+      p = p.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="q-inline-img" />');
       // Normal newlines
       p = p.replace(/\n/g, '<br/>');
       parts[i] = p;
@@ -103,6 +105,48 @@ export default function QuestionsTab() {
   const [opt2ImagePreview, setOpt2ImagePreview] = useState('');
   const [opt3ImagePreview, setOpt3ImagePreview] = useState('');
   const [opt4ImagePreview, setOpt4ImagePreview] = useState('');
+
+  // Inline reaction/diagram uploader states and refs
+  const qTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const expTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const inlineFileInputRef = useRef<HTMLInputElement>(null);
+  const expInlineFileInputRef = useRef<HTMLInputElement>(null);
+  const [inlineUploading, setInlineUploading] = useState(false);
+  const [expInlineUploading, setExpInlineUploading] = useState(false);
+
+  const handleInlineUpload = async (file: File, isExplanation = false) => {
+    const isExp = isExplanation;
+    const setUploading = isExp ? setExpInlineUploading : setInlineUploading;
+    const textarea = isExp ? expTextareaRef.current : qTextareaRef.current;
+    const fileInput = isExp ? expInlineFileInputRef.current : inlineFileInputRef.current;
+    const fieldKey = isExp ? 'explanation' : 'text';
+
+    setUploading(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      if (!url) throw new Error('Cloudinary did not return a URL');
+
+      if (textarea) {
+        const start = textarea.selectionStart || 0;
+        const end = textarea.selectionEnd || 0;
+        const currentVal = (formData as any)[fieldKey] || '';
+        const insertText = `\n![image](${url})\n`;
+        const newVal = currentVal.substring(0, start) + insertText + currentVal.substring(end);
+        
+        setFormData(prev => ({ ...prev, [fieldKey]: newVal }));
+        
+        // Reset file input
+        if (fileInput) fileInput.value = '';
+        
+        toast('Image uploaded and inserted successfully!', 'success');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast('Inline upload failed: ' + err.message, 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const [bookletsList, setBookletsList] = useState<any[]>([]);
   const [mocksList, setMocksList] = useState<any[]>([]);
@@ -389,10 +433,47 @@ export default function QuestionsTab() {
             <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-1">
               Question Text <span className="text-[var(--accent)]">*</span>
             </label>
-            <textarea name="text" value={formData.text} onChange={handleChange} rows={4}
+            <textarea ref={qTextareaRef} name="text" value={formData.text} onChange={handleChange} rows={4}
               placeholder="Type question here. Supports LaTeX: $E=mc^2$ or $$\frac{a}{b}$$"
               className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-3 text-[var(--text)] font-mono outline-none focus:border-[var(--accent)] text-sm resize-y"
               required />
+            {/* Inline reaction uploader widget */}
+            <div className="mt-2.5 p-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg2)] flex items-center justify-between gap-3 shadow-inner">
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-wider">
+                  🧪 Inline Reaction / Diagram
+                </span>
+                <span className="text-[9px] text-[var(--text2)] mt-0.5 truncate">
+                  Upload &amp; insert at current cursor position
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  ref={inlineFileInputRef}
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleInlineUpload(file, false);
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  disabled={inlineUploading}
+                  onClick={() => inlineFileInputRef.current?.click()}
+                  className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--accent)] text-[var(--text)] transition-all flex items-center gap-1"
+                >
+                  {inlineUploading ? (
+                    <>
+                      <Loader2 size={10} className="animate-spin" /> Uploading...
+                    </>
+                  ) : (
+                    'Upload & Insert'
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -507,9 +588,46 @@ export default function QuestionsTab() {
 
             <div>
               <label className="block text-xs font-bold text-[var(--text2)] uppercase tracking-widest mb-1">Solution Text</label>
-              <textarea name="explanation" value={formData.explanation} onChange={handleChange} rows={6}
+              <textarea ref={expTextareaRef} name="explanation" value={formData.explanation} onChange={handleChange} rows={6}
                 placeholder="Solution text. Supports LaTeX: $\vec{F}=m\vec{a}$"
                 className="w-full bg-[var(--bg3)] border border-[var(--border)] rounded-lg p-3 text-[var(--text)] font-mono outline-none focus:border-[var(--accent)] text-sm resize-y" />
+              {/* Inline explanation image uploader widget */}
+              <div className="mt-2.5 p-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg2)] flex items-center justify-between gap-3 shadow-inner">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] font-bold text-[var(--green)] uppercase tracking-wider">
+                    ⚡ Inline Solution Diagram
+                  </span>
+                  <span className="text-[9px] text-[var(--text2)] mt-0.5 truncate">
+                    Upload &amp; insert at current cursor position
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    ref={expInlineFileInputRef}
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleInlineUpload(file, true);
+                    }}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    disabled={expInlineUploading}
+                    onClick={() => expInlineFileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--green)] text-[var(--text)] transition-all flex items-center gap-1"
+                  >
+                    {expInlineUploading ? (
+                      <>
+                        <Loader2 size={10} className="animate-spin" /> Uploading...
+                      </>
+                    ) : (
+                      'Upload & Insert'
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div>
