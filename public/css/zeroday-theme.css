@@ -8,42 +8,42 @@
 
 /* ── Override CSS Variables (dark theme only) ────────────── */
 [data-theme="dark"] {
-  --bg:           #050508;
-  --bg2:          #08090f;
-  --bg3:          #0d0e18;
-  --card:         #0c0d16;
-  --card2:        #111220;
-  --border:       rgba(124, 111, 255, 0.12);
-  --border-hover: rgba(124, 111, 255, 0.28);
-  --text:         #e8eaf6;
-  --text2:        #6b7280;
-  --text3:        #3a3d52;
-  --accent:       #7c6fff;
-  --accent2:      #00d4ff;
-  --accent-glow:  rgba(124, 111, 255, 0.22);
-  --accent-grad:  linear-gradient(135deg, #7c6fff 0%, #00d4ff 100%);
-  --green:        #00e5a0;
-  --orange:       #ff6b35;
-  --red:          #ff3b5c;
-  --blue:         #00d4ff;
-  --purple:       #bd5dff;
-  --teal:         #00e5a0;
-  --shadow:       0 24px 80px rgba(0, 0, 0, 0.8);
-  --shadow-sm:    0 6px 24px rgba(0, 0, 0, 0.5);
-  --shadow-card:  0 4px 20px rgba(0, 0, 0, 0.6);
-  --radius:       14px;
-  --radius-sm:    10px;
-  --radius-xs:    7px;
-  --sidebar-w:    250px;
-  --glass:        rgba(12, 13, 22, 0.92);
-  --glass-border: rgba(124, 111, 255, 0.1);
+  --bg:           #030712;              /* Super deep space navy background */
+  --bg2:          #080f26;             /* Rich dark cyber navy */
+  --bg3:          #111d3f;             /* Vibrant navy accents */
+  --card:         rgba(6, 12, 32, 0.65); /* Glassmorphic card base */
+  --card2:        rgba(14, 25, 61, 0.8);
+  --border:       rgba(0, 162, 255, 0.15); /* Tech style blue border */
+  --border-hover: rgba(0, 240, 255, 0.35); /* Electric neon cyan hover border */
+  --text:         #f1f5f9;            /* Bright clean slate white */
+  --text2:        #94a9c9;           /* Soft metallic blue-grey */
+  --text3:        #4f6b96;           /* Muted cool grey-blue */
+  --accent:       #00d2ff;          /* Brand primary accent: bright cyber blue */
+  --accent2:      #3b82f6;         /* Brand logo secondary: royal blue */
+  --accent-glow:  rgba(0, 210, 255, 0.18);
+  --accent-grad:  linear-gradient(135deg, #00d2ff 0%, #3b82f6 100%);
+  --green:        #00e5a0;           /* Electric green */
+  --orange:       #ff9340;          /* Solar flare orange */
+  --red:          #ff4d6a;             /* Electric crimson */
+  --blue:         #3b82f6;            /* Logo blue */
+  --purple:       #8b5cf6;          /* Hyper-modern violet */
+  --teal:         #00d2ff;
+  --shadow:       0 20px 60px rgba(0, 3, 15, 0.6);
+  --shadow-sm:    0 4px 20px rgba(0, 3, 15, 0.35);
+  --shadow-card:  0 2px 12px rgba(0, 3, 15, 0.4);
+  --radius:       18px;
+  --radius-sm:    12px;
+  --radius-xs:    8px;
+  --sidebar-w:    260px;
+  --glass:        rgba(6, 12, 32, 0.7);
+  --glass-border: rgba(0, 162, 255, 0.18);
 
   /* ZEROday-specific tokens */
-  --zd-cyan:      #00d4ff;
-  --zd-purple:    #7c6fff;
+  --zd-cyan:      #00d2ff;
+  --zd-purple:    #3b82f6;
   --zd-green:     #00e5a0;
-  --zd-red:       #ff3b5c;
-  --zd-orange:    #ff6b35;
+  --zd-red:       #ff4d6a;
+  --zd-orange:    #ff9340;
   --zd-gold:      #ffd166;
   --zd-noise:     url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
 }
@@ -52,9 +52,10 @@
 body {
   font-family: 'Space Grotesk', 'DM Sans', sans-serif;
   background: var(--bg);
-  background-image:
-    radial-gradient(ellipse 80% 60% at 20% -10%, rgba(124, 111, 255, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 110%, rgba(0, 212, 255, 0.05) 0%, transparent 60%);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(3, 30, 94, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(5, 59, 150, 0.25) 0px, transparent 50%),
+    radial-gradient(at 50% 0%, rgba(0, 240, 255, 0.05) 0px, transparent 35%);
   background-attachment: fixed;
   letter-spacing: -0.01em;
 }

@@ -5,28 +5,37 @@
 @tailwind utilities;
 
 :root {
-  --bg: #080b12;
-  --bg2: #0e1220;
-  --bg3: #161c2e;
-  --card: #111827;
-  --card2: #1a2236;
-  --text: #eef0f8;
-  --text2: #7e89a9;
-  --text3: #404869;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.14);
-  --accent: #7c6fff;
-  --accent2: #a78bfa;
-  --purple: #c084fc;
-  --green: #34d399;
-  --orange: #fb923c;
-  --red: #f87171;
-  --blue: #60a5fa;
-  --yellow: #fbbf24;
+  --bg: #030712;              /* Super deep space navy background */
+  --bg2: #080f26;             /* Rich dark cyber navy */
+  --bg3: #111d3f;             /* Vibrant navy accents */
+  --card: rgba(6, 12, 32, 0.65); /* Glassmorphic card base */
+  --card2: rgba(14, 25, 61, 0.8);
+  --text: #f1f5f9;            /* Bright clean slate white */
+  --text2: #94a9c9;           /* Soft metallic blue-grey */
+  --text3: #4f6b96;           /* Denser cool grey-blue */
+  --border: rgba(0, 162, 255, 0.15); /* TECH style blue border */
+  --border2: rgba(0, 240, 255, 0.35); /* Electric neon cyan hover border */
+  --accent: #00d2ff;          /* Brand primary accent: bright cyber blue */
+  --accent2: #2563eb;         /* Brand logo secondary: royal blue */
+  --purple: #8b5cf6;          /* Hyper-modern violet */
+  --green: #00e5a0;           /* Electric green */
+  --orange: #ff9340;          /* Solar flare orange */
+  --red: #ff4d6a;             /* Electric crimson */
+  --blue: #2563eb;            /* Logo blue */
+  --yellow: #ffd060;          /* Electric gold */
+
+  /* Glassmorphism custom components variables */
+  --glass: rgba(6, 12, 32, 0.7);
+  --glass-border: rgba(0, 162, 255, 0.18);
 }
 
 html, body {
   background-color: var(--bg);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(3, 30, 94, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(5, 59, 150, 0.25) 0px, transparent 50%),
+    radial-gradient(at 50% 0%, rgba(0, 240, 255, 0.05) 0px, transparent 35%);
+  background-attachment: fixed;
   color: var(--text);
   font-family: 'Space Grotesk', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -47,7 +56,7 @@ html, body {
 }
 ::-webkit-scrollbar-track { background: var(--bg2); }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 240, 255, 0.5); }
 
 /* ── Inline question & explanation images/reactions ── */
 .q-inline-img {
@@ -60,5 +69,19 @@ html, body {
   border: 1px solid var(--border);
   background: var(--bg2);
   padding: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 162, 255, 0.15);
+}
+
+/* ── Premium Glassmorphism Overrides ── */
+.an-card, .an-kpi-card, .an-qstat-card, .an-gauge-card, .an-topic-chip, .an-lb-row {
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 3, 15, 0.5) !important;
+}
+
+/* ── Interactive Cyber Glows on hover ── */
+.an-card:hover, .an-kpi-card:hover, .an-qstat-card:hover, .an-gauge-card:hover, .an-topic-chip:hover {
+  border-color: var(--border2) !important;
+  box-shadow: 0 0 25px rgba(0, 162, 255, 0.22) !important;
+  transform: translateY(-2px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }

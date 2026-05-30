@@ -893,11 +893,12 @@ export default function SolvingPage() {
                     onClick={() => jumpToQ(Math.max(0, currentIndex - 1))}
                     disabled={currentIndex === 0}
                   >
-                    ← PREV
+                    <span className="hidden sm:inline">← PREV</span>
+                    <span className="inline sm:hidden">←</span>
                   </button>
 
-                  {/* SUBMIT / REATTEMPT / NEXT */}
-                  {!isAnswered ? (
+                  {/* SUBMIT */}
+                  {!isAnswered && (
                     <button
                       className="sf-btn sf-btn-primary"
                       onClick={() => handleSubmit()}
@@ -909,25 +910,28 @@ export default function SolvingPage() {
                     >
                       SUBMIT
                     </button>
-                  ) : (
-                    <>
-                      {currentAttempt && !isOnCooldown(currentAttempt) && getAttemptCount(currentQuestion._dbId) < MAX_ATTEMPTS && (
-                        <button
-                          className="sf-btn sf-btn-reattempt"
-                          onClick={handleReattempt}
-                        >
-                          ↺ REATTEMPT ({MAX_ATTEMPTS - getAttemptCount(currentQuestion._dbId)} LEFT)
-                        </button>
-                      )}
-                      <button
-                        className="sf-btn sf-btn-primary"
-                        onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
-                        disabled={currentIndex === questions.length - 1}
-                      >
-                        NEXT →
-                      </button>
-                    </>
                   )}
+
+                  {/* REATTEMPT */}
+                  {isAnswered && currentAttempt && !isOnCooldown(currentAttempt) && getAttemptCount(currentQuestion._dbId) < MAX_ATTEMPTS && (
+                    <button
+                      className="sf-btn sf-btn-reattempt"
+                      onClick={handleReattempt}
+                    >
+                      <span className="hidden sm:inline">↺ REATTEMPT ({MAX_ATTEMPTS - getAttemptCount(currentQuestion._dbId)} LEFT)</span>
+                      <span className="inline sm:hidden">↺ ({MAX_ATTEMPTS - getAttemptCount(currentQuestion._dbId)})</span>
+                    </button>
+                  )}
+
+                  {/* NEXT */}
+                  <button
+                    className={isAnswered ? "sf-btn sf-btn-primary" : "sf-btn sf-btn-ghost"}
+                    onClick={() => jumpToQ(Math.min(questions.length - 1, currentIndex + 1))}
+                    disabled={currentIndex === questions.length - 1}
+                  >
+                    <span className="hidden sm:inline">NEXT →</span>
+                    <span className="inline sm:hidden">→</span>
+                  </button>
 
                   {/* Progress counter */}
                   <span className="sf-progress">{currentIndex + 1} / {questions.length}</span>
