@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import { 
@@ -26,6 +26,7 @@ import { LifeBuoy } from 'lucide-react';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile, loading } = useProfile();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
@@ -112,7 +113,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'mod';
   const isAdmin = profile?.role === 'admin';
-  const isSolving = pathname.startsWith('/solving');
+  const isSolving = pathname.startsWith('/solving') && searchParams.get('q') !== null;
 
   const handleSignOut = async () => {
     sessionStorage.clear();
@@ -294,7 +295,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Content Area */}
-      <main className="main-content flex-1 overflow-x-hidden">
+      <main className={`main-content flex-1 overflow-x-hidden ${isSolving ? 'is-solving-mode' : ''}`}>
         {children}
       </main>
 
@@ -444,6 +445,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
         .main-content {
           padding-bottom: 80px !important;
+        }
+        .main-content.is-solving-mode {
+          padding-bottom: 0px !important;
         }
         .nav-link-admin {
           color: rgba(248, 113, 113, 0.5) !important;

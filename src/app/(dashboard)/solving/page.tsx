@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuestions, Question } from '@/hooks/useQuestions';
 import { useAttempts, Attempt } from '@/hooks/useAttempts';
 import { useProfile } from '@/hooks/useProfile';
@@ -93,13 +94,28 @@ interface ChapterInfo {
 
 export default function SolvingPage() {
   const { profile } = useProfile();
-  const [view, setView] = useState<SolverView>('modes');
-  const [selectedExam, setSelectedExam] = useState<string | null>(null);
-  const [subject, setSubject] = useState('physics');
-  const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // ─── Initialise state from URL params so refresh always restores position ───
+  const [view, setView] = useState<SolverView>(() => {
+    const q = searchParams.get('q');
+    const chapter = searchParams.get('chapter');
+    const exam = searchParams.get('exam');
+    if (q !== null && chapter && exam) return 'solving';
+    if (exam) return 'pyq-selection';
+    return 'modes';
+  });
+  const [selectedExam, setSelectedExam] = useState<string | null>(() => searchParams.get('exam'));
+  const [subject, setSubject] = useState(() => searchParams.get('subject') || 'physics');
+  const [selectedChapter, setSelectedChapter] = useState<string | null>(() => searchParams.get('chapter'));
   const [chapters, setChapters] = useState<ChapterInfo[]>([]);
   const [loadingChapters, setLoadingChapters] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const q = searchParams.get('q');
+    const n = q !== null ? parseInt(q) : 0;
+    return isNaN(n) ? 0 : n;
+  });
   const [showSolution, setShowSolution] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [integerInput, setIntegerInput] = useState('');
@@ -118,6 +134,20 @@ export default function SolvingPage() {
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // interval handle
   const [displayTime, setDisplayTime] = useState(0);           // for live UI display
 
+  // ─── Sync state → URL so refresh always restores position ───
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    // skip the very first render to avoid double-replacing on initial load
+    if (!didMountRef.current) { didMountRef.current = true; return; }
+    const params = new URLSearchParams();
+    if (selectedExam)   params.set('exam',    selectedExam);
+    if (subject !== 'physics') params.set('subject', subject);
+    if (selectedChapter) params.set('chapter', selectedChapter);
+    if (view === 'solving') params.set('q', currentIndex.toString());
+    const qs = params.toString();
+    router.replace(qs ? `/solving?${qs}` : '/solving', { scroll: false } as any);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, selectedExam, subject, selectedChapter, currentIndex]);
 
   // Filters
   const [filterYear, setFilterYear] = useState('ALL');
