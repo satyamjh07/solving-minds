@@ -43,9 +43,7 @@ export function usePosts(filters: PostFilters = {}) {
 
     let query = supabase
       .from('posts')
-      .select('id, user_id, title, content, image_urls, tags, created_at, profiles(id, name, avatar_url, class, target_year, role, muted_until)')
-      .order('created_at', { ascending: false })
-      .limit(30);
+      .select('id, user_id, title, content, image_urls, tags, created_at, profiles!inner(id, name, avatar_url, class, target_year, role, muted_until)');
 
     // Apply Filters Server-side
     if (filters.type === 'my' && user) {
@@ -53,14 +51,7 @@ export function usePosts(filters: PostFilters = {}) {
     }
     
     if (filters.targetYear && filters.targetYear !== 'ALL') {
-      // We need to filter by related profile's target_year
-      // In Supabase, we can use !inner to filter by joined table columns
-      query = supabase
-        .from('posts')
-        .select('id, user_id, title, content, image_urls, tags, created_at, profiles!inner(id, name, avatar_url, class, target_year, role, muted_until)')
-        .eq('profiles.target_year', filters.targetYear)
-        .order('created_at', { ascending: false })
-        .limit(30);
+      query = query.eq('profiles.target_year', filters.targetYear);
     }
 
     if (filters.class_ && filters.class_ !== 'ALL') {
@@ -74,12 +65,27 @@ export function usePosts(filters: PostFilters = {}) {
     if (filters.timeRange && filters.timeRange !== 'ALL') {
       const now = new Date();
       let dateLimit = new Date();
-      if (filters.timeRange === 'TODAY') dateLimit.setHours(0,0,0,0);
-      else if (filters.timeRange === 'WEEK') dateLimit.setDate(now.getDate() - 7);
-      else if (filters.timeRange === 'MONTH') dateLimit.setMonth(now.getMonth() - 1);
-      
-      query = query.gte('created_at', dateLimit.toISOString());
+      if (filters.timeRange === 'TODAY') {
+        dateLimit.setHours(0, 0, 0, 0);
+        query = query.gte('created_at', dateLimit.toISOString());
+      } else if (filters.timeRange === 'YESTERDAY') {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfYesterday = new Date();
+        startOfYesterday.setDate(now.getDate() - 1);
+        startOfYesterday.setHours(0, 0, 0, 0);
+        query = query.gte('created_at', startOfYesterday.toISOString())
+                     .lt('created_at', startOfToday.toISOString());
+      } else if (filters.timeRange === '1_WEEK') {
+        dateLimit.setDate(now.getDate() - 7);
+        query = query.gte('created_at', dateLimit.toISOString());
+      } else if (filters.timeRange === '1_MONTH') {
+        dateLimit.setMonth(now.getMonth() - 1);
+        query = query.gte('created_at', dateLimit.toISOString());
+      }
     }
+
+    query = query.order('created_at', { ascending: false }).limit(30);
 
     const { data: postsData, error } = await query;
 
