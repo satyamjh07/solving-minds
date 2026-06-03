@@ -37,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${bebasNeue.variable} ${spaceGrotesk.variable} ${dmMono.variable}`}>
+    <html lang="en" data-theme="light" className={`${bebasNeue.variable} ${spaceGrotesk.variable} ${dmMono.variable}`}>
       <head>
         <link rel="icon" href="/logo.png" />
         <link rel="apple-touch-icon" href="/logo.png" />

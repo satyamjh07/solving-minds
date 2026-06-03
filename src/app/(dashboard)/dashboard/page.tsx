@@ -56,6 +56,10 @@ export default function DashboardPage() {
 
   const handleUpdateTarget = async () => {
     if (!profile) return;
+    if (newTarget < 1 || isNaN(newTarget)) {
+      toast('Please enter a target of at least 1 question per day', 'error');
+      return;
+    }
     try {
       const { error } = await supabase
         .from('profiles')
@@ -507,6 +511,7 @@ export default function DashboardPage() {
                    <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest block mb-2">Daily Questions</label>
                    <input 
                       type="number"
+                      min="1"
                       value={newTarget}
                       onChange={(e) => setNewTarget(Number(e.target.value))}
                       className="w-full bg-[#ffffff05] border border-[#ffffff10] rounded-xl px-4 py-4 text-white font-mono text-2xl focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all outline-none"
@@ -514,8 +519,8 @@ export default function DashboardPage() {
                    />
                 </div>
                 <div className="flex justify-between text-[10px] font-bold text-gray-600 uppercase tracking-widest px-1">
-                   <span>Weekly: {newTarget * 7}</span>
-                   <span>Monthly: {newTarget * 30}</span>
+                   <span>Weekly: {Math.max(0, newTarget) * 7}</span>
+                   <span>Monthly: {Math.max(0, newTarget) * 30}</span>
                 </div>
              </div>
 

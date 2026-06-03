@@ -87,10 +87,50 @@ const MAX_ATTEMPTS = 3;
 
 type SolverView = 'modes' | 'pyq-selection' | 'solving';
 
-interface ChapterInfo {
-  name: string;
-  count: number;
+interface QuestionTimerProps {
+  timerRef: React.MutableRefObject<number>;
+  timerIntervalRef: React.MutableRefObject<ReturnType<typeof setInterval> | null>;
+  questionId: string | undefined;
+  isAnswered: boolean;
+  isOnCooldown: boolean;
 }
+
+const QuestionTimer = memo(({ timerRef, timerIntervalRef, questionId, isAnswered, isOnCooldown }: QuestionTimerProps) => {
+  const [displayTime, setDisplayTime] = useState(0);
+
+  useEffect(() => {
+    // Stop any existing timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    // Reset refs & local state
+    timerRef.current = 0;
+    setDisplayTime(0);
+
+    if (!questionId || isAnswered || isOnCooldown) return;
+
+    timerIntervalRef.current = setInterval(() => {
+      timerRef.current += 1;
+      setDisplayTime(timerRef.current);
+    }, 1000);
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [questionId, isAnswered, isOnCooldown, timerRef, timerIntervalRef]);
+
+  if (isAnswered || isOnCooldown) return null;
+
+  return (
+    <span className="solver-badge" style={{ background: 'rgba(0,240,255,0.08)', color: 'var(--accent)', border: '1px solid rgba(0,240,255,0.2)', fontFamily: "'DM Mono', monospace" }}>
+      ⏱ {Math.floor(displayTime / 60).toString().padStart(2, '0')}:{(displayTime % 60).toString().padStart(2, '0')}
+    </span>
+  );
+});
 
 export default function SolvingPage() {
   const { profile } = useProfile();
@@ -132,7 +172,6 @@ export default function SolvingPage() {
   // ─── Question Timer ───
   const timerRef = useRef<number>(0);                          // elapsed seconds (mutable, no re-render)
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // interval handle
-  const [displayTime, setDisplayTime] = useState(0);           // for live UI display
 
   // ─── Sync state → URL so refresh always restores position ───
   const didMountRef = useRef(false);
@@ -242,33 +281,7 @@ export default function SolvingPage() {
     setIntegerInput('');
   }, [currentIndex, selectedChapter]);
 
-  // ─── Timer: auto-start on question visit, reset on question change ───
-  useEffect(() => {
-    // Stop any existing timer
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-    // Reset
-    timerRef.current = 0;
-    setDisplayTime(0);
 
-    // Only start if there's a question AND it's not already answered (on cooldown)
-    if (!currentQuestion || isOnCooldown(attempts[currentQuestion._dbId])) return;
-
-    timerIntervalRef.current = setInterval(() => {
-      timerRef.current += 1;
-      setDisplayTime(timerRef.current);
-    }, 1000);
-
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentQuestion?._dbId]);
 
   // KEY FIX: MERGE fetched attempts into local state instead of replacing.
   // Replacing would clobber any optimistic updates already in local state.
@@ -384,11 +397,6 @@ export default function SolvingPage() {
       timerIntervalRef.current = null;
     }
     timerRef.current = 0;
-    setDisplayTime(0);
-    timerIntervalRef.current = setInterval(() => {
-      timerRef.current += 1;
-      setDisplayTime(timerRef.current);
-    }, 1000);
     // Mark as reattempting so isAnswered flips to false
     setReattemptingQIds(prev => new Set(prev).add(qId));
     // Remove from ref cache so guard doesn't block submission
@@ -796,11 +804,13 @@ export default function SolvingPage() {
                       ⏳ COOLDOWN ACTIVE
                     </span>
                   )}
-                  {!isAnswered && currentQuestion && (
-                    <span className="solver-badge" style={{ background: 'rgba(0,240,255,0.08)', color: 'var(--accent)', border: '1px solid rgba(0,240,255,0.2)', fontFamily: "'DM Mono', monospace" }}>
-                      ⏱ {Math.floor(displayTime / 60).toString().padStart(2, '0')}:{(displayTime % 60).toString().padStart(2, '0')}
-                    </span>
-                  )}
+                  <QuestionTimer 
+                    timerRef={timerRef}
+                    timerIntervalRef={timerIntervalRef}
+                    questionId={currentQuestion?._dbId}
+                    isAnswered={isAnswered}
+                    isOnCooldown={isOnCooldown(currentAttempt)}
+                  />
                   {isAnswered && currentAttempt?.time_taken != null && currentAttempt.time_taken > 0 && (
                     <span className="solver-badge" style={{ background: 'rgba(0,229,160,0.1)', color: 'var(--green)', border: '1px solid rgba(0,229,160,0.25)', fontFamily: "'DM Mono', monospace" }}>
                       ⏱ Solved in {currentAttempt.time_taken >= 60 ? `${Math.floor(currentAttempt.time_taken / 60)}m ` : ''}{currentAttempt.time_taken % 60}s
