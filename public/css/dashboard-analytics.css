@@ -7,7 +7,7 @@
 .an-topbar {
   position: sticky; top: 0;
   padding: 1rem 1.75rem;
-  background: rgba(0,0,0,0.6);
+  background: var(--glass);
   backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border);
   z-index: 50;
@@ -627,8 +627,8 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1.5px solid rgba(124,111,255,0.35);
-  background: rgba(124,111,255,0.08);
+  border: 1.5px solid var(--border);
+  background: var(--surface2, var(--bg3));
   cursor: pointer;
   padding: 0;
   display: flex;
@@ -639,9 +639,9 @@
   overflow: hidden;
 }
 .zd-profile-btn:hover {
-  border-color: rgba(124,111,255,0.8);
-  box-shadow: 0 0 0 3px rgba(124,111,255,0.18);
-  background: rgba(124,111,255,0.14);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  background: var(--surface);
 }
 
 .zd-profile-avatar {
@@ -654,7 +654,7 @@
   font-family: 'Bebas Neue', sans-serif;
   font-size: 0.85rem;
   letter-spacing: 0.04em;
-  color: rgba(124,111,255,0.9);
+  color: var(--accent);
   overflow: hidden;
   user-select: none;
   line-height: 1;
@@ -672,10 +672,10 @@
   top: calc(100% + 10px);
   right: 0;
   min-width: 230px;
-  background: #111118;
-  border: 1px solid rgba(124,111,255,0.18);
+  background: var(--glass);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.03);
+  box-shadow: var(--shadow);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   z-index: 9999;
@@ -703,14 +703,14 @@
   height: 42px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: rgba(124,111,255,0.1);
-  border: 1.5px solid rgba(124,111,255,0.3);
+  background: var(--accent-glow);
+  border: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.05rem;
-  color: rgba(124,111,255,0.9);
+  color: var(--accent);
   overflow: hidden;
 }
 .zd-pd-avatar-lg img {
@@ -725,7 +725,7 @@
   font-family: 'Space Grotesk', sans-serif;
   font-size: 0.88rem;
   font-weight: 600;
-  color: #f0f0ff;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -733,7 +733,7 @@
 .zd-pd-email {
   font-family: 'DM Mono', monospace;
   font-size: 0.62rem;
-  color: #555;
+  color: var(--text3);
   letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
@@ -742,7 +742,7 @@
 }
 .zd-pd-divider {
   height: 1px;
-  background: rgba(124,111,255,0.1);
+  background: var(--border);
 }
 
 .zd-pd-item {
@@ -757,19 +757,19 @@
   font-family: 'DM Mono', monospace;
   font-size: 0.75rem;
   letter-spacing: 0.04em;
-  color: #999;
+  color: var(--text2);
   text-align: left;
   transition: background 0.15s, color 0.15s;
   text-decoration: none;
 }
 .zd-pd-item:hover {
-  background: rgba(124,111,255,0.06);
-  color: #fff;
+  background: var(--accent-glow);
+  color: var(--accent);
 }
 .zd-pd-logout {
-  color: #ff4d6a;
+  color: var(--red);
 }
 .zd-pd-logout:hover {
   background: rgba(255,77,106,0.08);
-  color: #ff4d6a;
+  color: var(--red);
 }
