@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { 
   Award, 
-  Calendar, 
   Clock, 
   BookOpen, 
   Plus, 
@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   X,
   BookMarked,
-  HelpCircle,
   FileText
 } from 'lucide-react';
 
@@ -36,6 +35,7 @@ interface MockTest {
 }
 
 export default function TestsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'mocks' | 'pyps'>('mocks');
   const [loading, setLoading] = useState(true);
   const [tests, setTests] = useState<MockTest[]>([]);
@@ -436,31 +436,16 @@ export default function TestsPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => setIsStartingAttempt(true)}
-                  disabled={isStartingAttempt}
-                  className="flex-1 bg-[var(--accent)] hover:brightness-110 disabled:opacity-50 text-black font-extrabold py-3.5 rounded-xl transition-all text-xs uppercase tracking-widest font-mono flex items-center justify-center gap-1"
+                  onClick={() => {
+                    if (selectedTestForAttempt) {
+                      router.push(`/exam/${selectedTestForAttempt.id}/instructions`);
+                    }
+                  }}
+                  className="flex-1 bg-[var(--accent)] hover:brightness-110 text-black font-extrabold py-3.5 rounded-xl transition-all text-xs uppercase tracking-widest font-mono flex items-center justify-center gap-1"
                 >
-                  {isStartingAttempt ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      Loading Engine...
-                    </>
-                  ) : (
-                    'Start Simulation'
-                  )}
+                  Start Simulation
                 </button>
               </div>
-
-              {/* Phase 2 notification banner inside modal */}
-              {isStartingAttempt && (
-                <div className="mt-4 p-3.5 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-2xl flex gap-3 text-xs text-[var(--text2)] animate-in slide-in-from-bottom-2 duration-300">
-                  <HelpCircle size={16} className="text-[var(--accent)] flex-shrink-0 mt-0.5" />
-                  <div className="leading-relaxed">
-                    <strong className="text-[var(--text)] block mb-0.5 uppercase tracking-wide text-[10px] font-mono">Phase 2 Engine Offline</strong>
-                    The full screen exam engine (interactive question layouts, live timer sync, question grids, and scoring metrics) will be integrated in Phase 2. The database is correctly registered!
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
