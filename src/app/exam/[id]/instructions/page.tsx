@@ -19,6 +19,66 @@ interface MockTest {
   subjects: string[];
 }
 
+type QStatus = 'not-visited' | 'not-answered' | 'answered' | 'marked' | 'answered-marked';
+
+interface PaletteBadgeProps {
+  status: QStatus;
+  num: string | number;
+  isActive?: boolean;
+}
+
+const PaletteBadge = ({ status, num, isActive = false }: PaletteBadgeProps) => {
+  const activeClass = isActive ? 'ring-2 ring-blue-500 ring-offset-1 scale-105' : '';
+  
+  if (status === 'not-visited') {
+    return (
+      <div className={`w-9 h-8 bg-[#f0f0f0] border border-gray-300 text-gray-800 flex items-center justify-center font-bold text-[13px] rounded-sm select-none ${activeClass}`}>
+        {num}
+      </div>
+    );
+  }
+  if (status === 'not-answered') {
+    return (
+      <div 
+        className={`w-9 h-8 bg-[#e05252] text-white flex items-center justify-center font-bold text-[13px] select-none ${activeClass}`}
+        style={{ clipPath: 'polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%)' }}
+      >
+        <span className="pb-1">{num}</span>
+      </div>
+    );
+  }
+  if (status === 'answered') {
+    return (
+      <div 
+        className={`w-9 h-8 bg-[#2ca82c] text-white flex items-center justify-center font-bold text-[13px] select-none ${activeClass}`}
+        style={{ clipPath: 'polygon(15% 0, 85% 0, 100% 50%, 85% 100%, 15% 100%)' }}
+      >
+        {num}
+      </div>
+    );
+  }
+  if (status === 'marked') {
+    return (
+      <div className={`w-8 h-8 bg-[#5e35b1] text-white flex items-center justify-center font-bold text-[13px] rounded-full select-none ${activeClass}`}>
+        {num}
+      </div>
+    );
+  }
+  if (status === 'answered-marked') {
+    return (
+      <div className={`relative w-9 h-8 flex items-center justify-center select-none ${activeClass}`}>
+        <div className="w-8 h-8 bg-[#5e35b1] text-white flex items-center justify-center font-bold text-[13px] rounded-full">
+          {num}
+        </div>
+        <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#2ca82c] border border-white rounded-full flex items-center justify-center text-[7px] text-white font-extrabold shadow-sm">
+          ✓
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function InstructionsPage() {
   const params = useParams();
   const router = useRouter();
@@ -27,18 +87,46 @@ export default function InstructionsPage() {
   const [test, setTest] = useState<MockTest | null>(null);
   const [loading, setLoading] = useState(true);
   const [agreed, setAgreed] = useState(false);
+  const [hasActiveAttempt, setHasActiveAttempt] = useState(false);
 
   useEffect(() => {
-    const fetchTest = async () => {
-      const { data } = await supabase.from('mock_tests').select('*').eq('id', testId).single();
-      setTest(data);
+    const fetchTestAndAttempt = async () => {
+      const { data: testData } = await supabase.from('mock_tests').select('*').eq('id', testId).single();
+      setTest(testData);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: attemptData } = await supabase
+          .from('mock_test_live_attempts')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('test_id', testId)
+          .eq('completed', false)
+          .maybeSingle();
+        setHasActiveAttempt(!!attemptData);
+      }
       setLoading(false);
     };
-    fetchTest();
+    fetchTestAndAttempt();
   }, [testId]);
 
-  const handleStart = () => {
-    if (agreed) router.push(`/exam/${testId}/attempt`);
+  const handleStart = async () => {
+    if (!agreed) return;
+
+    if (!hasActiveAttempt && test) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('mock_test_live_attempts').insert({
+          user_id: user.id,
+          test_id: testId,
+          answers: {},
+          statuses: {},
+          time_left: test.duration * 60,
+          completed: false
+        });
+      }
+    }
+    router.push(`/exam/${testId}/attempt`);
   };
 
   if (loading || profileLoading) {
@@ -119,19 +207,19 @@ export default function InstructionsPage() {
               <p className="font-bold text-gray-900 mb-3 text-[13px]">
                 The Question Palette on the right side of the screen shows the status of each question using the following symbols:
               </p>
-              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2.5 shadow-sm">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 shadow-sm">
                 {[
-                  { cls: 'bg-gray-300 text-gray-700', label: 'You have not visited the question yet.', border: '' },
-                  { cls: 'bg-red-500 text-white', label: 'You have not answered the question.', border: '' },
-                  { cls: 'bg-green-500 text-white', label: 'You have answered the question.', border: '' },
-                  { cls: 'bg-purple-600 text-white', label: 'You have NOT answered, but marked it for Review.', border: '' },
-                  { cls: 'bg-purple-600 text-white', label: '"Answered and Marked for Review" — will be considered for evaluation.', border: 'ring-2 ring-green-400' },
+                  { status: 'not-visited' as QStatus, label: 'You have not visited the question yet.' },
+                  { status: 'not-answered' as QStatus, label: 'You have not answered the question.' },
+                  { status: 'answered' as QStatus, label: 'You have answered the question.' },
+                  { status: 'marked' as QStatus, label: 'You have NOT answered, but marked it for Review.' },
+                  { status: 'answered-marked' as QStatus, label: '"Answered and Marked for Review" — will be considered for evaluation.' },
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${item.cls} ${item.border}`}>
-                      {i + 1}
+                  <div key={i} className="flex items-center gap-4">
+                    <div className="w-10 flex-shrink-0 flex justify-center">
+                      <PaletteBadge status={item.status} num={i + 1} />
                     </div>
-                    <span className="text-[12.5px] text-gray-700">{item.label}</span>
+                    <span className="text-[12.5px] text-gray-700 font-medium">{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -267,7 +355,7 @@ export default function InstructionsPage() {
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               }`}
             >
-              I am ready to begin
+              {hasActiveAttempt ? 'Resume Attempt' : 'I am ready to begin'}
               <ChevronRight size={16} />
             </button>
           </div>
@@ -289,7 +377,7 @@ export default function InstructionsPage() {
             agreed ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
         >
-          I am ready to begin <ChevronRight size={16} />
+          {hasActiveAttempt ? 'Resume Attempt' : 'I am ready to begin'} <ChevronRight size={16} />
         </button>
       </div>
     </div>

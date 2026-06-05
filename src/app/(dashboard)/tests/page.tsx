@@ -46,6 +46,8 @@ export default function TestsPage() {
   const [selectedTestForAttempt, setSelectedTestForAttempt] = useState<MockTest | null>(null);
   const [isStartingAttempt, setIsStartingAttempt] = useState(false);
 
+  const [activeAttemptTestIds, setActiveAttemptTestIds] = useState<Set<string>>(new Set());
+
   // Fetch tests
   const fetchTests = async () => {
     setLoading(true);
@@ -58,6 +60,18 @@ export default function TestsPage() {
 
       if (error) throw error;
       setTests(data || []);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: attempts } = await supabase
+          .from('mock_test_live_attempts')
+          .select('test_id')
+          .eq('user_id', user.id)
+          .eq('completed', false);
+        
+        const activeIds = new Set((attempts || []).map(a => a.test_id));
+        setActiveAttemptTestIds(activeIds);
+      }
     } catch (err: any) {
       console.error('Error fetching tests:', err.message);
     } finally {
@@ -222,9 +236,13 @@ export default function TestsPage() {
 
                 <button
                   onClick={() => setSelectedTestForAttempt(mock)}
-                  className="w-full bg-[var(--bg2)] hover:bg-[var(--accent)] text-[var(--text2)] hover:text-black hover:font-bold border border-[var(--border)] hover:border-transparent py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono"
+                  className={`w-full py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono border ${
+                    activeAttemptTestIds.has(mock.id)
+                      ? 'bg-blue-500/10 text-blue-500 border-blue-500/30 hover:bg-blue-500 hover:text-black hover:border-transparent font-extrabold'
+                      : 'bg-[var(--bg2)] hover:bg-[var(--accent)] text-[var(--text2)] hover:text-black hover:font-bold border border-[var(--border)] hover:border-transparent'
+                  }`}
                 >
-                  Attempt Now
+                  {activeAttemptTestIds.has(mock.id) ? 'Resume Test' : 'Attempt Now'}
                   <ArrowRight size={14} />
                 </button>
               </div>
@@ -301,9 +319,13 @@ export default function TestsPage() {
 
                 <button
                   onClick={() => setSelectedTestForAttempt(pyp)}
-                  className="w-full bg-[var(--bg2)] hover:bg-[var(--accent)] text-[var(--text2)] hover:text-black hover:font-bold border border-[var(--border)] hover:border-transparent py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono"
+                  className={`w-full py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono border ${
+                    activeAttemptTestIds.has(pyp.id)
+                      ? 'bg-blue-500/10 text-blue-500 border-blue-500/30 hover:bg-blue-500 hover:text-black hover:border-transparent font-extrabold'
+                      : 'bg-[var(--bg2)] hover:bg-[var(--accent)] text-[var(--text2)] hover:text-black hover:font-bold border border-[var(--border)] hover:border-transparent'
+                  }`}
                 >
-                  Attempt Now
+                  {activeAttemptTestIds.has(pyp.id) ? 'Resume Test' : 'Attempt Now'}
                   <ArrowRight size={14} />
                 </button>
               </div>
@@ -443,7 +465,7 @@ export default function TestsPage() {
                   }}
                   className="flex-1 bg-[var(--accent)] hover:brightness-110 text-black font-extrabold py-3.5 rounded-xl transition-all text-xs uppercase tracking-widest font-mono flex items-center justify-center gap-1"
                 >
-                  Start Simulation
+                  {activeAttemptTestIds.has(selectedTestForAttempt.id) ? 'Resume Simulation' : 'Start Simulation'}
                 </button>
               </div>
             </div>
