@@ -46,7 +46,8 @@ export default function TestsPage() {
   const [selectedTestForAttempt, setSelectedTestForAttempt] = useState<MockTest | null>(null);
   const [isStartingAttempt, setIsStartingAttempt] = useState(false);
 
-  const [activeAttemptTestIds, setActiveAttemptTestIds] = useState<Set<string>>(new Set());
+  const [activeAttempts, setActiveAttempts] = useState<Map<string, string>>(new Map());
+  const [completedAttempts, setCompletedAttempts] = useState<Map<string, string>>(new Map());
 
   // Fetch tests
   const fetchTests = async () => {
@@ -65,12 +66,27 @@ export default function TestsPage() {
       if (user) {
         const { data: attempts } = await supabase
           .from('mock_test_live_attempts')
-          .select('test_id')
+          .select('id, test_id, completed')
           .eq('user_id', user.id)
-          .eq('completed', false);
+          .order('updated_at', { ascending: false });
         
-        const activeIds = new Set((attempts || []).map(a => a.test_id));
-        setActiveAttemptTestIds(activeIds);
+        const activeMap = new Map<string, string>();
+        const completedMap = new Map<string, string>();
+        
+        (attempts || []).forEach(a => {
+          if (a.completed) {
+            if (!completedMap.has(a.test_id)) {
+              completedMap.set(a.test_id, a.id);
+            }
+          } else {
+            if (!activeMap.has(a.test_id)) {
+              activeMap.set(a.test_id, a.id);
+            }
+          }
+        });
+        
+        setActiveAttempts(activeMap);
+        setCompletedAttempts(completedMap);
       }
     } catch (err: any) {
       console.error('Error fetching tests:', err.message);
@@ -234,17 +250,38 @@ export default function TestsPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setSelectedTestForAttempt(mock)}
-                  className={`w-full py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono border ${
-                    activeAttemptTestIds.has(mock.id)
-                      ? 'bg-blue-500/10 text-blue-500 border-blue-500/30 hover:bg-blue-500 hover:text-black hover:border-transparent font-extrabold'
-                      : 'bg-[var(--bg2)] hover:bg-[var(--accent)] text-[var(--text2)] hover:text-black hover:font-bold border border-[var(--border)] hover:border-transparent'
-                  }`}
-                >
-                  {activeAttemptTestIds.has(mock.id) ? 'Resume Test' : 'Attempt Now'}
-                  <ArrowRight size={14} />
-                </button>
+                {activeAttempts.has(mock.id) ? (
+                  <button
+                    onClick={() => setSelectedTestForAttempt(mock)}
+                    className="w-full py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono border bg-blue-500/10 text-blue-500 border-blue-500/30 hover:bg-blue-500 hover:text-black hover:border-transparent font-extrabold"
+                  >
+                    Resume Test
+                    <ArrowRight size={14} />
+                  </button>
+                ) : completedAttempts.has(mock.id) ? (
+                  <div className="flex gap-2 w-full">
+                    <button
+                      onClick={() => router.push(`/exam/${mock.id}/analysis?attemptId=${completedAttempts.get(mock.id)}`)}
+                      className="flex-1 py-3 rounded-2xl transition-all flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider font-mono border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black hover:border-transparent"
+                    >
+                      Analysis
+                    </button>
+                    <button
+                      onClick={() => setSelectedTestForAttempt(mock)}
+                      className="flex-1 py-3 rounded-2xl transition-all flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider font-mono border border-[var(--border)] bg-[var(--bg2)] text-[var(--text2)] hover:bg-[var(--accent)] hover:text-black hover:border-transparent hover:font-bold"
+                    >
+                      Reattempt
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setSelectedTestForAttempt(mock)}
+                    className="w-full py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono border bg-[var(--bg2)] hover:bg-[var(--accent)] text-[var(--text2)] hover:text-black hover:font-bold border border-[var(--border)] hover:border-transparent"
+                  >
+                    Attempt Now
+                    <ArrowRight size={14} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -317,17 +354,38 @@ export default function TestsPage() {
                   )}
                 </div>
 
-                <button
-                  onClick={() => setSelectedTestForAttempt(pyp)}
-                  className={`w-full py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono border ${
-                    activeAttemptTestIds.has(pyp.id)
-                      ? 'bg-blue-500/10 text-blue-500 border-blue-500/30 hover:bg-blue-500 hover:text-black hover:border-transparent font-extrabold'
-                      : 'bg-[var(--bg2)] hover:bg-[var(--accent)] text-[var(--text2)] hover:text-black hover:font-bold border border-[var(--border)] hover:border-transparent'
-                  }`}
-                >
-                  {activeAttemptTestIds.has(pyp.id) ? 'Resume Test' : 'Attempt Now'}
-                  <ArrowRight size={14} />
-                </button>
+                {activeAttempts.has(pyp.id) ? (
+                  <button
+                    onClick={() => setSelectedTestForAttempt(pyp)}
+                    className="w-full py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono border bg-blue-500/10 text-blue-500 border-blue-500/30 hover:bg-blue-500 hover:text-black hover:border-transparent font-extrabold"
+                  >
+                    Resume Test
+                    <ArrowRight size={14} />
+                  </button>
+                ) : completedAttempts.has(pyp.id) ? (
+                  <div className="flex gap-2 w-full">
+                    <button
+                      onClick={() => router.push(`/exam/${pyp.id}/analysis?attemptId=${completedAttempts.get(pyp.id)}`)}
+                      className="flex-1 py-3 rounded-2xl transition-all flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider font-mono border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black hover:border-transparent"
+                    >
+                      Analysis
+                    </button>
+                    <button
+                      onClick={() => setSelectedTestForAttempt(pyp)}
+                      className="flex-1 py-3 rounded-2xl transition-all flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider font-mono border border-[var(--border)] bg-[var(--bg2)] text-[var(--text2)] hover:bg-[var(--accent)] hover:text-black hover:border-transparent hover:font-bold"
+                    >
+                      Reattempt
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setSelectedTestForAttempt(pyp)}
+                    className="w-full py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest font-mono border bg-[var(--bg2)] hover:bg-[var(--accent)] text-[var(--text2)] hover:text-black hover:font-bold border border-[var(--border)] hover:border-transparent"
+                  >
+                    Attempt Now
+                    <ArrowRight size={14} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -466,7 +524,7 @@ export default function TestsPage() {
                   }}
                   className="flex-1 bg-[var(--accent)] hover:brightness-110 text-black font-extrabold py-3.5 rounded-xl transition-all text-xs uppercase tracking-widest font-mono flex items-center justify-center gap-1"
                 >
-                  {activeAttemptTestIds.has(selectedTestForAttempt.id) ? 'Resume Simulation' : 'Start Simulation'}
+                  {activeAttempts.has(selectedTestForAttempt.id) ? 'Resume Simulation' : 'Start Simulation'}
                 </button>
               </div>
             </div>

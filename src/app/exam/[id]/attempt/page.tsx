@@ -282,6 +282,14 @@ export default function AttemptPage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Question Durations tracking ──
+  const [questionDurations, setQuestionDurations] = useState<Record<string, number>>({});
+  const entryTimeRef = useRef<number>(Date.now());
+  const timeLeftRef = useRef(0);
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
+
   // ── UI state ──
   const [tabWarnings, setTabWarnings] = useState(0);
   const [showTabWarning, setShowTabWarning] = useState(false);
@@ -294,6 +302,13 @@ export default function AttemptPage() {
 
   // KaTeX ref
   const questionRef = useRef<HTMLDivElement>(null);
+
+  // ─── Derived ─────────────────────────────────────────────────────────────
+  const currentSubQs = questions.filter(q => 
+    q.subject === currentSection && 
+    (currentSubsection === 'numerical' ? q.type === 'integer' : q.type !== 'integer')
+  );
+  const currentQ = currentSubQs[currentIndex] || null;
 
   // ── KaTeX renderer ──
   const renderKatex = useCallback(() => {
@@ -363,6 +378,8 @@ export default function AttemptPage() {
         setAnswers(attemptData.answers || {});
         setStatuses(attemptData.statuses || {});
         setTimeLeft(attemptData.time_left);
+        setQuestionDurations(attemptData.question_durations || {});
+        entryTimeRef.current = Date.now();
         
         const lastQId = attemptData.current_question_id;
         const lastQ = qs.find(q => q.id === lastQId);
@@ -415,8 +432,10 @@ export default function AttemptPage() {
           answers: {},
           statuses: {},
           time_left: testData.duration * 60,
-          completed: false
+          completed: false,
+          question_durations: {}
         });
+        entryTimeRef.current = Date.now();
       }
 
       setLoading(false);
@@ -438,13 +457,22 @@ export default function AttemptPage() {
 
   // Periodic time autosave (every 30 seconds)
   useEffect(() => {
-    if (loading || submitted || timeLeft <= 0) return;
+    if (loading || submitted) return;
     const interval = setInterval(async () => {
+      if (timeLeftRef.current <= 0) return;
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        let activeDurations = { ...questionDurations };
+        if (currentQ) {
+          const elapsed = Math.round((Date.now() - entryTimeRef.current) / 1000);
+          activeDurations[currentQ.id] = (activeDurations[currentQ.id] || 0) + elapsed;
+          setQuestionDurations(activeDurations);
+          entryTimeRef.current = Date.now();
+        }
         await supabase.from('mock_test_live_attempts')
           .update({
-            time_left: timeLeft,
+            time_left: timeLeftRef.current,
+            question_durations: activeDurations,
             updated_at: new Date().toISOString()
           })
           .eq('user_id', user.id)
@@ -453,7 +481,7 @@ export default function AttemptPage() {
       }
     }, 30000);
     return () => clearInterval(interval);
-  }, [loading, submitted, timeLeft, testId]);
+  }, [loading, submitted, testId, questionDurations, currentQ]);
 
   // ── Tab visibility detection ──
   useEffect(() => {
@@ -477,20 +505,13 @@ export default function AttemptPage() {
     if (!loading) setTimeout(renderKatex, 80);
   }, [currentSection, currentIndex, loading]);
 
-  // ─── Derived ─────────────────────────────────────────────────────────────
-
-  const currentSubQs = questions.filter(q => 
-    q.subject === currentSection && 
-    (currentSubsection === 'numerical' ? q.type === 'integer' : q.type !== 'integer')
-  );
-  const currentQ = currentSubQs[currentIndex] || null;
-
   // ─── Handlers ────────────────────────────────────────────────────────────
 
   const saveProgress = async (
     updatedAnswers: Record<string, string | null>,
     updatedStatuses: Record<string, QStatus>,
-    currentQId: string
+    currentQId: string,
+    updatedDurations: Record<string, number>
   ) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -498,8 +519,9 @@ export default function AttemptPage() {
         .update({
           answers: updatedAnswers,
           statuses: updatedStatuses,
-          time_left: timeLeft,
+          time_left: timeLeftRef.current,
           current_question_id: currentQId,
+          question_durations: updatedDurations,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
@@ -513,10 +535,16 @@ export default function AttemptPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      const elapsed = Math.round((Date.now() - entryTimeRef.current) / 1000);
+      const finalDurations = { ...questionDurations };
+      if (currentQ) {
+        finalDurations[currentQ.id] = (finalDurations[currentQ.id] || 0) + elapsed;
+      }
       await supabase.from('mock_test_live_attempts')
         .update({
           time_left: 0,
           completed: true,
+          question_durations: finalDurations,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
@@ -527,7 +555,7 @@ export default function AttemptPage() {
     setSubmitted(true);
     setShowSubmitModal(false);
     setShowTabWarning(false);
-  }, [testId]);
+  }, [testId, currentQ, questionDurations]);
 
   const jumpToQuestion = async (subject: string, subsection: 'single-correct' | 'numerical', index: number) => {
     let nextStatuses = { ...statuses };
@@ -541,8 +569,17 @@ export default function AttemptPage() {
       (subsection === 'numerical' ? q.type === 'integer' : q.type !== 'integer')
     );
     const targetQ = subQs[index];
+    
+    const elapsed = Math.round((Date.now() - entryTimeRef.current) / 1000);
+    const nextDurations = { ...questionDurations };
+    if (currentQ) {
+      nextDurations[currentQ.id] = (nextDurations[currentQ.id] || 0) + elapsed;
+      setQuestionDurations(nextDurations);
+    }
+    entryTimeRef.current = Date.now();
+
     if (targetQ) {
-      await saveProgress(answers, nextStatuses, targetQ.id);
+      await saveProgress(answers, nextStatuses, targetQ.id, nextDurations);
     }
 
     setCurrentSection(subject);
@@ -568,6 +605,15 @@ export default function AttemptPage() {
     const nextStatuses = { ...statuses, [currentQ.id]: newStatus };
     setStatuses(nextStatuses);
 
+    // Calculate duration for currentQ
+    const elapsed = Math.round((Date.now() - entryTimeRef.current) / 1000);
+    const nextDurations = {
+      ...questionDurations,
+      [currentQ.id]: (questionDurations[currentQ.id] || 0) + elapsed
+    };
+    setQuestionDurations(nextDurations);
+    entryTimeRef.current = Date.now();
+
     let nextSec = currentSection;
     let nextSub = currentSubsection;
     let nextIdx = currentIndex + 1;
@@ -585,7 +631,7 @@ export default function AttemptPage() {
             nextSub = 'single-correct';
             nextIdx = 0;
           } else {
-            await saveProgress(nextAnswers, nextStatuses, currentQ.id);
+            await saveProgress(nextAnswers, nextStatuses, currentQ.id, nextDurations);
             return;
           }
         }
@@ -596,7 +642,7 @@ export default function AttemptPage() {
           nextSub = 'single-correct';
           nextIdx = 0;
         } else {
-          await saveProgress(nextAnswers, nextStatuses, currentQ.id);
+          await saveProgress(nextAnswers, nextStatuses, currentQ.id, nextDurations);
           return;
         }
       }
@@ -608,7 +654,7 @@ export default function AttemptPage() {
     );
     const targetQ = nextSubQs[nextIdx];
     if (targetQ) {
-      await saveProgress(nextAnswers, nextStatuses, targetQ.id);
+      await saveProgress(nextAnswers, nextStatuses, targetQ.id, nextDurations);
 
       setCurrentSection(nextSec);
       setCurrentSubsection(nextSub);
