@@ -113,6 +113,21 @@ export default function InstructionsPage() {
   const handleStart = async () => {
     if (!agreed) return;
 
+    try {
+      const element = document.documentElement;
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+      } else if ((element as any).mozRequestFullScreen) {
+        await (element as any).mozRequestFullScreen();
+      } else if ((element as any).webkitRequestFullscreen) {
+        await (element as any).webkitRequestFullscreen();
+      } else if ((element as any).msRequestFullscreen) {
+        await (element as any).msRequestFullscreen();
+      }
+    } catch (err) {
+      console.warn('Failed to enter fullscreen mode:', err);
+    }
+
     if (!hasActiveAttempt && test) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {

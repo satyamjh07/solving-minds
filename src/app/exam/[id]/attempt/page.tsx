@@ -221,6 +221,7 @@ export default function AttemptPage() {
 
   // ── Test state ──
   const [currentSection, setCurrentSection] = useState('');
+  const [currentSubsection, setCurrentSubsection] = useState<'single-correct' | 'numerical'>('single-correct');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string | null>>({});
   const [statuses, setStatuses] = useState<Record<string, QStatus>>({});
@@ -238,6 +239,8 @@ export default function AttemptPage() {
   const [submitted, setSubmitted] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [instructionsExpanded, setInstructionsExpanded] = useState(true);
+  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
 
   // KaTeX ref
   const questionRef = useRef<HTMLDivElement>(null);
@@ -307,9 +310,12 @@ export default function AttemptPage() {
         const lastQId = attemptData.current_question_id;
         const lastQ = qs.find(q => q.id === lastQId);
         if (lastQ) {
-          const secQs = qs.filter(q => q.subject === lastQ.subject);
-          const idx = secQs.findIndex(q => q.id === lastQId);
+          const subType = lastQ.type === 'integer' ? 'numerical' : 'single-correct';
           setCurrentSection(lastQ.subject);
+          setCurrentSubsection(subType);
+          
+          const subQs = qs.filter(q => q.subject === lastQ.subject && (subType === 'numerical' ? q.type === 'integer' : q.type !== 'integer'));
+          const idx = subQs.findIndex(q => q.id === lastQId);
           setCurrentIndex(idx >= 0 ? idx : 0);
 
           const savedAns = attemptData.answers[lastQId] || null;
@@ -318,8 +324,14 @@ export default function AttemptPage() {
         } else {
           if (sorted.length > 0) {
             setCurrentSection(sorted[0]);
+            const firstQSubQs = qs.filter(q => q.subject === sorted[0]);
+            const hasMCQ = firstQSubQs.some(q => q.type !== 'integer');
+            const subType = hasMCQ ? 'single-correct' : 'numerical';
+            setCurrentSubsection(subType);
             setCurrentIndex(0);
-            const firstQ = qs.filter(q => q.subject === sorted[0])[0];
+            
+            const subQs = firstQSubQs.filter(q => subType === 'numerical' ? q.type === 'integer' : q.type !== 'integer');
+            const firstQ = subQs[0];
             if (firstQ) {
               const savedAns = attemptData.answers[firstQ.id] || null;
               if (firstQ.type === 'integer') { setIntegerInput(savedAns || ''); setSelectedOption(null); }
@@ -330,7 +342,11 @@ export default function AttemptPage() {
       } else {
         // Fresh attempt
         setTimeLeft(testData.duration * 60);
-        if (sorted.length > 0) setCurrentSection(sorted[0]);
+        if (sorted.length > 0) {
+          setCurrentSection(sorted[0]);
+          const hasMCQ = qs.some(q => q.subject === sorted[0] && q.type !== 'integer');
+          setCurrentSubsection(hasMCQ ? 'single-correct' : 'numerical');
+        }
         const initStatuses: Record<string, QStatus> = {};
         qs.forEach(q => { initStatuses[q.id] = 'not-visited'; });
         setStatuses(initStatuses);
@@ -406,8 +422,11 @@ export default function AttemptPage() {
 
   // ─── Derived ─────────────────────────────────────────────────────────────
 
-  const sectionQs = questions.filter(q => q.subject === currentSection);
-  const currentQ  = sectionQs[currentIndex] || null;
+  const currentSubQs = questions.filter(q => 
+    q.subject === currentSection && 
+    (currentSubsection === 'numerical' ? q.type === 'integer' : q.type !== 'integer')
+  );
+  const currentQ = currentSubQs[currentIndex] || null;
 
   // ─── Handlers ────────────────────────────────────────────────────────────
 
@@ -453,19 +472,24 @@ export default function AttemptPage() {
     setShowTabWarning(false);
   }, [testId]);
 
-  const jumpToQuestion = async (section: string, index: number) => {
+  const jumpToQuestion = async (subject: string, subsection: 'single-correct' | 'numerical', index: number) => {
     let nextStatuses = { ...statuses };
     if (currentQ && statuses[currentQ.id] === 'not-visited') {
       nextStatuses[currentQ.id] = 'not-answered';
       setStatuses(nextStatuses);
     }
 
-    const targetQ = questions.filter(q => q.subject === section)[index];
+    const subQs = questions.filter(q => 
+      q.subject === subject && 
+      (subsection === 'numerical' ? q.type === 'integer' : q.type !== 'integer')
+    );
+    const targetQ = subQs[index];
     if (targetQ) {
       await saveProgress(answers, nextStatuses, targetQ.id);
     }
 
-    setCurrentSection(section);
+    setCurrentSection(subject);
+    setCurrentSubsection(subsection);
     setCurrentIndex(index);
     if (targetQ) {
       const savedAns = answers[targetQ.id] || null;
@@ -488,23 +512,49 @@ export default function AttemptPage() {
     setStatuses(nextStatuses);
 
     let nextSec = currentSection;
+    let nextSub = currentSubsection;
     let nextIdx = currentIndex + 1;
-    if (currentIndex >= sectionQs.length - 1) {
-      const si = sections.indexOf(currentSection);
-      if (si < sections.length - 1) {
-        nextSec = sections[si + 1];
-        nextIdx = 0;
+
+    if (nextIdx >= currentSubQs.length) {
+      if (currentSubsection === 'single-correct') {
+        const hasNumerical = questions.some(q => q.subject === currentSection && q.type === 'integer');
+        if (hasNumerical) {
+          nextSub = 'numerical';
+          nextIdx = 0;
+        } else {
+          const si = sections.indexOf(currentSection);
+          if (si < sections.length - 1) {
+            nextSec = sections[si + 1];
+            nextSub = 'single-correct';
+            nextIdx = 0;
+          } else {
+            await saveProgress(nextAnswers, nextStatuses, currentQ.id);
+            return;
+          }
+        }
       } else {
-        await saveProgress(nextAnswers, nextStatuses, currentQ.id);
-        return;
+        const si = sections.indexOf(currentSection);
+        if (si < sections.length - 1) {
+          nextSec = sections[si + 1];
+          nextSub = 'single-correct';
+          nextIdx = 0;
+        } else {
+          await saveProgress(nextAnswers, nextStatuses, currentQ.id);
+          return;
+        }
       }
     }
 
-    const targetQ = questions.filter(q => q.subject === nextSec)[nextIdx];
+    const nextSubQs = questions.filter(q => 
+      q.subject === nextSec && 
+      (nextSub === 'numerical' ? q.type === 'integer' : q.type !== 'integer')
+    );
+    const targetQ = nextSubQs[nextIdx];
     if (targetQ) {
       await saveProgress(nextAnswers, nextStatuses, targetQ.id);
 
       setCurrentSection(nextSec);
+      setCurrentSubsection(nextSub);
       setCurrentIndex(nextIdx);
       const savedAns = nextAnswers[targetQ.id] || null;
       if (targetQ.type === 'integer') { setIntegerInput(savedAns || ''); setSelectedOption(null); }
@@ -520,7 +570,7 @@ export default function AttemptPage() {
       const next = parts.includes(optId) ? parts.filter(x => x !== optId) : [...parts, optId];
       setSelectedOption(next.join(',') || null);
     } else {
-      setSelectedOption(prev => prev === optId ? null : optId);
+      setSelectedOption(optId);
     }
   };
 
@@ -539,11 +589,14 @@ export default function AttemptPage() {
 
   // ─── Section stats (palette header) ──────────────────────────────────────
 
-  const getSectionStats = (sec: string) => {
-    const qs = questions.filter(q => q.subject === sec);
+  const getSectionStats = (sec: string, sub: 'single-correct' | 'numerical') => {
+    const qs = questions.filter(q => 
+      q.subject === sec && 
+      (sub === 'numerical' ? q.type === 'integer' : q.type !== 'integer')
+    );
     return {
       total:          qs.length,
-      answered:       qs.filter(q => statuses[q.id] === 'answered').length,
+      answered:       qs.filter(q => statuses[q.id] === 'answered' || statuses[q.id] === 'answered-marked').length,
       notAnswered:    qs.filter(q => statuses[q.id] === 'not-answered').length,
       marked:         qs.filter(q => statuses[q.id] === 'marked').length,
       notVisited:     qs.filter(q => statuses[q.id] === 'not-visited').length,
@@ -558,7 +611,7 @@ export default function AttemptPage() {
   // ─── Loading / Error ─────────────────────────────────────────────────────
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center font-sans" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
       <div className="text-center">
         <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-3" />
         <p className="text-sm text-gray-500">Loading examination...</p>
@@ -567,7 +620,7 @@ export default function AttemptPage() {
   );
 
   if (error) return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center font-sans" style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
       <div className="text-center">
         <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
         <p className="text-gray-700 font-semibold">{error}</p>
@@ -584,8 +637,8 @@ export default function AttemptPage() {
     const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
     return (
       <div
-        className="min-h-screen flex flex-col items-center justify-center p-6"
-        style={{ background: '#f1f5f9', fontFamily: "'Space Grotesk', sans-serif" }}
+        className="min-h-screen flex flex-col items-center justify-center p-6 font-sans"
+        style={{ background: '#f1f5f9', fontFamily: "Arial, Helvetica, sans-serif" }}
       >
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-lg">
           <div className="px-6 py-5 text-white text-center" style={{ background: '#0f2d52' }}>
@@ -662,13 +715,13 @@ export default function AttemptPage() {
 
   // ─── Main CBT UI ─────────────────────────────────────────────────────────
 
-  const qNumber = questions.findIndex(q => q.id === currentQ?.id) + 1;
-  const sStats = currentSection ? getSectionStats(currentSection) : null;
+  const qNumber = currentIndex + 1;
+  const sStats = currentSection ? getSectionStats(currentSection, currentSubsection) : null;
 
   return (
     <div
-      className="min-h-screen flex flex-col overflow-hidden select-none"
-      style={{ background: '#ffffff', fontFamily: "Arial, sans-serif" }}
+      className="min-h-screen flex flex-col overflow-hidden select-none font-sans"
+      style={{ background: '#ffffff', fontFamily: "Arial, Helvetica, sans-serif" }}
     >
 
       {/* ══════════════ TOP BAR (NTA STYLE) ══════════════ */}
@@ -682,9 +735,9 @@ export default function AttemptPage() {
         </div>
 
         {/* Right: Instructions & Question Paper buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 font-sans">
           <button 
-            onClick={() => router.push(`/exam/${testId}/instructions`)}
+            onClick={() => setShowInstructionsModal(true)}
             className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#0288d1] text-white text-xs font-bold hover:bg-[#0277bd] transition-colors"
           >
             <span className="w-3.5 h-3.5 rounded-full bg-white text-[#0288d1] flex items-center justify-center font-black text-[9px] leading-none">i</span>
@@ -723,7 +776,7 @@ export default function AttemptPage() {
       </div>
 
       {/* ══════════════ SECTIONS BAR (NTA STYLE) ══════════════ */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-1.5 border-b border-gray-300 bg-[#f8f9fa] shadow-sm">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-1.5 border-b border-gray-300 bg-[#f8f9fa] shadow-sm font-sans">
         <div className="flex items-center gap-2 overflow-x-auto min-w-0">
           <span className="text-gray-500 font-bold text-xs uppercase mr-1">Sections</span>
           
@@ -737,7 +790,10 @@ export default function AttemptPage() {
               return (
                 <button
                   key={sec}
-                  onClick={() => jumpToQuestion(sec, 0)}
+                  onClick={() => {
+                    const hasMCQ = questions.some(q => q.subject === sec && q.type !== 'integer');
+                    jumpToQuestion(sec, hasMCQ ? 'single-correct' : 'numerical', 0);
+                  }}
                   className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 transition-all border ${
                     isActive
                       ? 'bg-[#1565c0] text-white border-[#1565c0]'
@@ -767,6 +823,43 @@ export default function AttemptPage() {
         </div>
       </div>
 
+      {/* ══════════════ SUB-SECTIONS BAR (NTA STYLE) ══════════════ */}
+      <div className="flex-shrink-0 flex items-center px-4 py-1.5 border-b border-gray-300 bg-[#eef2f7] font-sans">
+        <div className="flex items-center gap-1 overflow-x-auto min-w-0">
+          {questions.some(q => q.subject === currentSection && q.type !== 'integer') && (
+            <button
+              onClick={() => jumpToQuestion(currentSection, 'single-correct', 0)}
+              className={`px-3 py-1 text-xs font-bold flex items-center gap-1.5 transition-all border rounded ${
+                currentSubsection === 'single-correct'
+                  ? 'bg-[#1565c0] text-white border-[#1565c0]'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {currentSection} Single Correct
+              <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center font-black text-[9px] leading-none ${
+                currentSubsection === 'single-correct' ? 'bg-white text-[#1565c0]' : 'bg-gray-200 text-gray-600'
+              }`}>i</span>
+            </button>
+          )}
+          
+          {questions.some(q => q.subject === currentSection && q.type === 'integer') && (
+            <button
+              onClick={() => jumpToQuestion(currentSection, 'numerical', 0)}
+              className={`px-3 py-1 text-xs font-bold flex items-center gap-1.5 transition-all border rounded ${
+                currentSubsection === 'numerical'
+                  ? 'bg-[#1565c0] text-white border-[#1565c0]'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {currentSection} Numerical
+              <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center font-black text-[9px] leading-none ${
+                currentSubsection === 'numerical' ? 'bg-white text-[#1565c0]' : 'bg-gray-200 text-gray-600'
+              }`}>i</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ══════════════ MAIN CONTENT ══════════════ */}
       <div className="flex flex-1 overflow-hidden min-h-0">
 
@@ -774,16 +867,29 @@ export default function AttemptPage() {
         <main className="flex-1 overflow-y-auto flex flex-col min-w-0">
 
           {/* Section type & question nav (NTA style) */}
-          <div className="flex-shrink-0 bg-white border-b border-gray-200 px-2 sm:px-4 py-2 flex items-center">
+          <div className="flex-shrink-0 bg-white border-b border-gray-200 px-2 sm:px-4 py-2 flex items-center font-sans">
             <button
               onClick={() => {
-                if (currentIndex > 0) jumpToQuestion(currentSection, currentIndex - 1);
-                else {
-                  const si = sections.indexOf(currentSection);
-                  if (si > 0) {
-                    const prevSec = sections[si - 1];
-                    const prevQs = questions.filter(q => q.subject === prevSec);
-                    jumpToQuestion(prevSec, prevQs.length - 1);
+                if (currentIndex > 0) {
+                  jumpToQuestion(currentSection, currentSubsection, currentIndex - 1);
+                } else {
+                  if (currentSubsection === 'numerical') {
+                    const mcqQs = questions.filter(q => q.subject === currentSection && q.type !== 'integer');
+                    if (mcqQs.length > 0) {
+                      jumpToQuestion(currentSection, 'single-correct', mcqQs.length - 1);
+                    }
+                  } else {
+                    const si = sections.indexOf(currentSection);
+                    if (si > 0) {
+                      const prevSec = sections[si - 1];
+                      const numQs = questions.filter(q => q.subject === prevSec && q.type === 'integer');
+                      if (numQs.length > 0) {
+                        jumpToQuestion(prevSec, 'numerical', numQs.length - 1);
+                      } else {
+                        const mcqQs = questions.filter(q => q.subject === prevSec && q.type !== 'integer');
+                        jumpToQuestion(prevSec, 'single-correct', Math.max(0, mcqQs.length - 1));
+                      }
+                    }
                   }
                 }
               }}
@@ -792,15 +898,30 @@ export default function AttemptPage() {
               ◀
             </button>
             <div className="bg-[#1565c0] text-white px-4 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 flex-shrink-0">
-              {currentSection} {currentQ?.type === 'mcq' ? 'Single Correct' : currentQ?.type === 'multi-correct' ? 'Multi Correct' : 'Integer Type'}
+              {currentSection} {currentSubsection === 'numerical' ? 'Numerical' : 'Single Correct'}
               <span className="w-3.5 h-3.5 rounded-full bg-white text-[#1565c0] flex items-center justify-center font-black text-[9px] leading-none">i</span>
             </div>
             <button
               onClick={() => {
-                if (currentIndex < sectionQs.length - 1) jumpToQuestion(currentSection, currentIndex + 1);
-                else {
-                  const si = sections.indexOf(currentSection);
-                  if (si < sections.length - 1) jumpToQuestion(sections[si + 1], 0);
+                if (currentIndex < currentSubQs.length - 1) {
+                  jumpToQuestion(currentSection, currentSubsection, currentIndex + 1);
+                } else {
+                  if (currentSubsection === 'single-correct') {
+                    const numQs = questions.filter(q => q.subject === currentSection && q.type === 'integer');
+                    if (numQs.length > 0) {
+                      jumpToQuestion(currentSection, 'numerical', 0);
+                    } else {
+                      const si = sections.indexOf(currentSection);
+                      if (si < sections.length - 1) {
+                        jumpToQuestion(sections[si + 1], 'single-correct', 0);
+                      }
+                    }
+                  } else {
+                    const si = sections.indexOf(currentSection);
+                    if (si < sections.length - 1) {
+                      jumpToQuestion(sections[si + 1], 'single-correct', 0);
+                    }
+                  }
                 }
               }}
               className="px-2 py-1 text-gray-500 hover:text-gray-800 text-base flex-shrink-0"
@@ -813,17 +934,67 @@ export default function AttemptPage() {
           <div className="flex-1 p-4 sm:p-6" ref={questionRef}>
             {currentQ ? (
               <div className="max-w-3xl">
-                {/* Question number & marks */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-bold text-gray-700">Question No. {qNumber}</span>
-                  <span className="text-[11px] text-gray-500">
-                    Marks: <span className="text-green-600 font-bold">+{currentQ.marks || 4}</span>{' / '}<span className="text-red-500 font-bold">-1</span>
+                {/* Collapsible Instruction Details Panel (NTA Style) */}
+                <div className="border border-gray-300 bg-white mb-4 rounded-sm font-sans select-none shadow-sm">
+                  <div 
+                    onClick={() => setInstructionsExpanded(!instructionsExpanded)}
+                    className="flex items-center justify-between px-3 py-2 bg-[#f8f9fa] border-b border-gray-300 cursor-pointer hover:bg-gray-100 transition-colors"
+                  >
+                    <span className="text-[11.5px] font-bold text-gray-800">
+                      {currentSection} {currentSubsection === 'numerical' ? 'Numerical' : 'Single Correct'} (Maximum Marks: {currentSubsection === 'numerical' ? 20 : 80})
+                    </span>
+                    <span className="text-xs text-gray-500 font-bold select-none">
+                      {instructionsExpanded ? '▲' : '▼'}
+                    </span>
+                  </div>
+                  {instructionsExpanded && (
+                    <div className="p-3 text-[11px] text-gray-700 space-y-2">
+                      {currentSubsection === 'numerical' ? (
+                        <>
+                          <p>• This section contains <strong>FIVE (5)</strong> questions.</p>
+                          <p>• Answer must be typed into the input box.</p>
+                          <p>• Answer to each question will be evaluated according to the following marking scheme:</p>
+                          <div className="pl-4 space-y-1">
+                            <p><strong>Full Marks:</strong> +4 If ONLY the correct numerical value is entered.</p>
+                            <p><strong>Zero Marks:</strong> 0 If the question is unanswered.</p>
+                            <p><strong>Negative Marks:</strong> -1 In all other cases.</p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p>• This section contains <strong>TWENTY (20)</strong> questions.</p>
+                          <p>• Each question has 4 options A, B, C, D. <strong>ONLY ONE</strong> of these 4 options is the correct answer.</p>
+                          <p>• For each question, choose the option corresponding to the correct answer.</p>
+                          <p>• Answer to each question will be evaluated according to the following marking scheme:</p>
+                          <div className="pl-4 space-y-1">
+                            <p><strong>Full Marks:</strong> +4 If ONLY the correct option is chosen.</p>
+                            <p><strong>Zero Marks:</strong> 0 If none of the options is chosen (i.e. the question is unanswered).</p>
+                            <p><strong>Negative Marks:</strong> -1 In all other cases.</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Question Type & Marks Header (NTA Style) */}
+                <div className="flex items-center justify-between bg-[#f8f9fa] border border-gray-300 px-3 py-1.5 mb-3 rounded-sm font-sans select-none">
+                  <span className="text-[11.5px] font-bold text-gray-700">
+                    Question Type: {currentSubsection === 'numerical' ? 'Numerical' : 'Single Correct'}
                   </span>
+                  <span className="text-[11.5px] text-gray-605 font-medium">
+                    Marks for correct answer: <span className="text-green-600 font-bold">4</span> | Negative Marks: <span className="text-red-500 font-bold">-1</span>
+                  </span>
+                </div>
+
+                {/* Question number & marks */}
+                <div className="flex items-center justify-between mb-3 font-sans">
+                  <span className="text-[13px] font-bold text-gray-700">Question No. {qNumber}</span>
                 </div>
                 {/* Question text */}
                 <QuestionText
                   text={currentQ.question_text}
-                  className="text-gray-900 text-[14px] sm:text-[15px] leading-relaxed mb-4 select-text"
+                  className="text-gray-900 text-[14.5px] leading-relaxed mb-4 select-text font-sans"
                 />
 
                 {/* Question image */}
@@ -839,16 +1010,16 @@ export default function AttemptPage() {
 
                 {/* Options for MCQ/Multi-correct */}
                 {(currentQ.type === 'mcq' || currentQ.type === 'multi-correct') && currentQ.options?.length > 0 && (
-                  <div className="mt-4 border-t border-gray-100 pt-3">
+                  <div className="mt-4 border-t border-gray-100 pt-3 font-sans">
                     {currentQ.options.map((opt) => {
                       const isSelected = currentQ.type === 'multi-correct'
                         ? (selectedOption || '').split(',').includes(opt.id)
                         : selectedOption === opt.id;
                       return (
-                        <label
+                        <div
                           key={opt.id}
                           onClick={() => handleSelectOption(opt.id)}
-                          className="flex items-start gap-3 py-2.5 px-2 cursor-pointer hover:bg-gray-50/80 rounded transition-colors"
+                          className="flex items-start gap-3 py-2.5 px-2 cursor-pointer hover:bg-gray-50/80 rounded transition-colors select-none"
                         >
                           <span className="mt-0.5 flex-shrink-0">
                             {isSelected ? (
@@ -865,7 +1036,7 @@ export default function AttemptPage() {
                               <img src={opt.image} alt={`Option ${opt.id}`} className="mt-2 max-h-32 border border-gray-200 object-contain" />
                             )}
                           </div>
-                        </label>
+                        </div>
                       );
                     })}
                   </div>
@@ -955,22 +1126,7 @@ export default function AttemptPage() {
             </div>
           </div>
 
-          {/* Section selector in sidebar */}
-          <div className="flex-shrink-0 border-b border-gray-200 flex overflow-x-auto">
-            {sections.map(sec => (
-              <button
-                key={sec}
-                onClick={() => { setCurrentSection(sec); setCurrentIndex(0); }}
-                className={`flex-shrink-0 px-3 py-2 text-[11px] font-bold transition-all border-b-2 ${
-                  currentSection === sec
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {sec}
-              </button>
-            ))}
-          </div>
+          {/* No duplicate subject tabs in sidebar, matches NTA */}
 
           {/* Section stats legend */}
           {sStats && (
@@ -1000,29 +1156,27 @@ export default function AttemptPage() {
           )}
 
           {/* Section type header (NTA sidebar) */}
-          <div className="flex-shrink-0 bg-[#1565c0] text-white px-3 py-1.5 text-xs font-bold">
-            {currentSection} {currentQ?.type === 'mcq' ? 'Single Correct' : currentQ?.type === 'multi-correct' ? 'Multi Correct' : 'Integer Type'}
+          <div className="flex-shrink-0 bg-[#1565c0] text-white px-3 py-1.5 text-xs font-bold font-sans">
+            {currentSection} {currentSubsection === 'numerical' ? 'Numerical' : 'Single Correct'}
           </div>
 
           {/* Question palette grid */}
-          <div className="flex-1 overflow-y-auto p-3 bg-[#E5F2FF]/40">
+          <div className="flex-1 overflow-y-auto p-3 bg-[#E5F2FF]/20 font-sans">
             <div className="text-[11px] font-bold text-gray-600 mb-2.5">Choose a Question</div>
             <div className="grid grid-cols-4 gap-2.5">
-              {questions
-                .filter(q => q.subject === currentSection)
-                .map((q, idx) => {
-                  const status = statuses[q.id] || 'not-visited';
-                  const qNum = questions.findIndex(x => x.id === q.id) + 1;
-                  return (
-                    <button
-                      key={q.id}
-                      onClick={() => jumpToQuestion(currentSection, idx)}
-                      className="transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
-                    >
-                      <PaletteBadge status={status} num={qNum} isActive={currentQ?.id === q.id} />
-                    </button>
-                  );
-                })}
+              {currentSubQs.map((q, idx) => {
+                const status = statuses[q.id] || 'not-visited';
+                const qNum = idx + 1;
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => jumpToQuestion(currentSection, currentSubsection, idx)}
+                    className="transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                  >
+                    <PaletteBadge status={status} num={qNum} isActive={currentQ?.id === q.id} />
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1123,6 +1277,92 @@ export default function AttemptPage() {
                   Submit Now
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════ INLINE INSTRUCTIONS MODAL (NTA STYLE) ══════════════ */}
+      {showInstructionsModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] font-sans">
+            <div className="bg-red-650 text-white px-5 py-3 text-center text-xs font-bold uppercase tracking-wider select-none" style={{ backgroundColor: '#d32f2f' }}>
+              Note: The timer will continue to tick while you read the instructions.
+            </div>
+
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <h3 className="font-black text-gray-800 text-sm">Exam Instructions</h3>
+              <button 
+                onClick={() => setShowInstructionsModal(false)} 
+                className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <X size={16} className="text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs text-gray-700 leading-relaxed">
+              <div className="bg-blue-50 border-l-4 border-blue-600 px-4 py-2.5 rounded-r">
+                <p className="font-bold text-blue-900">
+                  Total duration of this examination is <strong>{test?.duration || 180} minutes</strong>.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-gray-900 mb-1">General Instructions:</h4>
+                <p>1. The countdown timer in the top-right corner of the screen will display the remaining time available for you to complete the exam.</p>
+                <p>2. When the timer reaches zero, the examination will end automatically. You do not need to click submit.</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-gray-900 mb-1">Navigating to a Question:</h4>
+                <p>• Click on the question number in the Question Palette at the right of your screen to go to that question directly.</p>
+                <p>• Click <strong>Save & Next</strong> to save your answer for the current question and then go to the next question.</p>
+                <p>• Click <strong>Mark for Review & Next</strong> to save your answer for the current question, mark it for review, and then go to the next question.</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-gray-900 mb-1">Answering a Question:</h4>
+                <p>• For multiple-choice questions: click on the option corresponding to your answer.</p>
+                <p>• To deselect your chosen answer, click on the option again or click on the <strong>Clear Response</strong> button.</p>
+                <p>• For numerical-type questions: enter your numerical answer into the input box.</p>
+                <p>• You MUST click <strong>Save & Next</strong> to record your answer.</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-gray-900 mb-1">Status Legend:</h4>
+                <div className="grid grid-cols-2 gap-3 bg-gray-50 border border-gray-200 rounded p-3 mt-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="scale-75"><PaletteBadge status="not-visited" num="1" /></div>
+                    <span>Not Visited</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="scale-75"><PaletteBadge status="not-answered" num="2" /></div>
+                    <span>Not Answered</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="scale-75"><PaletteBadge status="answered" num="3" /></div>
+                    <span>Answered</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="scale-75"><PaletteBadge status="marked" num="4" /></div>
+                    <span>Marked for Review</span>
+                  </div>
+                  <div className="flex items-center gap-2 col-span-2">
+                    <div className="scale-75"><PaletteBadge status="answered-marked" num="5" /></div>
+                    <span>Answered & Marked for Review (considered for evaluation)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 border-t border-gray-200 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setShowInstructionsModal(false)}
+                className="px-5 py-2 rounded font-bold text-white text-xs transition-colors hover:brightness-105"
+                style={{ background: '#1565c0' }}
+              >
+                Close Instructions
+              </button>
             </div>
           </div>
         </div>

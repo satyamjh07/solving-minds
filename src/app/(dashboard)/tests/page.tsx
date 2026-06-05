@@ -460,7 +460,8 @@ export default function TestsPage() {
                 <button
                   onClick={() => {
                     if (selectedTestForAttempt) {
-                      router.push(`/exam/${selectedTestForAttempt.id}/instructions`);
+                      window.open(`/exam/${selectedTestForAttempt.id}/instructions`, '_blank', 'noopener,noreferrer');
+                      setSelectedTestForAttempt(null);
                     }
                   }}
                   className="flex-1 bg-[var(--accent)] hover:brightness-110 text-black font-extrabold py-3.5 rounded-xl transition-all text-xs uppercase tracking-widest font-mono flex items-center justify-center gap-1"
