@@ -15,6 +15,11 @@ const formatText = (text: string) => {
   if (!text) return '';
   let clean = text;
 
+  // Strip \multicolumn{n}{align}{text} → just the text (KaTeX doesn't support it)
+  clean = clean.replace(/\\+multicolumn\{[^}]*\}\{[^}]*\}\{([^}]*)\}/g, '$1');
+  // Also handle \multicolumn without braces (malformed): \multicolumn2c|TEXT → TEXT
+  clean = clean.replace(/\\+multicolumn\d+[^|]*\|/g, '');
+
   // Global fixes for common legacy KaTeX syntax errors (matching 1 or more backslashes)
   clean = clean.replace(/\\+text(?=\{)/g, '\\text');
 
@@ -486,8 +491,8 @@ export default function SolutionPage() {
       </div>
 
       {/* ══════════════ SECTIONS BAR ══════════════ */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-1.5 border-b border-gray-300 bg-[#f8f9fa] shadow-sm font-sans z-30">
-        <div className="flex items-center gap-2 overflow-visible min-w-0">
+      <div className="flex-shrink-0 flex flex-wrap items-center justify-between px-4 py-1.5 border-b border-gray-300 bg-[#f8f9fa] shadow-sm font-sans z-30 gap-y-1">
+        <div className="flex items-center gap-2 overflow-x-auto min-w-0 max-w-[calc(100%-130px)] sm:max-w-none">
           <span className="text-gray-500 font-bold text-xs uppercase mr-1">Sections</span>
           <div className="flex items-center gap-1.5">
             {sections.map(sec => {
@@ -556,10 +561,10 @@ export default function SolutionPage() {
       {/* ══════════════ MAIN CONTENT ══════════════ */}
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* ── Question & Explanation View ── */}
-        <main className="flex-1 overflow-y-auto flex flex-col min-w-0 bg-white" ref={questionRef}>
-          <div className="flex-1 p-4 sm:p-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-w-0 bg-white" ref={questionRef}>
+          <div className="flex-1 p-4 sm:p-6 overflow-x-auto">
             {currentQ ? (
-              <div className="max-w-3xl">
+              <div className="max-w-3xl" style={{ overflowX: 'auto' }}>
                 {/* Result header */}
                 <div className="mb-4 flex items-center justify-between border border-gray-300 rounded p-3 bg-gray-50 font-sans">
                   <div className="flex items-center gap-2">

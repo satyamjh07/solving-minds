@@ -15,6 +15,11 @@ const formatText = (text: string) => {
   if (!text) return '';
   let clean = text;
 
+  // Strip \multicolumn{n}{align}{text} → just the text (KaTeX doesn't support it)
+  clean = clean.replace(/\\+multicolumn\{[^}]*\}\{[^}]*\}\{([^}]*)\}/g, '$1');
+  // Also handle \multicolumn without braces (malformed): \multicolumn2c|TEXT → TEXT
+  clean = clean.replace(/\\+multicolumn\d+[^|]*\|/g, '');
+
   // Global fixes for common legacy KaTeX syntax errors (matching 1 or more backslashes)
   clean = clean.replace(/\\+text(?=\{)/g, '\\text');
 
@@ -877,8 +882,8 @@ export default function AttemptPage() {
       </div>
 
       {/* ══════════════ SECTIONS BAR (NTA STYLE) ══════════════ */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-1.5 border-b border-gray-300 bg-[#f8f9fa] shadow-sm font-sans z-30">
-        <div className="flex items-center gap-2 overflow-visible min-w-0">
+      <div className="flex-shrink-0 flex flex-wrap items-center justify-between px-4 py-1.5 border-b border-gray-300 bg-[#f8f9fa] shadow-sm font-sans z-30 gap-y-1">
+        <div className="flex items-center gap-2 overflow-x-auto min-w-0 max-w-[calc(100%-140px)] sm:max-w-none">
           <span className="text-gray-500 font-bold text-xs uppercase mr-1">Sections</span>
           
           <button className="p-1 text-gray-500 hover:text-gray-800 disabled:opacity-30" disabled>
@@ -971,14 +976,14 @@ export default function AttemptPage() {
       <div className="flex flex-1 overflow-hidden min-h-0">
 
         {/* ── Question Area ── */}
-        <main className="flex-1 overflow-y-auto flex flex-col min-w-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-w-0">
 
           {/* Section navigation is done via tabs & palette, duplicate bar removed to match NTA exact layout */}
 
           {/* Question content */}
-          <div className="flex-1 p-4 sm:p-6" ref={questionRef}>
+          <div className="flex-1 p-4 sm:p-6 overflow-x-auto" ref={questionRef}>
             {currentQ ? (
-              <div className="max-w-3xl">
+              <div className="max-w-3xl" style={{ overflowX: 'auto' }}>
                 {/* Collapsible Instruction Details Panel (NTA Style) */}
                 <div className="border border-gray-300 bg-white mb-4 rounded-sm font-sans select-none shadow-sm">
                   <div 

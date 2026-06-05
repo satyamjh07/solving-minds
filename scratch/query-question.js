@@ -19,16 +19,19 @@ envContent.split('\n').forEach(line => {
 const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 async function run() {
-  const { data, error } = await supabase.from('questions').select('*').limit(5);
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*')
+    .ilike('question_text', '%multicolumn%');
+    
   if (error) {
     console.error('Error fetching questions:', error.message);
   } else {
+    console.log(`Found ${data.length} questions:`);
     data.forEach((q, idx) => {
       console.log(`Question ${idx + 1}:`);
       console.log(`- ID: ${q.id}`);
-      console.log(`- Type: ${q.type}`);
-      console.log(`- Options Type: ${typeof q.options}`);
-      console.log(`- Options:`, JSON.stringify(q.options, null, 2));
+      console.log(`- Text:\n${q.question_text}`);
     });
   }
 }
