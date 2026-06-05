@@ -341,6 +341,35 @@ export default function AnalysisPage() {
   const avgIncorrectTime = totalIncorrect > 0 ? Math.round(totalIncorrectTime / totalIncorrect) : 0;
   const avgTimePerQuestion = questions.length > 0 ? Math.round(totalTimeSpent / questions.length) : 0;
 
+  // Time strategy dynamic feedback
+  let timeStrategyMessage = "";
+  if (totalTimeSpent < 300) {
+    timeStrategyMessage = "You submitted the exam in under 5 minutes without substantial attempts. Treat mock test simulations seriously to accurately gauge your actual preparation levels.";
+  } else if (avgTimePerQuestion < 45 && overallAccuracy < 55 && totalAttempted > 10) {
+    timeStrategyMessage = "You solved questions very quickly but got a high percentage of them wrong. Rushing leads to simple calculation errors and silly mistakes. You could have spent more time analyzing each question to get them correct.";
+  } else if (avgTimePerQuestion > 120 && totalUnattempted > questions.length * 0.4) {
+    timeStrategyMessage = "You spent a lot of time on a few questions, leaving a large portion of the exam unattempted. Instead of getting stuck or spending excessive time on difficult questions, you should move on and solve easier ones to secure more marks.";
+  } else if (avgIncorrectTime > avgCorrectTime * 1.5 && totalIncorrect > 5) {
+    timeStrategyMessage = "You spent significantly more time on questions you ended up getting wrong than on those you got correct. This indicates you got 'stuck' on challenging problems. Learn to skip and mark for review to optimize your timing.";
+  } else {
+    timeStrategyMessage = "You maintain a balanced timing threshold and a steady pace. Keep practicing to maintain this control under exam pressure, and avoid rushing in the final 10 minutes.";
+  }
+
+  // Sum correct answers by difficulty for Pie Chart
+  const easyCorrect = subjectsList.reduce((acc, sub) => acc + (difficultySummary[`${sub}_easy`]?.correct || 0), 0);
+  const mediumCorrect = subjectsList.reduce((acc, sub) => acc + (difficultySummary[`${sub}_medium`]?.correct || 0), 0);
+  const hardCorrect = subjectsList.reduce((acc, sub) => acc + (difficultySummary[`${sub}_hard`]?.correct || 0), 0);
+  
+  const totalCorrectDiff = easyCorrect + mediumCorrect + hardCorrect;
+  const easyPercent = totalCorrectDiff > 0 ? (easyCorrect / totalCorrectDiff) * 100 : 0;
+  const mediumPercent = totalCorrectDiff > 0 ? (mediumCorrect / totalCorrectDiff) * 100 : 0;
+  const hardPercent = totalCorrectDiff > 0 ? (hardCorrect / totalCorrectDiff) * 100 : 0;
+
+  // Circumference = 314.16
+  const easyLength = (easyPercent / 100) * 314.16;
+  const mediumLength = (mediumPercent / 100) * 314.16;
+  const hardLength = (hardPercent / 100) * 314.16;
+
   // Chapter analytics (Cross-referencing database question stats for top weak chapters)
   const weakChaptersList = Object.values(chapterMistakes).map(mistake => {
     // Find the chapter repetition index in database
@@ -591,11 +620,7 @@ export default function AnalysisPage() {
 
             <div className="mt-6 border-t border-slate-900 pt-4 text-[11px] text-slate-400 leading-relaxed bg-slate-950/20 p-3 rounded-2xl border border-slate-900/50">
               <span className="font-bold text-amber-400 uppercase tracking-widest block mb-1 font-mono text-[9px]">Time Strategy:</span>
-              {avgIncorrectTime > avgCorrectTime + 10 ? (
-                "You are spending significantly longer on questions you end up getting wrong. Consider capping your maximum time spent per question to 3 minutes to avoid leaving easier questions unattempted."
-              ) : (
-                "You maintain a balanced timing threshold. Avoid rushes in single correct options during the final 10 minutes to prevent simple negative marks."
-              )}
+              {timeStrategyMessage}
             </div>
           </div>
         </div>
@@ -690,12 +715,18 @@ export default function AnalysisPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850">
-                  {subjectsList.flatMap((sub) => 
-                    difficulties.map((diff) => {
+                  {subjectsList.flatMap((sub) => {
+                    let subjectRendered = false;
+                    return difficulties.map((diff) => {
                       const key = `${sub}_${diff}`;
                       const stats = difficultySummary[key] || { total: 0, attempted: 0, correct: 0, incorrect: 0, timeSpent: 0 };
                       
                       if (stats.total === 0) return null;
+                      
+                      const showSubject = !subjectRendered;
+                      if (showSubject) {
+                        subjectRendered = true;
+                      }
                       
                       const accuracy = stats.attempted > 0 ? Math.round((stats.correct / stats.attempted) * 100) : 0;
                       const avgTime = stats.total > 0 ? Math.round(stats.timeSpent / stats.total) : 0;
@@ -707,7 +738,7 @@ export default function AnalysisPage() {
 
                       return (
                         <tr key={key} className="hover:bg-slate-900/20 text-slate-300 transition-colors">
-                          <td className="py-3.5 px-6 font-bold text-slate-100">{sub}</td>
+                          <td className="py-3.5 px-6 font-bold text-slate-100">{showSubject ? sub : ''}</td>
                           <td className="py-3.5 px-4 uppercase font-mono">
                             <span className={`px-2 py-0.5 rounded-full border text-[9px] font-bold ${difficultyBadgeColor}`}>
                               {diff}
@@ -728,10 +759,137 @@ export default function AnalysisPage() {
                           <td className="py-3.5 px-6 text-right font-mono text-slate-200">{formatSeconds(avgTime)}</td>
                         </tr>
                       );
-                    })
-                  ).filter(Boolean)}
+                    });
+                  }).filter(Boolean)}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Correct Questions Difficulty Distribution Pie Chart ── */}
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-slate-200 mb-4 flex items-center gap-2">
+            <TrendingUp className="text-indigo-400" size={20} /> Correct Questions Difficulty Distribution
+          </h2>
+          
+          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-900 rounded-3xl p-6 shadow-xl hover:border-slate-800/80 transition-all">
+            <div className="flex flex-col md:flex-row items-center justify-around gap-8">
+              {/* Pie/Donut Chart SVG */}
+              <div className="relative w-48 h-48 flex items-center justify-center flex-shrink-0">
+                {totalCorrectDiff > 0 ? (
+                  <svg className="w-44 h-44" viewBox="0 0 120 120">
+                    {/* Background Circle */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      className="stroke-slate-800"
+                      strokeWidth="10"
+                      fill="transparent"
+                    />
+                    {/* Easy Segment (Green) */}
+                    {easyLength > 0 && (
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        className="stroke-emerald-500"
+                        strokeWidth="10"
+                        fill="transparent"
+                        strokeDasharray={`${easyLength} 314.16`}
+                        strokeDashoffset="0"
+                        transform="rotate(-90 60 60)"
+                      />
+                    )}
+                    {/* Medium Segment (Yellow) */}
+                    {mediumLength > 0 && (
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        className="stroke-amber-400"
+                        strokeWidth="10"
+                        fill="transparent"
+                        strokeDasharray={`${mediumLength} 314.16`}
+                        strokeDashoffset={-easyLength}
+                        transform="rotate(-90 60 60)"
+                      />
+                    )}
+                    {/* Hard Segment (Red) */}
+                    {hardLength > 0 && (
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        className="stroke-rose-500"
+                        strokeWidth="10"
+                        fill="transparent"
+                        strokeDasharray={`${hardLength} 314.16`}
+                        strokeDashoffset={-(easyLength + mediumLength)}
+                        transform="rotate(-90 60 60)"
+                      />
+                    )}
+                  </svg>
+                ) : (
+                  <svg className="w-44 h-44" viewBox="0 0 120 120">
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      className="stroke-slate-800"
+                      strokeWidth="10"
+                      fill="transparent"
+                    />
+                  </svg>
+                )}
+                
+                <div className="absolute flex flex-col items-center justify-center">
+                  <span className="text-3xl font-black text-slate-100">{totalCorrectDiff}</span>
+                  <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">Correct Qs</span>
+                </div>
+              </div>
+
+              {/* Legend & Stats Details */}
+              <div className="space-y-4 max-w-sm w-full">
+                <div className="flex items-center justify-between border-b border-slate-850 pb-2 mb-2">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Difficulty Tier</span>
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest text-right">Correct Count / Share</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-slate-200">Easy Questions</span>
+                  </div>
+                  <div className="text-right text-xs">
+                    <span className="font-bold text-emerald-400">{easyCorrect}</span>
+                    <span className="text-slate-500 font-mono text-[10px] ml-1.5">({Math.round(easyPercent)}%)</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-3 h-3 rounded-full bg-amber-400 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-slate-200">Medium Questions</span>
+                  </div>
+                  <div className="text-right text-xs">
+                    <span className="font-bold text-amber-400">{mediumCorrect}</span>
+                    <span className="text-slate-500 font-mono text-[10px] ml-1.5">({Math.round(mediumPercent)}%)</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-3 h-3 rounded-full bg-rose-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-slate-200">Hard Questions</span>
+                  </div>
+                  <div className="text-right text-xs">
+                    <span className="font-bold text-rose-400">{hardCorrect}</span>
+                    <span className="text-slate-500 font-mono text-[10px] ml-1.5">({Math.round(hardPercent)}%)</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -768,11 +926,11 @@ export default function AnalysisPage() {
                       
                       <div className="space-y-2 text-xs text-slate-400">
                         <div className="flex justify-between">
-                          <span>User Incorrect Marks:</span>
+                          <span>Wrong Questions:</span>
                           <span className="font-bold text-rose-400">{mistake.wrongCount}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>DB Repetition Index:</span>
+                          <span>Most Repeated:</span>
                           <span className="font-bold text-indigo-400">{mistake.repetitionWeight} questions</span>
                         </div>
                       </div>

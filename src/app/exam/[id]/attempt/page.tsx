@@ -1291,12 +1291,12 @@ export default function AttemptPage() {
               {/* Summary */}
               <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { label: 'Answered',     count: questions.filter(q => statuses[q.id] === 'answered' || statuses[q.id] === 'answered-marked').length, color: 'text-green-700 bg-green-50 border-green-200' },
-                  { label: 'Not Answered', count: questions.filter(q => statuses[q.id] === 'not-answered').length, color: 'text-red-700 bg-red-50 border-red-200' },
-                  { label: 'Marked',       count: questions.filter(q => statuses[q.id] === 'marked').length,       color: 'text-purple-700 bg-purple-50 border-purple-200' },
-                  { label: 'Not Visited',  count: questions.filter(q => statuses[q.id] === 'not-visited').length,  color: 'text-gray-600 bg-gray-50 border-gray-200' },
-                ].map(({ label, count, color }) => (
-                  <div key={label} className={`border rounded-xl p-3 text-center ${color}`}>
+                  { label: 'Answered',     count: questions.filter(q => statuses[q.id] === 'answered' || statuses[q.id] === 'answered-marked').length, style: { color: '#15803d', backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' } },
+                  { label: 'Not Answered', count: questions.filter(q => statuses[q.id] === 'not-answered').length, style: { color: '#b91c1c', backgroundColor: '#fef2f2', borderColor: '#fecaca' } },
+                  { label: 'Marked',       count: questions.filter(q => statuses[q.id] === 'marked').length,       style: { color: '#6d28d9', backgroundColor: '#faf5ff', borderColor: '#e9d5ff' } },
+                  { label: 'Not Visited',  count: questions.filter(q => statuses[q.id] === 'not-visited').length,  style: { color: '#4b5563', backgroundColor: '#f9fafb', borderColor: '#e5e7eb' } },
+                ].map(({ label, count, style }) => (
+                  <div key={label} className="border rounded-xl p-3 text-center" style={style}>
                     <div className="text-xl font-black">{count}</div>
                     <div className="text-[10px] uppercase tracking-wider font-semibold">{label}</div>
                   </div>
