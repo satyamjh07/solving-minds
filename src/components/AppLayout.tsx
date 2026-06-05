@@ -16,7 +16,8 @@ import {
   User as UserIcon,
   Loader2,
   AlertTriangle,
-  ShieldCheck
+  ShieldCheck,
+  ClipboardList
 } from 'lucide-react';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -102,7 +103,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const PAGE_META: Record<string, { title: string; sub: string }> = {
     '/dashboard':  { title: 'Command Center',     sub: 'Your daily performance hub' },
-    '/solving':    { title: 'Solver_Protcol',     sub: 'Sharpen your problem-solving edge' },
+    '/tests':      { title: 'Test_Center',        sub: 'Attempt Mock Tests and Previous Year Papers' },
+    '/solving':    { title: 'Solver_Protocol',    sub: 'Sharpen your problem-solving edge' },
     '/community':  { title: 'Social_Feed',        sub: 'Share, discuss, and grow together' },
     '/levelup':    { title: 'Level_Up_Protocol',  sub: 'Ascend the ranks of elite solvers' },
     '/settings':   { title: 'Settings',           sub: 'Personalize your profile and preferences' },
@@ -114,7 +116,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navLinks = [
     { name: 'Home', href: '/dashboard', icon: <LayoutDashboard size={18} />, page: 'dashboard' },
-    { name: 'Solver', href: '/solving', icon: <Target size={18} />, page: 'solving', badge: 'NEW' },
+    { name: 'Tests', href: '/tests', icon: <ClipboardList size={18} />, page: 'tests', badge: 'NEW' },
+    { name: 'Solver', href: '/solving', icon: <Target size={18} />, page: 'solving' },
     { name: 'Social', href: '/community', icon: <Users size={18} />, page: 'community' },
     { name: 'Level Up', href: '/levelup', icon: <Award size={18} />, page: 'levelup' },
     { name: 'Settings', href: '/settings', icon: <Settings size={18} />, page: 'settings' },

@@ -87,6 +87,11 @@ const MAX_ATTEMPTS = 3;
 
 type SolverView = 'modes' | 'pyq-selection' | 'solving';
 
+interface ChapterInfo {
+  name: string;
+  count: number;
+}
+
 interface QuestionTimerProps {
   timerRef: React.MutableRefObject<number>;
   timerIntervalRef: React.MutableRefObject<ReturnType<typeof setInterval> | null>;
