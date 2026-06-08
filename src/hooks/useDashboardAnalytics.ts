@@ -30,6 +30,7 @@ export interface DashboardAnalytics {
   activityMap: Record<string, number>;
   studySessions: any[];
   globalAvgTimePerQ?: number;
+  lastAttempt?: { subject: string; chapter: string; created_at: string } | null;
 }
 
 export function useDashboardAnalytics(userId: string | undefined) {
@@ -209,7 +210,12 @@ export function useDashboardAnalytics(userId: string | undefined) {
           resourceAllocation,
           activityMap,
           studySessions: sessRows,
-          globalAvgTimePerQ
+          globalAvgTimePerQ,
+          lastAttempt: rows.length > 0 ? {
+            subject: (rows[rows.length - 1].questions as any)?.subject || '',
+            chapter: (rows[rows.length - 1].questions as any)?.chapter || '',
+            created_at: rows[rows.length - 1].created_at
+          } : null
         });
 
         // 3. Update profile with new aura score (debounced or simple)

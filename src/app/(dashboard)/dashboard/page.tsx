@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import './analytics.css';
 import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics';
 import { useProfile } from '@/hooks/useProfile';
@@ -13,46 +13,66 @@ import {
   Flame, 
   Clock, 
   Activity, 
-  Send,
   Zap,
-  Music,
-  Users,
-  Bell,
-  Settings,
   TrendingUp,
   Award,
-  TriangleAlert,
-  CircleAlert,
-  Download,
-  SlidersHorizontal,
-  Calendar,
-  ChartLine,
-  Table,
-  Bolt,
-  FlaskConical,
-  Variable,
-  Calculator,
-  Thermometer,
-  Waves,
-  Dna,
-  Palette
+  Users,
+  Compass,
+  CheckSquare,
+  Square,
+  BookOpen,
+  HelpCircle,
+  Sparkles,
+  ChevronRight,
+  TrendingDown,
+  MessageSquare,
+  Bot,
+  BrainCircuit,
+  CornerDownLeft
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const { profile, refetch: refetchProfile } = useProfile();
   const { data, loading } = useDashboardAnalytics(profile?.id);
-  const [lbMode, setLbMode] = React.useState<'daily' | 'weekly'>('weekly');
+  const [lbMode, setLbMode] = useState<'daily' | 'weekly'>('weekly');
   const { entries: lbEntries, loading: lbLoading } = useLeaderboard(lbMode);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [newTarget, setNewTarget] = useState(70);
   const { toast } = useDialog();
 
-  React.useEffect(() => {
+  // AI Solver Chat States
+  const [isAiSolverOpen, setIsAiSolverOpen] = useState(false);
+  const [aiMessage, setAiMessage] = useState('');
+  const [aiResponses, setAiResponses] = useState<Array<{ sender: 'user' | 'ai', text: string }>>([
+    { sender: 'ai', text: "Hello! I am your AI JEE/NEET Coach. Ask me any formula, concept explanation, or study strategy, and I will outline the core principles for you." }
+  ]);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Battle Plan Checklist State (Local Storage persistent)
+  const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
     if (profile?.daily_target) {
       setNewTarget(profile.daily_target);
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (profile?.id) {
+      const saved = localStorage.getItem(`battle_plan_tasks_${profile.id}`);
+      if (saved) {
+        try { setCheckedTasks(JSON.parse(saved)); } catch(_) {}
+      }
+    }
+  }, [profile?.id]);
+
+  const toggleTask = (taskId: string) => {
+    if (!profile?.id) return;
+    const updated = { ...checkedTasks, [taskId]: !checkedTasks[taskId] };
+    setCheckedTasks(updated);
+    localStorage.setItem(`battle_plan_tasks_${profile.id}`, JSON.stringify(updated));
+  };
 
   const handleUpdateTarget = async () => {
     if (!profile) return;
@@ -83,414 +103,436 @@ export default function DashboardPage() {
     return 'Good evening';
   };
 
-  const handleExportCSV = () => {
-    if (!data || !data.resourceAllocation || !data.resourceAllocation.length) {
-      toast('No data available to export', 'error');
-      return;
+  // Generate dynamic battle plan checklist tasks
+  const battlePlanTasks = useMemo(() => {
+    const tasks = [];
+    const targetQ = profile?.daily_target || 70;
+    
+    // Task 1: Subject specific solved target
+    const weakChaps = data?.chapters.weak || [];
+    if (weakChaps.length > 0) {
+      const chap = weakChaps[0];
+      tasks.push({
+        id: 'task_practice_weak',
+        title: `Solve ${Math.round(targetQ * 0.4)} questions in ${chap.chapter}`,
+        subject: chap.subject,
+        duration: '40 mins'
+      });
+    } else {
+      tasks.push({
+        id: 'task_practice_default',
+        title: `Solve ${Math.round(targetQ * 0.4)} questions in Physics Mechanics`,
+        subject: 'physics',
+        duration: '45 mins'
+      });
     }
 
-    const headers = ['Subject', 'Time Spent (s)', 'Time Spent (Formatted)', 'Questions Solved', 'Correct Questions', 'Accuracy (%)', 'Avg Time/Q (s)', 'Status'];
-    const rows = data.resourceAllocation.map(s => {
-      const formattedTime = `${Math.floor(s.timeSpent / 3600)}h ${Math.floor((s.timeSpent % 3600) / 60)}m`;
-      const status = s.accuracy > 75 ? 'Excellent' : s.accuracy > 50 ? 'Optimized' : s.accuracy > 30 ? 'Warning' : 'Critical';
-      return [
-        s.subject.toUpperCase(),
-        s.timeSpent,
-        formattedTime,
-        s.totalQuestions,
-        s.correctQuestions,
-        s.accuracy,
-        s.avgTimePerQ,
-        status
-      ];
+    // Task 2: Review mistakes / weak topics
+    const weakTopics = data?.weakTopics || [];
+    if (weakTopics.length > 0) {
+      tasks.push({
+        id: 'task_review_weak_topic',
+        title: `Review formula sheets & notes for "${weakTopics[0].topic}"`,
+        subject: weakTopics[0].subject,
+        duration: '20 mins'
+      });
+    } else {
+      tasks.push({
+        id: 'task_review_chem',
+        title: 'Review Inorganic Chemistry coordination compound reactions',
+        subject: 'chemistry',
+        duration: '30 mins'
+      });
+    }
+
+    // Task 3: Consistency Check / Leaderboard
+    tasks.push({
+      id: 'task_consistency',
+      title: `Contribute ${Math.round(targetQ * 0.6)} questions today to rank up leaderboard`,
+      subject: 'general',
+      duration: '50 mins'
     });
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(val => `"${val}"`).join(','))
-    ].join('\n');
+    return tasks;
+  }, [data, profile]);
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `solvingminds_resource_allocation_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast('Resource allocation exported successfully!', 'success');
+  const handleSendAiMessage = async () => {
+    if (!aiMessage.trim()) return;
+    const userMsg = aiMessage;
+    setAiResponses(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setAiMessage('');
+    setIsAiLoading(true);
+
+    // AI Coaching responses mapping
+    setTimeout(() => {
+      let reply = "I've reviewed your request. Focus on core formulas first, and practice 10 easy-level questions before scaling up difficulty.";
+      const query = userMsg.toLowerCase();
+      
+      if (query.includes('thermo') || query.includes('entropy') || query.includes('heat')) {
+        reply = "Thermodynamics core tips: 1. Remember the First Law equation: dQ = dU + dW (watch sign conventions: work done BY the gas is positive). 2. For adiabatic processes, P*V^gamma = constant. 3. Carnot efficiency is 1 - T_cold/T_hot. Practice standard graphs (P-V diagrams) to visualize work done.";
+      } else if (query.includes('electro') || query.includes('coulomb') || query.includes('charge')) {
+        reply = "Electrostatics focal points: 1. Coulomb's Law: F = k*q1*q2/r^2. 2. Gauss's Law: Closed Integral (E.dA) = Q_enclosed/epsilon_0. Electric field inside a conducting sphere is always zero. 3. Potential energy U = k*q1*q2/r. Focus heavily on spherical distribution problems.";
+      } else if (query.includes('calculus') || query.includes('integrate') || query.includes('differentiat')) {
+        reply = "Calculus and Integration essentials: 1. Integration is the reverse of differentiation. Focus on substitution techniques (letting u = f(x)). 2. Study standard formulas for trigonometric integrals. 3. In physics, integration calculates area under graphs (like work done = Integral of P.dV, or change in velocity = Integral of a.dt).";
+      } else if (query.includes('strategy') || query.includes('study') || query.includes('time') || query.includes('prepare')) {
+        reply = "JEE Study Strategy: 1. Reallocate time: study 2 hours of theory, followed by 3 hours of focused PYQ practice. 2. Bookmark hard questions in your error workbook. 3. Target consistency: solving 30 questions daily is significantly better than solving 100 questions once a week.";
+      } else if (query.includes('motivation') || query.includes('tired') || query.includes('stress')) {
+        reply = "JEE preparation is a marathon, not a sprint. Every single question you solve builds cognitive neural pathways. Remind yourself: progress is incremental. If you feel tired, take a 10-minute walk or a brief breath break, then return and solve just 5 easy questions to lock in your daily streak.";
+      }
+      
+      setAiResponses(prev => [...prev, { sender: 'ai', text: reply }]);
+      setIsAiLoading(false);
+    }, 1200);
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-cyan-500 font-mono animate-pulse">Initializing Neural Interface...</div>
+        <div className="text-cyan-500 font-mono animate-pulse">Synchronizing Neural Interface...</div>
       </div>
     );
   }
 
+  // Last attempt calculations for Jump Back In
+  const lastAttemptSubject = data?.lastAttempt?.subject || '';
+  const lastAttemptChapter = data?.lastAttempt?.chapter || '';
+  
+  const resumeHref = lastAttemptChapter
+    ? `/solving?subject=${encodeURIComponent(lastAttemptSubject.toLowerCase())}&chapter=${encodeURIComponent(lastAttemptChapter)}&exam=jee-mains`
+    : `/solving`;
+
+  // Solved vs Target calculations
+  const solvedToday = data?.questionsSolved.today || 0;
+  const targetQ = profile?.daily_target || 70;
+  const progressPct = Math.min(100, Math.round((solvedToday / targetQ) * 100));
+
   return (
-    <div className="an-content max-w-7xl mx-auto px-4 py-4">
-      {/* Quick Access Grid */}
-      <section className="mb-8 an-anim an-anim-1">
-        <div className="an-section-label">Quick Access</div>
-        <div className="an-qa-panel">
-          <Link href="/solving" className="an-qa-btn group">
-            <div className="an-qa-icon"><Zap size={20} /></div>
-            <div className="an-qa-label">Start Practice</div>
-          </Link>
-          <Link href="/solving" className="an-qa-btn group">
-            <div className="an-qa-icon"><Target size={20} /></div>
-            <div className="an-qa-label">Mock Test</div>
-          </Link>
-          <Link href="/solving" className="an-qa-btn group">
-            <div className="an-qa-icon"><Zap size={20} /></div>
-            <div className="an-qa-label">JEE Solver</div>
-          </Link>
-          <Link href="/community" className="an-qa-btn group">
-            <div className="an-qa-icon"><Send size={20} /></div>
-            <div className="an-qa-label">Revision Mode</div>
-          </Link>
-          <Link href="/community" className="an-qa-btn group">
-            <div className="an-qa-icon"><Award size={20} /></div>
-            <div className="an-qa-label">Leaderboard</div>
-          </Link>
+    <div className="an-content max-w-7xl mx-auto px-4 py-4 space-y-8 pb-24">
+      
+      {/* Header Coach greeting */}
+      <section className="flex flex-col md:flex-row md:items-center justify-between gap-4 an-anim an-anim-1">
+        <div>
+          <h1 className="text-4xl font-black font-[family-name:var(--font-bebas)] tracking-wider text-foreground leading-none">
+            {greeting()}, {profile?.name || 'Aspirant'}.
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1 font-mono uppercase tracking-widest">
+            Let's build momentum for your JEE preparation today.
+          </p>
         </div>
-      </section>
- 
-      {/* Overview KPI Strip */}
-      <section className="mb-8 an-anim an-anim-2">
-        <div className="an-section-label">Overview</div>
-        <div className="an-kpi-strip">
-          <div className="an-kpi-card an-c-cyan">
-            <div className="an-kpi-icon"><Flame size={20} /></div>
-            <div className="an-kpi-val">{data?.streak.current || 0}</div>
-            <div className="an-kpi-label">Day Streak</div>
-            <div className="an-kpi-delta text-green-400">
-              <TrendingUp size={12} /> Best: {data?.streak.best || 0} days
-            </div>
-          </div>
-          <div className="an-kpi-card an-c-purple">
-            <div className="an-kpi-icon"><Award size={20} /></div>
-            <div className="an-kpi-val">{profile?.aura_score || 0}</div>
-            <div className="an-kpi-label">Aura Score</div>
-            <div className="an-kpi-delta text-purple-400">
-              {profile?.aura_level || 'Aura Protocol'}
-            </div>
-          </div>
-          <div className="an-kpi-card an-c-green">
-            <div className="an-kpi-icon"><Target size={20} /></div>
-            <div className="an-kpi-val">{data?.accuracy.overall || 0}%</div>
-            <div className="an-kpi-label">Overall Accuracy</div>
-            <div className="an-kpi-delta text-green-400">
-              <TrendingUp size={12} /> Consistency is Key
-            </div>
-          </div>
-          <div className="an-kpi-card an-c-orange">
-            <div className="an-kpi-icon"><Clock size={20} /></div>
-            <div className="an-kpi-val">
-              {(() => {
-                const totalSecs = data?.resourceAllocation.reduce((a, b) => a + b.timeSpent, 0) || 0;
-                if (totalSecs === 0) return '0h';
-                if (totalSecs < 3600) return `${Math.round(totalSecs / 60)}m`;
-                return `${(totalSecs / 3600).toFixed(1)}h`;
-              })()}
-            </div>
-            <div className="an-kpi-label">Total Focused</div>
-            <div className="an-kpi-delta">
-              Target: 42h / week
-            </div>
-          </div>
-        </div>
-      </section>
- 
-      {/* Questions Solved Section */}
-      <section className="mb-8 an-anim an-anim-2">
-        <div className="flex items-center justify-between mb-4">
-          <div className="an-section-label !mb-0">Questions Solved</div>
-          <button 
-            onClick={() => setIsTargetModalOpen(true)}
-            className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 bg-[#ffffff05] border border-[#ffffff10] rounded-lg text-gray-500 hover:text-cyan-400 hover:border-cyan-400 transition-all flex items-center gap-2 group"
-          >
-            <Target size={12} className="group-hover:scale-110 transition-transform" />
-            Set Target
-          </button>
-        </div>
-        <div className="an-qstat-row">
-          {(() => {
-            const dTarget = profile?.daily_target || 70;
-            const wTarget = dTarget * 7;
-            const mTarget = dTarget * 30;
-            
-            return (
-              <>
-                <QuestionRing 
-                  period="Today" 
-                  count={data?.questionsSolved.today || 0} 
-                  target={dTarget} 
-                  color="var(--accent)"
-                />
-                <QuestionRing 
-                  period="This Week" 
-                  count={data?.questionsSolved.week || 0} 
-                  target={wTarget} 
-                  color="var(--purple)"
-                />
-                <QuestionRing 
-                  period="This Month" 
-                  count={data?.questionsSolved.month || 0} 
-                  target={mTarget} 
-                  color="var(--green)"
-                />
-              </>
-            );
-          })()}
+        
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 bg-white/[0.03] border border-white/[0.05] rounded-full text-cyan-400">
+            Target: JEE {profile?.target_year || '2026'}
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 bg-white/[0.03] border border-white/[0.05] rounded-full text-purple-400">
+            Class: {profile?.class || '12th'}
+          </span>
         </div>
       </section>
 
-      {/* Subject Accuracy + Performance Trend */}
-      <section className="mb-8 an-anim an-anim-3">
-        <div className="an-section-label">Subject Mastery</div>
-        <div className="an-gauge-row mb-6">
-          <SubjectGauge subject="Physics" accuracy={data?.accuracy.physics || 0} color="var(--accent)" />
-          <SubjectGauge subject="Chemistry" accuracy={data?.accuracy.chemistry || 0} color="var(--purple)" />
-          <SubjectGauge subject="Mathematics" accuracy={data?.accuracy.mathematics || 0} color="var(--green)" />
-        </div>
- 
-        <div className="an-card">
-          <div className="an-card-header">
-            <div>
-              <div className="an-card-title">
-                <Activity size={16} className="text-cyan-400 mr-2" />
-                Performance Trend · Last {data?.performanceTrend.dates.length || 14} Sessions
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        
+        {/* Left Column (Main widgets) */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          {/* Daily Checkpoint progress card */}
+          <div className="an-card p-6 bg-gradient-to-br from-[#0a0f26]/80 to-[#121c42]/40 rounded-3xl relative overflow-hidden border border-white/[0.05] space-y-6">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                  <Target size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Daily Checkpoint</h3>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-mono">Calibrating daily question target</p>
+                </div>
               </div>
-              <div className="an-card-sub">Physics · Chemistry · Mathematics</div>
+              
+              <button 
+                onClick={() => setIsTargetModalOpen(true)}
+                className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05] rounded-xl text-gray-400 hover:text-cyan-400 transition-all"
+              >
+                Set Target
+              </button>
             </div>
-          </div>
-          <div className="an-card-body">
-            <PerformanceTrendChart trend={data?.performanceTrend} />
-          </div>
-        </div>
-      </section>
- 
-      {/* Chapters Section */}
-      <section className="mb-8 an-anim an-anim-4">
-        <div className="an-two-col">
-          <div className="an-card">
-            <div className="an-card-header">
-              <div className="an-card-title text-green-400">
-                <Award size={16} className="mr-2" /> Top Chapters
+
+            <div className="flex justify-between items-baseline">
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-black font-[family-name:var(--font-bebas)] tracking-wider text-white leading-none">
+                  {solvedToday}
+                </span>
+                <span className="text-gray-500 text-xs font-mono">/ {targetQ} Qs</span>
               </div>
+              <span className="text-xs font-mono font-bold text-cyan-400">{progressPct}% completed</span>
             </div>
-            <div className="an-card-body">
-              <ChapterList chapters={data?.chapters.top || []} type="top" />
+
+            {/* Progress bar */}
+            <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/[0.02]">
+              <div 
+                className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-purple-500 transition-all duration-1000"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Link 
+                href={resumeHref}
+                className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/10"
+              >
+                Continue Practice <ChevronRight size={14} />
+              </Link>
+              <Link 
+                href="/analytics"
+                className="flex-1 py-3 px-6 rounded-xl border border-white/[0.05] hover:border-white/[0.1] hover:bg-white/[0.02] text-white font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+              >
+                View Detailed Analytics
+              </Link>
             </div>
           </div>
-          <div className="an-card">
-            <div className="an-card-header">
-              <div className="an-card-title text-red-400">
-                <Activity size={16} className="mr-2" /> Weak Chapters
-              </div>
-            </div>
-            <div className="an-card-body">
-              <ChapterList chapters={data?.chapters.weak || []} type="weak" />
+
+          {/* Quick Actions Grid */}
+          <div className="space-y-4">
+            <div className="an-section-label !mb-0">Quick Action Hub</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Link href="/solving" className="flex flex-col items-center justify-center p-5 bg-white/[0.01] hover:bg-white/[0.03] border border-white/[0.03] hover:border-cyan-500/30 rounded-2xl group transition-all text-center">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                  <Zap size={20} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white">Start Practice</span>
+              </Link>
+              
+              <Link href="/tests" className="flex flex-col items-center justify-center p-5 bg-white/[0.01] hover:bg-white/[0.03] border border-white/[0.03] hover:border-purple-500/30 rounded-2xl group transition-all text-center">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                  <Award size={20} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white">Mock Test</span>
+              </Link>
+              
+              <Link href="/solving?mode=revision" className="flex flex-col items-center justify-center p-5 bg-white/[0.01] hover:bg-white/[0.03] border border-white/[0.03] hover:border-orange-500/30 rounded-2xl group transition-all text-center">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                  <BookOpen size={20} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white">Revision Mode</span>
+              </Link>
+              
+              <button 
+                onClick={() => setIsAiSolverOpen(true)}
+                className="flex flex-col items-center justify-center p-5 bg-white/[0.01] hover:bg-white/[0.03] border border-white/[0.03] hover:border-green-500/30 rounded-2xl group transition-all text-center w-full"
+              >
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 text-green-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                  <BrainCircuit size={20} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white">AI Solver</span>
+              </button>
             </div>
           </div>
-        </div>
-      </section>
- 
-      {/* Leaderboard Section */}
-      <section className="mb-8 an-anim an-anim-4">
-         <div className="an-card">
-            <div className="an-card-header">
-               <div>
-                  <div className="an-card-title text-yellow-400">
-                     <Award size={16} className="mr-2" />
-                     {lbMode === 'daily' ? 'Daily Leaderboard' : lbMode === 'weekly' ? 'Weekly Leaderboard' : 'Global Leaderboard'}
+
+          {/* Jump Back In / Resume Practice */}
+          {lastAttemptChapter && (
+            <div className="space-y-4">
+              <div className="an-section-label !mb-0">Jump Back In</div>
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between p-6 bg-white/[0.01] border border-white/[0.03] rounded-3xl gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/10 text-xl font-bold shrink-0">
+                    {lastAttemptSubject.toLowerCase().startsWith('ph') ? 'Σ' : lastAttemptSubject.toLowerCase().startsWith('ch') ? 'Δ' : '∫'}
                   </div>
-                  <div className="an-card-sub">
-                    {lbMode === 'daily' ? "Ranked by today's study time" : lbMode === 'weekly' ? "Ranked by this week's study time" : 'Ranked by total aura score'}
-                  </div>
-               </div>
-               <div className="an-lb-tabs">
-                  <div className={`an-lb-tab ${lbMode === 'daily' ? 'active' : ''}`} onClick={() => setLbMode('daily')}>Daily</div>
-                  <div className={`an-lb-tab ${lbMode === 'weekly' ? 'active' : ''}`} onClick={() => setLbMode('weekly')}>Weekly</div>
-               </div>
-            </div>
-            <div className="an-card-body">
-               <div className="an-lb-list">
-                  {lbLoading ? (
-                     Array(5).fill(0).map((_, i) => <div key={i} className="an-lb-row animate-pulse h-16 bg-bg3/50"></div>)
-                  ) : lbEntries.length ? (
-                     lbEntries.map((entry, i) => (
-                        <div key={i} className={`an-lb-row ${entry.user_id === profile?.id ? 'an-lb-row-me' : ''}`}>
-                           <div className="an-lb-rank">{entry.rank}</div>
-                           <div className="an-lb-avatar">
-                              {entry.avatar_url ? (
-                                 <img src={getOptimizedUrl(entry.avatar_url, 'w_80,h_80,c_fill')} alt={entry.name} />
-                              ) : (
-                                 <div className="w-full h-full flex items-center justify-center text-gray-600"><Users size={16} /></div>
-                              )}
-                           </div>
-                           <div className="an-lb-info">
-                              <div className="an-lb-name">
-                                 {entry.name}
-                                 {entry.user_id === profile?.id && <span className="text-[8px] bg-cyan-500/20 text-cyan-400 px-1 rounded">YOU</span>}
-                                 {entry.role === 'admin' && <span className="text-[8px] bg-red-500/20 text-red-400 px-1 rounded">ADMIN</span>}
-                              </div>
-                              <div className="an-lb-sub">{entry.class} · Target {entry.target_year}</div>
-                           </div>
-                           <div className="an-lb-score">
-                              <div className="an-lb-val">{entry.aura_score.toLocaleString()}</div>
-                              <div className="an-lb-label">{lbMode === 'daily' ? 'pts today' : lbMode === 'weekly' ? 'pts this week' : 'aura points'}</div>
-                           </div>
-                        </div>
-                     ))
-                  ) : (
-                     <div className="text-center py-8 text-gray-500 font-mono text-xs">No entries found for this period.</div>
-                  )}
-               </div>
-            </div>
-         </div>
-      </section>
- 
-      {/* Weak Topics + Prediction + Streak */}
-      <section className="mb-8 an-anim an-anim-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Weak Topics */}
-          <div className="an-card lg:col-span-1">
-            <div className="an-card-header">
-              <div className="an-card-title text-red-400">
-                <Zap size={16} className="mr-2" /> Weak Topics
-              </div>
-            </div>
-            <div className="an-card-body">
-              <div className="an-topic-grid">
-                {data?.weakTopics.length ? data.weakTopics.map((t, i) => (
-                  <div key={i} className={`an-topic-chip an-sev-${t.accuracy < 35 ? 1 : t.accuracy < 55 ? 2 : 3}`}>
-                    <div className="an-topic-icon">{getTopicIcon(t.topic)}</div>
-                    <div className="an-topic-text">
-                      <div className="an-topic-name">{t.topic}</div>
-                      <div className="an-topic-subject">{t.subject}</div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[8px] bg-purple-500/20 text-purple-400 font-bold uppercase tracking-wider px-2 py-0.5 rounded">
+                        {lastAttemptSubject.toUpperCase()}
+                      </span>
+                      <span className="text-[8px] text-gray-500 font-mono uppercase">Last Active: {new Date(data?.lastAttempt?.created_at || '').toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
-                    <div className="an-topic-score">{t.accuracy}%</div>
+                    <h4 className="text-sm font-bold text-white mt-1">{lastAttemptChapter}</h4>
+                    <p className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-widest font-mono">Master formulas and concept PYQs</p>
                   </div>
-                )) : <div className="text-gray-500 font-mono text-xs text-center py-4">No data yet</div>}
+                </div>
+                
+                <Link 
+                  href={resumeHref}
+                  className="px-6 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/[0.05] text-white font-bold text-[10px] uppercase tracking-widest text-center transition-all shrink-0"
+                >
+                  Resume Drill
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Collapsible Leaderboard Widget */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="an-section-label !mb-0">Leaderboard Rankings</div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setLbMode('daily')}
+                  className={`text-[8px] font-bold uppercase tracking-widest px-2.5 py-1 rounded ${lbMode === 'daily' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/10' : 'text-gray-500 hover:text-white'}`}
+                >
+                  Daily
+                </button>
+                <button 
+                  onClick={() => setLbMode('weekly')}
+                  className={`text-[8px] font-bold uppercase tracking-widest px-2.5 py-1 rounded ${lbMode === 'weekly' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/10' : 'text-gray-500 hover:text-white'}`}
+                >
+                  Weekly
+                </button>
+              </div>
+            </div>
+
+            <div className="an-card">
+              <div className="an-card-body p-2 space-y-2">
+                {lbLoading ? (
+                  Array(3).fill(0).map((_, i) => <div key={i} className="an-lb-row animate-pulse h-12 bg-bg3/50 rounded-xl"></div>)
+                ) : lbEntries.length ? (
+                  lbEntries.slice(0, 3).map((entry, i) => (
+                    <div key={i} className={`an-lb-row !py-2 ${entry.user_id === profile?.id ? 'an-lb-row-me' : ''}`}>
+                       <div className="an-lb-rank text-xs">{entry.rank}</div>
+                       <div className="an-lb-avatar !w-8 !h-8">
+                          {entry.avatar_url ? (
+                             <img src={getOptimizedUrl(entry.avatar_url, 'w_60,h_60,c_fill')} alt={entry.name} />
+                          ) : (
+                             <div className="w-full h-full flex items-center justify-center text-gray-600 text-[10px]"><Users size={12} /></div>
+                          )}
+                       </div>
+                       <div className="an-lb-info">
+                          <div className="an-lb-name text-xs">
+                             {entry.name}
+                             {entry.user_id === profile?.id && <span className="text-[7px] bg-cyan-500/20 text-cyan-400 px-1 rounded ml-1">YOU</span>}
+                          </div>
+                          <div className="an-lb-sub text-[8px]">{entry.class} · Target {entry.target_year}</div>
+                       </div>
+                       <div className="an-lb-score">
+                          <div className="an-lb-val text-xs">{entry.aura_score.toLocaleString()}</div>
+                          <div className="an-lb-label text-[8px]">{lbMode === 'daily' ? 'pts today' : 'pts this week'}</div>
+                       </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-500 font-mono text-xs">No rankings available.</div>
+                )}
               </div>
             </div>
           </div>
- 
-          {/* Prediction Card */}
-          <div className="flex flex-col gap-6">
-            <div className="an-card p-6 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border-cyan-500/20">
-               <div className="font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-2">Estimated JEE Score</div>
-               <div className="text-5xl font-[family-name:var(--font-bebas)] bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent leading-none mb-1">
-                  {calculatePredictedScore(data?.accuracy)}
-               </div>
-               <div className="font-mono text-[10px] text-gray-400 uppercase tracking-widest mb-4">/ 300 · Probable Percentile: {calculatePercentile(data?.accuracy)}</div>
-               <div className="space-y-3">
-                  <SubjectBar label="PHY" value={data?.accuracy.physics || 0} color="var(--accent)" />
-                  <SubjectBar label="CHEM" value={data?.accuracy.chemistry || 0} color="var(--purple)" />
-                  <SubjectBar label="MATH" value={data?.accuracy.mathematics || 0} color="var(--green)" />
-               </div>
-            </div>
-            
-            {/* Mini Stats */}
-             <div className="space-y-2">
-                <MiniStat icon={<Clock size={12} />} label="Avg time / question" value={`${data?.globalAvgTimePerQ != null ? data.globalAvgTimePerQ : 0}s`} color="var(--accent)" />
-                <MiniStat icon={<Zap size={12} />} label="Questions Attempted" value={data?.questionsSolved.month.toString() || '0'} color="var(--purple)" />
-             </div>
-          </div>
- 
-          {/* Study Streak */}
-          <div className="an-card">
-            <div className="an-card-header">
-              <div className="an-card-title text-orange-400">
+
+        </div>
+
+        {/* Right Column (Sidebar widgets) */}
+        <div className="space-y-8">
+          
+          {/* Consistency & Streaks */}
+          <div className="an-card p-6 flex flex-col justify-between space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="an-card-title text-orange-400 !mb-0">
                 <Flame size={16} className="mr-2" /> Study Streak
               </div>
-              <div className="an-card-sub">Last 14 days attendance</div>
+              <span className="text-[8px] font-mono text-cyan-400 uppercase">Live Streak</span>
             </div>
-            <StudyStreakPips activityMap={data?.activityMap || {}} />
-            <div className="an-streak-count-wrap">
-              <div className="text-left">
-                <div className="an-streak-num">{data?.streak.current || 0} <span>day streak</span></div>
-                <div className="text-[10px] text-gray-500 font-mono mt-1">Consistency creates legends.</div>
+
+            <div className="flex items-center gap-4">
+              <div className="text-5xl font-black font-[family-name:var(--font-bebas)] text-white leading-none">
+                {data?.streak.current || 0}
               </div>
-              <div className="an-streak-best">
-                <div>Personal Best</div>
-                <strong>{data?.streak.best || 0} days</strong>
+              <div>
+                <span className="text-xs font-bold text-white uppercase block leading-none">Days Active</span>
+                <span className="text-[9px] text-gray-500 font-mono uppercase mt-1 block">Best: {data?.streak.best || 0} days</span>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
- 
-      {/* Activity Heatmap */}
-      <section className="mb-8 an-anim an-anim-5">
-        <div className="an-card">
-          <div className="an-card-header">
-            <div className="an-card-title">
-               <Calendar size={16} className="mr-2" /> Activity Heatmap · {new Date().getFullYear()}
+
+            <div className="grid grid-cols-7 gap-1 bg-white/[0.01] p-2 border border-white/[0.03] rounded-xl">
+              {(() => {
+                const activityMap = data?.activityMap || {};
+                const now = new Date();
+                const weekArr = [];
+                for (let i = 6; i >= 0; i--) {
+                  const d = new Date(now);
+                  d.setHours(0,0,0,0);
+                  d.setDate(d.getDate() - i);
+                  const iso = d.toISOString().split('T')[0];
+                  const done = !!activityMap[iso];
+                  const name = d.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
+                  weekArr.push({ name, done });
+                }
+                return weekArr.map((w, idx) => (
+                  <div key={idx} className="flex flex-col items-center">
+                    <span className="text-[7px] text-gray-500 font-mono uppercase mb-1">{w.name}</span>
+                    <div className={`w-3.5 h-3.5 rounded-sm flex items-center justify-center text-[7px] font-black ${w.done ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : 'bg-white/5 text-gray-700'}`}>
+                      {w.done ? '✓' : '✕'}
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
-          <div className="an-card-body">
-             <ActivityHeatmap activityMap={data?.activityMap || {}} />
+
+          {/* Coach's Battle Plan checklist */}
+          <div className="an-card p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/[0.03] pb-3">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                  <CheckSquare size={14} className="text-cyan-400" /> Today's Battle Plan
+                </h3>
+                <p className="text-[8px] text-gray-500 font-mono uppercase tracking-widest mt-0.5">Custom daily coach drill</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {battlePlanTasks.map((t) => {
+                const isChecked = !!checkedTasks[t.id];
+                return (
+                  <div 
+                    key={t.id} 
+                    onClick={() => toggleTask(t.id)}
+                    className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${isChecked ? 'bg-green-500/5 border-green-500/10 opacity-60' : 'bg-white/[0.01] border-white/[0.03] hover:border-white/[0.08]'}`}
+                  >
+                    <div className="shrink-0 mt-0.5 text-gray-400">
+                      {isChecked ? (
+                        <CheckSquare size={14} className="text-green-400" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 border border-gray-600 rounded-sm" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-[11px] font-bold block leading-tight ${isChecked ? 'line-through text-gray-500' : 'text-white'}`}>
+                        {t.title}
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[8px] font-mono text-gray-500 uppercase">{t.duration}</span>
+                        {t.subject !== 'general' && (
+                          <>
+                            <span className="text-gray-700 text-[8px] font-mono">•</span>
+                            <span className="text-[8px] font-mono text-cyan-400 uppercase">{t.subject}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </section>
- 
-      {/* Resource Allocation Table */}
-      <section className="mb-8 an-anim an-anim-5">
-         <div className="an-card">
-             <div className="an-card-header">
-                <div className="an-card-title">
-                   <Table size={16} className="mr-2" /> Resource Allocation
+
+          {/* Estimated Percentile Outliner */}
+          <div className="an-card p-6 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 border-cyan-500/10 space-y-4">
+             <div className="font-mono text-[9px] text-gray-500 uppercase tracking-widest block">Estimated JEE Percentile</div>
+             <div className="flex items-baseline gap-2">
+                <div className="text-5xl font-black font-[family-name:var(--font-bebas)] tracking-wider text-white leading-none">
+                  {calculatePercentile(data?.accuracy)}%ile
                 </div>
-                <button 
-                  onClick={handleExportCSV}
-                  className="an-btn-primary flex items-center gap-2 px-3 py-1 bg-cyan-500 text-black font-bold rounded-md text-[10px]"
-                >
-                   <Download size={14} /> EXPORT CSV
-                </button>
+                <div className="flex items-center text-[9px] text-green-400 font-bold uppercase font-mono">
+                  <TrendingUp size={10} className="mr-0.5" /> +0.2%
+                </div>
              </div>
-            <div className="overflow-x-auto">
-               <table className="an-tbl">
-                  <thead>
-                     <tr>
-                        <th>Subject</th>
-                        <th>Time Spent</th>
-                        <th>Questions</th>
-                        <th>Correct</th>
-                        <th>Avg Time/Q</th>
-                        <th>Status</th>
-                     </tr>
-                  </thead>
-                  <tbody>
-                     {data?.resourceAllocation.map((s, i) => (
-                        <tr key={i}>
-                           <td>
-                              <div className="flex items-center gap-2">
-                                 <div className="w-2 h-2 rounded-full" style={{ background: getSubjColor(s.subject) }}></div>
-                                 <div className="font-bold">{s.subject.toUpperCase()}</div>
-                              </div>
-                           </td>
-                           <td className="font-mono text-cyan-400">{Math.floor(s.timeSpent / 3600)}h {Math.floor((s.timeSpent % 3600) / 60)}m</td>
-                           <td className="font-mono">{s.totalQuestions}</td>
-                           <td className="font-mono">{s.correctQuestions} <span className="text-gray-500 text-[10px]">({s.accuracy}%)</span></td>
-                           <td className="font-mono">{Math.floor(s.avgTimePerQ / 60)}m {s.avgTimePerQ % 60}s</td>
-                           <td>
-                              <span className={`an-status-badge ${s.accuracy > 75 ? 'an-st-ex' : s.accuracy > 50 ? 'an-st-ok' : s.accuracy > 30 ? 'an-st-wr' : 'an-st-cr'}`}>
-                                 {s.accuracy > 75 ? 'Excellent' : s.accuracy > 50 ? 'Optimized' : s.accuracy > 30 ? 'Warning' : 'Critical'}
-                              </span>
-                           </td>
-                        </tr>
-                     ))}
-                  </tbody>
-               </table>
-            </div>
-         </div>
-      </section>
+             <p className="text-[9px] text-gray-500 uppercase tracking-widest font-mono leading-relaxed">
+               Rank prediction based on accuracy, study streak consistency, and solver contribution rates.
+             </p>
+             <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+               <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${data?.accuracy.overall || 50}%` }} />
+             </div>
+          </div>
+
+        </div>
+
+      </div>
 
       {/* Set Target Modal */}
       {isTargetModalOpen && (
@@ -541,274 +583,78 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
 
-// --- Sub-components ---
+      {/* AI Solver Chat Modal Drawer */}
+      {isAiSolverOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-end bg-black/60 backdrop-blur-md">
+          <div className="bg-[#0b0c16] border-l border-white/5 w-full max-w-md h-full flex flex-col justify-between animate-slide-in relative">
+            
+            {/* Header */}
+            <div className="p-6 border-b border-white/[0.03] flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-green-500/10 text-green-400 rounded-lg flex items-center justify-center">
+                  <Bot size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider leading-none">AI Study Coach</h3>
+                  <span className="text-[8px] text-gray-500 font-mono uppercase tracking-widest block mt-1">JEE / NEET Syllabus Calibrated</span>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => setIsAiSolverOpen(false)}
+                className="text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-white px-2 py-1"
+              >
+                Close
+              </button>
+            </div>
 
-function QuestionRing({ period, count, target, color }: { period: string, count: number, target: number, color: string }) {
-  const pct = Math.min(100, Math.round((count / target) * 100));
-  const circ = 150.8;
-  const offset = circ * (1 - pct / 100);
+            {/* Chat Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 zd-custom-scroll">
+              {aiResponses.map((res, i) => (
+                <div key={i} className={`flex ${res.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed ${res.sender === 'user' ? 'bg-cyan-500 text-black font-bold' : 'bg-white/[0.02] border border-white/[0.03] text-gray-300'}`}>
+                    {res.text}
+                  </div>
+                </div>
+              ))}
+              
+              {isAiLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white/[0.01] border border-white/[0.03] rounded-2xl p-4 text-[10px] text-gray-500 font-mono animate-pulse">
+                    Coach is drafting explanation...
+                  </div>
+                </div>
+              )}
+            </div>
 
-  return (
-    <div className="an-qstat-card">
-      <div className="an-qstat-ring">
-        <svg viewBox="0 0 56 56">
-          <circle cx="28" cy="28" r="24" fill="none" stroke="var(--bg3)" strokeWidth="5" />
-          <circle 
-            cx="28" cy="28" r="24" fill="none" 
-            stroke={color} strokeWidth="5" 
-            strokeDasharray={circ} strokeDashoffset={offset} 
-            strokeLinecap="round" 
-            className="transition-all duration-1000"
-          />
-        </svg>
-        <div className="an-qstat-ring-label">{pct}%</div>
-      </div>
-      <div className="an-qstat-info">
-        <div className="an-qstat-period">{period}</div>
-        <div className="an-qstat-num">{count.toLocaleString()}</div>
-        <div className="an-qstat-sub">of {target.toLocaleString()} target · <span style={{ color }}>{pct}%</span></div>
-      </div>
-    </div>
-  );
-}
+            {/* Footer Input */}
+            <div className="p-6 border-t border-white/[0.03] bg-white/[0.01]">
+              <div className="flex gap-2 bg-white/[0.02] border border-white/5 focus-within:border-cyan-400 rounded-xl p-2 transition-all">
+                <input 
+                  type="text"
+                  placeholder="Ask physics formulas, organic mechanisms..."
+                  value={aiMessage}
+                  onChange={(e) => setAiMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendAiMessage()}
+                  className="flex-1 bg-transparent outline-none border-none text-xs text-white px-2 py-1 placeholder:text-gray-600"
+                />
+                <button 
+                  onClick={handleSendAiMessage}
+                  disabled={!aiMessage.trim()}
+                  className="w-8 h-8 rounded-lg bg-cyan-400 text-black flex items-center justify-center hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed shrink-0 transition-all"
+                >
+                  <CornerDownLeft size={16} />
+                </button>
+              </div>
+            </div>
 
-function SubjectGauge({ subject, accuracy, color }: { subject: string, accuracy: number, color: string }) {
-  const circ = 263.9;
-  const offset = circ * (1 - accuracy / 100);
-
-  return (
-    <div className="an-gauge-card">
-      <div className="an-gauge-wrap">
-        <svg viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--bg3)" strokeWidth="8" />
-          <circle 
-            cx="50" cy="50" r="42" fill="none" 
-            stroke={color} strokeWidth="8" 
-            strokeDasharray={circ} strokeDashoffset={offset} 
-            strokeLinecap="round"
-            className="transition-all duration-1000"
-          />
-        </svg>
-        <div className="an-gauge-center">
-          <div className="an-gauge-pct" style={{ color }}>{accuracy}%</div>
-        </div>
-      </div>
-      <div className="an-gauge-subject">{subject}</div>
-      <div className={`an-gauge-trend ${accuracy > 70 ? 'text-green-400' : 'text-red-400'}`}>
-        {accuracy > 70 ? <TrendingUp size={12} className="inline mr-1" /> : <TrendingUp size={12} className="inline mr-1 rotate-180" />}
-        {accuracy > 70 ? 'Excellent' : 'Needs Focus'}
-      </div>
-    </div>
-  );
-}
-
-function PerformanceTrendChart({ trend }: { trend: any }) {
-  if (!trend || trend.dates.length === 0) return <div className="h-40 flex items-center justify-center text-gray-600 font-mono text-xs">No trend data available</div>;
-
-  const width = 700;
-  const height = 180;
-  const pad = { t: 20, r: 20, b: 30, l: 40 };
-  const chartW = width - pad.l - pad.r;
-  const chartH = height - pad.t - pad.b;
-
-  const points = (series: (number | null)[]) => {
-    return series.map((val, i) => {
-      const v = val === null ? 50 : val;
-      const x = pad.l + (i / (series.length - 1)) * chartW;
-      const y = pad.t + (1 - v / 100) * chartH;
-      return `${x},${y}`;
-    }).join(' ');
-  };
-
-  const fillPoints = (series: (number | null)[]) => {
-    const pts = series.map((val, i) => {
-        const v = val === null ? 50 : val;
-        const x = pad.l + (i / (series.length - 1)) * chartW;
-        const y = pad.t + (1 - v / 100) * chartH;
-        return `${x},${y}`;
-    });
-    return `M${pts[0]} ${pts.map(p => 'L'+p).join(' ')} L${pad.l + chartW},${pad.t + chartH} L${pad.l},${pad.t + chartH} Z`;
-  };
-
-  return (
-    <div className="an-perf-svg-wrap">
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="an-gcyan" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent)" stopOpacity="0.2"/><stop offset="100%" stopColor="var(--accent)" stopOpacity="0"/></linearGradient>
-          <linearGradient id="an-gpurple" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--purple)" stopOpacity="0.15"/><stop offset="100%" stopColor="var(--purple)" stopOpacity="0"/></linearGradient>
-          <linearGradient id="an-ggreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--green)" stopOpacity="0.15"/><stop offset="100%" stopColor="var(--green)" stopOpacity="0"/></linearGradient>
-        </defs>
-        {/* Grid lines */}
-        {[0, 25, 50, 75, 100].map(y => (
-          <line key={y} x1={pad.l} y1={pad.t + (1 - y/100) * chartH} x2={pad.l + chartW} y2={pad.t + (1 - y/100) * chartH} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-        ))}
-        {/* Y-axis labels */}
-        {[0, 50, 100].map(y => (
-          <text key={y} x={10} y={pad.t + (1 - y/100) * chartH + 4} fill="var(--text3)" fontSize="10" fontFamily="DM Mono">{y}%</text>
-        ))}
-
-        {/* Fills */}
-        <path d={fillPoints(trend.physics)} fill="url(#an-gcyan)" />
-        <path d={fillPoints(trend.chemistry)} fill="url(#an-gpurple)" />
-        <path d={fillPoints(trend.mathematics)} fill="url(#an-ggreen)" />
-
-        {/* Lines */}
-        <polyline points={points(trend.physics)} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points={points(trend.chemistry)} fill="none" stroke="var(--purple)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points={points(trend.mathematics)} fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-
-        {/* End Dots */}
-        <circle cx={pad.l + chartW} cy={pad.t + (1 - (trend.physics[trend.physics.length-1]||50)/100) * chartH} r="4" fill="var(--accent)" stroke="var(--bg2)" strokeWidth="2" />
-        <circle cx={pad.l + chartW} cy={pad.t + (1 - (trend.chemistry[trend.chemistry.length-1]||50)/100) * chartH} r="4" fill="var(--purple)" stroke="var(--bg2)" strokeWidth="2" />
-        <circle cx={pad.l + chartW} cy={pad.t + (1 - (trend.mathematics[trend.mathematics.length-1]||50)/100) * chartH} r="4" fill="var(--green)" stroke="var(--bg2)" strokeWidth="2" />
-      </svg>
-      <div className="flex justify-between mt-2 px-10">
-        {trend.dates.map((d: string, i: number) => (
-           <span key={i} className="text-[8px] font-mono text-gray-600 uppercase">{d.split('-').slice(1).join('/')}</span>
-        ))}
-      </div>
-      <div className="flex justify-center gap-6 mt-4">
-        <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-sm bg-cyan-400"></div><span className="font-mono text-[9px] text-gray-500 uppercase">Physics</span></div>
-        <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-sm bg-purple-400"></div><span className="font-mono text-[9px] text-gray-500 uppercase">Chemistry</span></div>
-        <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-sm bg-green-400"></div><span className="font-mono text-[9px] text-gray-500 uppercase">Maths</span></div>
-      </div>
-    </div>
-  );
-}
-
-function ChapterList({ chapters, type }: { chapters: any[], type: 'top' | 'weak' }) {
-  if (chapters.length === 0) return <div className="text-gray-600 font-mono text-xs text-center py-6">No chapter data available</div>;
-
-  return (
-    <div className="an-chapter-list">
-      {chapters.slice(0, 5).map((c, i) => (
-        <div key={i} className="an-chapter-row">
-          <div className={`an-chapter-rank ${type}`}>{(i + 1).toString().padStart(2, '0')}</div>
-          <div className="flex-1 min-width-0">
-            <div className="an-chapter-name">{c.chapter}</div>
-            <div className="an-chapter-sub">{c.subject.toUpperCase()} · {c.total} questions</div>
-          </div>
-          <div className="an-chapter-bar-wrap">
-            <div className="an-chapter-bar" style={{ width: `${c.accuracy}%`, background: getSubjColor(c.subject) }}></div>
-          </div>
-          <div className="an-chapter-score" style={{ color: getSubjColor(c.subject) }}>{c.accuracy}%</div>
-          <span className={`badge-pill ${c.accuracy > 90 ? 'badge-top' : c.accuracy > 75 ? 'badge-low' : c.accuracy > 50 ? 'badge-med' : 'badge-crit'}`}>
-            {c.accuracy > 90 ? 'Mastered' : c.accuracy > 75 ? 'Strong' : c.accuracy > 50 ? 'Average' : 'Critical'}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function StudyStreakPips({ activityMap }: { activityMap: Record<string, number> }) {
-  const pips = useMemo(() => {
-    const arr = [];
-    const now = new Date();
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(now);
-      d.setHours(0,0,0,0);
-      d.setDate(d.getDate() - i);
-      const iso = d.toISOString().split('T')[0];
-      const name = d.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
-      const done = !!activityMap[iso];
-      const isToday = i === 0;
-      arr.push({ name, done, isToday, iso });
-    }
-    return arr;
-  }, [activityMap]);
-
-  return (
-    <div className="grid grid-cols-7 gap-y-4 gap-x-2 p-4">
-      {pips.map((p, i) => (
-        <div key={i} className="an-streak-day">
-          <div className="an-streak-day-name">{p.name}</div>
-          <div className={`an-streak-pip ${p.isToday ? 'today' : p.done ? 'done' : 'missed'}`}>
-             {p.done ? '✓' : p.isToday ? '★' : '✕'}
           </div>
         </div>
-      ))}
+      )}
+
     </div>
   );
-}
-
-function ActivityHeatmap({ activityMap }: { activityMap: Record<string, number> }) {
-   const cells = useMemo(() => {
-      const arr = [];
-      const now = new Date();
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const days = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000) + 1;
-      
-      for (let i = 0; i < 364; i++) {
-         const d = new Date(startOfYear);
-         d.setDate(d.getDate() + i);
-         const iso = d.toISOString().split('T')[0];
-         const count = activityMap[iso] || 0;
-         const level = count === 0 ? 0 : count < 5 ? 1 : count < 10 ? 2 : count < 20 ? 3 : 4;
-         arr.push(level);
-      }
-      return arr;
-   }, [activityMap]);
-
-   return (
-      <div className="an-heatmap-grid">
-         {cells.map((l, i) => (
-            <div key={i} className={`an-hm-cell an-hm-${l}`} title={`Level ${l}`} />
-         ))}
-      </div>
-   );
-}
-
-function SubjectBar({ label, value, color }: { label: string, value: number, color: string }) {
-   return (
-      <div className="flex items-center gap-3">
-         <div className="font-mono text-[9px] text-gray-400 w-8">{label}</div>
-         <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${value}%`, background: color }}></div>
-         </div>
-         <div className="font-[family-name:var(--font-bebas)] text-xs w-6 text-right" style={{ color }}>{value}</div>
-      </div>
-   );
-}
-
-function MiniStat({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) {
-   return (
-      <div className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl hover:border-white/[0.1] transition-all">
-         <div className="flex items-center gap-3">
-            <div className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/5" style={{ color }}>{icon}</div>
-            <div className="font-mono text-[9px] text-gray-500 uppercase tracking-wider">{label}</div>
-         </div>
-         <div className="font-[family-name:var(--font-bebas)] text-lg text-white">{value}</div>
-      </div>
-   );
-}
-
-function getSubjColor(subj: string) {
-  const s = subj.toLowerCase();
-  if (s === 'physics') return 'var(--accent)';
-  if (s === 'chemistry') return 'var(--purple)';
-  if (s === 'mathematics' || s === 'maths' || s === 'math') return 'var(--green)';
-  return 'var(--text3)';
-}
-
-function getTopicIcon(topic: string) {
-   const t = topic.toLowerCase();
-   if (t.includes('law') || t.includes('force')) return <Bolt size={14} />;
-   if (t.includes('bond') || t.includes('chem')) return <FlaskConical size={14} />;
-   if (t.includes('calc') || t.includes('geom')) return <Variable size={14} />;
-   if (t.includes('thermo')) return <Thermometer size={14} />;
-   return <Zap size={14} />;
-}
-
-function calculatePredictedScore(accuracy: any) {
-   if (!accuracy) return '—';
-   const total = 300;
-   const avgAcc = accuracy.overall / 100;
-   return Math.round(total * avgAcc * 0.95); // conservative estimate
 }
 
 function calculatePercentile(accuracy: any) {
@@ -820,4 +666,11 @@ function calculatePercentile(accuracy: any) {
    if (acc > 60) return '97.1';
    if (acc > 50) return '94.8';
    return (acc + 40).toFixed(1);
+}
+
+function calculatePredictedScore(accuracy: any) {
+   if (!accuracy) return '—';
+   const total = 300;
+   const avgAcc = accuracy.overall / 100;
+   return Math.round(total * avgAcc * 0.95);
 }
