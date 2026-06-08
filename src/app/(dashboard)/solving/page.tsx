@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuestions, Question } from '@/hooks/useQuestions';
 import { useAttempts, Attempt } from '@/hooks/useAttempts';
 import { useProfile } from '@/hooks/useProfile';
-import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics';
-import { useDialog } from '@/components/DialogProvider';
 import { supabase } from '@/lib/supabase/client';
 import 'katex/dist/katex.min.css';
 import { 
@@ -19,13 +17,7 @@ import {
   Award,
   Lock,
   Sparkles,
-  ChevronLeft,
-  Search,
-  SlidersHorizontal,
-  TrendingUp,
-  Flame,
-  Play,
-  CheckCircle
+  ChevronLeft
 } from 'lucide-react';
 
 // ─── Module-level helpers (defined OUTSIDE the component so React never recreates them) ───
@@ -147,11 +139,8 @@ const QuestionTimer = memo(({ timerRef, timerIntervalRef, questionId, isAnswered
 
 export default function SolvingPage() {
   const { profile } = useProfile();
-  const { data: analyticsData } = useDashboardAnalytics(profile?.id);
-  const { toast } = useDialog();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState('');
 
   // ─── Initialise state from URL params so refresh always restores position ───
   const [view, setView] = useState<SolverView>(() => {
@@ -159,9 +148,10 @@ export default function SolvingPage() {
     const chapter = searchParams.get('chapter');
     const exam = searchParams.get('exam');
     if (q !== null && chapter && exam) return 'solving';
-    return 'pyq-selection';
+    if (exam) return 'pyq-selection';
+    return 'modes';
   });
-  const [selectedExam, setSelectedExam] = useState<string | null>(() => searchParams.get('exam') || 'jee-mains');
+  const [selectedExam, setSelectedExam] = useState<string | null>(() => searchParams.get('exam'));
   const [subject, setSubject] = useState(() => searchParams.get('subject') || 'physics');
   const [selectedChapter, setSelectedChapter] = useState<string | null>(() => searchParams.get('chapter'));
   const [chapters, setChapters] = useState<ChapterInfo[]>([]);
@@ -427,418 +417,341 @@ export default function SolvingPage() {
     setIntegerInput('');
   };
 
-  // Unified View 1 & 2: Single Practice Discovery & Selection Dashboard
-  if (view !== 'solving') {
-    const filteredChapters = chapters.filter(ch => 
-      ch.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // Subject totals for display
-    const subjectTotals: Record<string, number> = {
-      physics: 840,
-      chemistry: 920,
-      mathematics: 1050
-    };
-
-    // Calculate solved questions and remaining questions
-    const physicsAttempts = analyticsData?.resourceAllocation.find(s => s.subject === 'physics') || { totalQuestions: 0, accuracy: 0 };
-    const chemistryAttempts = analyticsData?.resourceAllocation.find(s => s.subject === 'chemistry') || { totalQuestions: 0, accuracy: 0 };
-    const mathAttempts = analyticsData?.resourceAllocation.find(s => s.subject === 'mathematics') || { totalQuestions: 0, accuracy: 0 };
-
-    const subjectStats = {
-      physics: {
-        total: subjectTotals.physics,
-        attempted: physicsAttempts.totalQuestions,
-        left: Math.max(0, subjectTotals.physics - physicsAttempts.totalQuestions),
-        pct: Math.min(100, Math.round((physicsAttempts.totalQuestions / subjectTotals.physics) * 100))
-      },
-      chemistry: {
-        total: subjectTotals.chemistry,
-        attempted: chemistryAttempts.totalQuestions,
-        left: Math.max(0, subjectTotals.chemistry - chemistryAttempts.totalQuestions),
-        pct: Math.min(100, Math.round((chemistryAttempts.totalQuestions / subjectTotals.chemistry) * 100))
-      },
-      mathematics: {
-        total: subjectTotals.mathematics,
-        attempted: mathAttempts.totalQuestions,
-        left: Math.max(0, subjectTotals.mathematics - mathAttempts.totalQuestions),
-        pct: Math.min(100, Math.round((mathAttempts.totalQuestions / subjectTotals.mathematics) * 100))
-      }
-    };
-
-    const handleRandom20 = () => {
-      if (chapters.length === 0) return;
-      const rand = chapters[Math.floor(Math.random() * chapters.length)];
-      setSelectedChapter(rand.name);
-      setView('solving');
-      setCurrentIndex(0);
-      toast(`Started Random 20 Practice in ${rand.name}`, 'success');
-    };
-
-    const handleWeakAreas = () => {
-      const weakChaps = (analyticsData?.chapters.weak || []).filter(c => c.subject === subject.toLowerCase());
-      if (weakChaps.length > 0) {
-        const selected = weakChaps[0].chapter;
-        setSelectedChapter(selected);
-        setView('solving');
-        setCurrentIndex(0);
-        toast(`Focused on weak area chapter: ${selected}`, 'success');
-      } else {
-        handleRandom20();
-      }
-    };
-
-    const handleImproveAccuracy = () => {
-      const weakChaps = (analyticsData?.chapters.weak || []).filter(c => c.subject === subject.toLowerCase());
-      if (weakChaps.length > 0) {
-        const selected = weakChaps[weakChaps.length - 1].chapter;
-        setSelectedChapter(selected);
-        setView('solving');
-        setCurrentIndex(0);
-        toast(`Calibrated accuracy booster: ${selected}`, 'success');
-      } else {
-        handleRandom20();
-      }
-    };
-
-    // Recommended focus chapters for current subject
-    const recommendedChapters = (analyticsData?.chapters.weak || [])
-      .filter(c => c.subject === subject.toLowerCase())
-      .slice(0, 2);
-
+  // View 1: Mode Selection
+  if (view === 'modes') {
     return (
-      <div className="an-content max-w-7xl mx-auto px-4 py-4 space-y-8 pb-32">
-        
-        {/* Header section with toggle */}
-        <section className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-black font-[family-name:var(--font-bebas)] tracking-wider text-foreground leading-none">
-              Practice JEE {selectedExam === 'jee-mains' ? 'Main' : 'Advanced'} PYQs
-            </h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              Master previous year questions with targeted practice and AI insights.
+      <div className="an-content max-w-5xl mx-auto py-12 px-6">
+        <div className="mb-10">
+          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Select your training interface</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div onClick={() => setView('pyq-selection')} className="bg-bg-2 border border-white/5 rounded-3xl p-8 cursor-pointer hover:border-purple/40 hover:bg-purple/5 transition-all group relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Zap size={80} />
+             </div>
+             <div className="bg-purple/10 text-purple w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+                <Zap size={24} />
+             </div>
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">PYQ Solver</h3>
+             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Full access to JEE Main & Advanced archive. Original Solving Minds solving layout.</p>
+             <div className="flex items-center text-purple text-[10px] font-bold uppercase tracking-widest">
+                Initiate <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
+             </div>
+          </div>
+
+          <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden">
+             <div className="bg-accent/10 text-accent w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+                <BookOpen size={24} />
+             </div>
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">Booklets</h3>
+             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Topic-wise modules and study material. Integrates soon.</p>
+             <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
+          </div>
+
+          <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden">
+             <div className="bg-green/10 text-green w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
+                <BarChart3 size={24} />
+             </div>
+             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">Mock Tests</h3>
+             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Full simulations with ranking systems. In calibration.</p>
+             <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // View 2: PYQ Selection (Legacy Style)
+  if (view === 'pyq-selection') {
+    if (!selectedExam) {
+      return (
+        <div className="an-content max-w-5xl mx-auto py-8 px-6 pb-32">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-6">
+             <button onClick={() => setView('modes')} className="hover:text-foreground transition-colors">MODES</button>
+             <span className="opacity-30">/</span>
+             <span className="text-muted-foreground/60">EXAM SELECTION</span>
+          </div>
+
+          <div className="mb-10">
+            <p className="font-mono text-[10px] text-purple uppercase tracking-[0.2em] mb-2">Select Target Qualification</p>
+            <h1 className="text-4xl font-[family-name:var(--font-bebas)] tracking-wider text-foreground mb-3">EXAM SELECTION PORTAL</h1>
+            <p className="text-gray-500 text-xs max-w-2xl leading-relaxed">
+              Select your target qualification. Solving Minds provides authentic past-year exam simulation engines calibrated to the latest syllabus standards.
             </p>
           </div>
 
-          <div className="flex gap-2 bg-white/5 p-1.5 border border-white/[0.03] rounded-2xl shrink-0 self-start md:self-center">
-            <button 
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card 1: JEE Main (Active) */}
+            <div 
               onClick={() => setSelectedExam('jee-mains')}
-              className={`px-4 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all ${selectedExam === 'jee-mains' ? 'bg-[#ffffff05] border border-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
+              className="bg-bg-2 border border-white/5 hover:border-purple/40 hover:bg-purple/5 rounded-3xl p-8 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-between min-h-[250px]"
             >
-              JEE Main
-            </button>
-            <button 
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Award size={80} className="text-purple" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="bg-purple/10 text-purple w-12 h-12 rounded-2xl flex items-center justify-center">
+                    <Award size={24} />
+                  </div>
+                  <span className="bg-green/10 text-green border border-green/20 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                    ACTIVE ENGINE
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">JEE MAIN</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  Complete archive of JEE Main past year questions (2023-2026). Calibrated with chapter-wise micro analytics and custom solving modes.
+                </p>
+              </div>
+              <div className="flex items-center text-purple text-[10px] font-bold uppercase tracking-widest mt-auto">
+                 INITIATE SESSION <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+
+            {/* Card 2: JEE Advanced (Active) */}
+            <div
               onClick={() => setSelectedExam('jee-advanced')}
-              className={`px-4 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all ${selectedExam === 'jee-advanced' ? 'bg-[#ffffff05] border border-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
+              className="bg-bg-2 border border-white/5 hover:border-orange/40 hover:bg-orange/5 rounded-3xl p-8 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-between min-h-[250px]"
             >
-              JEE Advanced
-            </button>
-          </div>
-        </section>
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Sparkles size={80} className="text-orange" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="bg-orange/10 text-orange w-12 h-12 rounded-2xl flex items-center justify-center">
+                    <Sparkles size={24} />
+                  </div>
+                  <span className="bg-green/10 text-green border border-green/20 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                    ACTIVE ENGINE
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">JEE ADVANCED</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  Full archive of JEE Advanced past year questions. Supports single-correct, multiple-correct, and numerical answer types.
+                </p>
+              </div>
+              <div className="flex items-center text-orange text-[10px] font-bold uppercase tracking-widest mt-auto">
+                INITIATE SESSION <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
 
-        {/* Stats Strip */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center gap-4 p-4 bg-white/[0.01] border border-white/[0.03] rounded-2xl">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/10">
-              <BookOpen size={18} />
+            {/* Card 3: NEET (Coming Soon) */}
+            <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden flex flex-col justify-between min-h-[250px]">
+              <div className="absolute top-0 right-0 p-6 opacity-5">
+                <BookOpen size={80} className="text-blue" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="bg-blue/10 text-blue w-12 h-12 rounded-2xl flex items-center justify-center">
+                    <BookOpen size={24} />
+                  </div>
+                  <span className="bg-white/5 text-muted-foreground border border-white/5 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1">
+                    <Lock size={8} /> COMING SOON
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">NEET (UG)</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  High-speed biological & chemical entry drills. Authentic negative marking mock trials and error notebooks.
+                </p>
+              </div>
+              <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-auto">
+                 PROTOCOL LOCKED
+              </div>
             </div>
-            <div>
-              <div className="text-lg font-black font-[family-name:var(--font-bebas)] text-white">2450+</div>
-              <span className="text-[8px] text-gray-500 uppercase tracking-widest font-mono">Questions Available</span>
+
+            {/* Card 4: BITSAT (Coming Soon) */}
+            <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden flex flex-col justify-between min-h-[250px]">
+              <div className="absolute top-0 right-0 p-6 opacity-5">
+                <Zap size={80} className="text-yellow" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="bg-yellow/10 text-yellow w-12 h-12 rounded-2xl flex items-center justify-center">
+                    <Zap size={24} />
+                  </div>
+                  <span className="bg-white/5 text-muted-foreground border border-white/5 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1">
+                    <Lock size={8} /> COMING SOON
+                  </span>
+                </div>
+                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">BITSAT</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  Speed-accuracy optimizer focusing on rapid mathematical drills, logical reasoning, and English proficiency modules.
+                </p>
+              </div>
+              <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-auto">
+                 PROTOCOL LOCKED
+              </div>
             </div>
           </div>
+        </div>
+      );
+    }
 
-          <div className="flex items-center gap-4 p-4 bg-white/[0.01] border border-white/[0.03] rounded-2xl">
-            <div className="w-10 h-10 rounded-xl bg-green-500/10 text-green-400 flex items-center justify-center border border-green-500/10">
-              <TrendingUp size={18} />
-            </div>
-            <div>
-              <div className="text-lg font-black font-[family-name:var(--font-bebas)] text-white">{analyticsData?.accuracy.overall || 0}%</div>
-              <span className="text-[8px] text-gray-500 uppercase tracking-widest font-mono">Your Accuracy</span>
-            </div>
+    return (
+      <div className="an-content max-w-5xl mx-auto py-8 px-6 pb-32">
+        <div className="flex items-center gap-2 text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-4">
+           <button onClick={() => setView('modes')} className="hover:text-foreground transition-colors">MODES</button>
+           <span className="opacity-30">/</span>
+           <button onClick={() => setSelectedExam(null)} className="hover:text-foreground transition-colors">EXAMS</button>
+           <span className="opacity-30">/</span>
+           <span className="text-muted-foreground/60">{selectedExam.toUpperCase().replace('-', ' ')}</span>
+        </div>
+
+        <button 
+          onClick={() => setSelectedExam(null)}
+          className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-white transition-colors mb-6 uppercase tracking-wider font-bold"
+        >
+          <ChevronLeft size={14} /> Back to Exam Selection
+        </button>
+
+        <p className="text-gray-500 text-[10px] mb-8">Target high-yield concepts. Select your focus area to begin the deep-work session.</p>
+
+        {/* Step 1: Subject */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">01</div>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">SELECT_SUBJECT</h2>
           </div>
-
-          <div className="flex items-center gap-4 p-4 bg-white/[0.01] border border-white/[0.03] rounded-2xl">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center border border-orange-500/10">
-              <Flame size={18} />
-            </div>
-            <div>
-              <div className="text-lg font-black font-[family-name:var(--font-bebas)] text-white">{analyticsData?.streak.current || 0} Days</div>
-              <span className="text-[8px] text-gray-500 uppercase tracking-widest font-mono">Current Streak</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Subject Selection Cards */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {(['physics', 'chemistry', 'mathematics'] as const).map((s) => {
-            const isSelected = subject === s;
-            const stats = subjectStats[s];
-            const color = s === 'physics' ? 'var(--accent)' : s === 'chemistry' ? 'var(--purple)' : 'var(--green)';
-            const borderCol = isSelected ? (s === 'physics' ? 'border-blue-500/50' : s === 'chemistry' ? 'border-purple-500/50' : 'border-green-500/50') : 'border-white/[0.03]';
-            
-            return (
-              <div 
+          <div className="grid grid-cols-3 gap-3 max-w-2xl">
+            {['physics', 'chemistry', 'mathematics'].map(s => (
+              <button 
                 key={s}
                 onClick={() => setSubject(s)}
-                className={`p-6 bg-white/[0.01] border hover:bg-white/[0.03] rounded-3xl cursor-pointer transition-all space-y-4 ${isSelected ? 'ring-1' : ''} ${borderCol}`}
-                style={{ 
-                  boxShadow: isSelected ? `0 0 20px ${color}15` : 'none'
-                }}
+                className={`flex flex-col gap-2 p-4 rounded-xl border transition-all ${subject === s ? 'bg-purple/20 border-purple text-foreground shadow-[0_0_15px_rgba(124,58,237,0.2)]' : 'bg-bg-2 border-white/5 text-muted-foreground hover:border-white/10'}`}
               >
-                <div className="flex justify-between items-start">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold font-mono" style={{ background: `${color}15`, color }}>
-                    {s === 'physics' ? 'Σ' : s === 'chemistry' ? 'Δ' : '∫'}
-                  </div>
-                  {isSelected && (
-                    <span className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-white" style={{ background: color }}>
-                      Selected
-                    </span>
-                  )}
+                <div className="text-2xl font-black">
+                  {s === 'physics' ? 'Σ' : s === 'chemistry' ? 'Δ' : '∫'}
                 </div>
-                
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white capitalize">{s}</h3>
-                  <span className="text-[9px] text-gray-500 font-mono mt-0.5 block">{stats.left} Questions left</span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${stats.pct}%`, background: color }} />
-                  </div>
-                  <div className="flex justify-between text-[7px] font-bold text-gray-500 font-mono uppercase">
-                    <span>Solved: {stats.attempted}</span>
-                    <span>Total: {stats.total}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </section>
-
-        {/* Smart Filtering Controls */}
-        <section className="bg-white/[0.01] border border-white/[0.03] rounded-3xl p-6 space-y-6">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            {/* Search Bar */}
-            <div className="flex items-center gap-2 bg-white/[0.02] border border-white/5 focus-within:border-cyan-400 rounded-xl px-3 py-2.5 w-full md:max-w-md transition-all">
-              <Search size={14} className="text-gray-500" />
-              <input 
-                type="text"
-                placeholder="Search Chapters..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs text-white placeholder:text-gray-600 w-full"
-              />
-            </div>
-
-            {/* Quick Practice Modes */}
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <button 
-                onClick={handleRandom20}
-                className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/[0.05] rounded-xl text-[9px] font-bold uppercase tracking-wider text-white transition-all"
-              >
-                <Zap size={10} className="text-yellow-400" /> Random 20
+                <div className="text-[8px] font-bold uppercase tracking-[0.2em]">{s === 'mathematics' ? 'MATHS' : s}</div>
               </button>
-              <button 
-                onClick={handleWeakAreas}
-                className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/[0.05] rounded-xl text-[9px] font-bold uppercase tracking-wider text-white transition-all"
-              >
-                <Lock size={10} className="text-red-400" /> Weak Areas
-              </button>
-              <button 
-                onClick={handleImproveAccuracy}
-                className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/[0.05] rounded-xl text-[9px] font-bold uppercase tracking-wider text-white transition-all"
-              >
-                <TrendingUp size={10} className="text-green-400" /> Improve Accuracy
-              </button>
-            </div>
+            ))}
           </div>
+        </div>
 
-          <div className="border-t border-white/[0.03] pt-6 flex flex-col md:flex-row gap-6">
-            {/* Year Filters */}
-            <div className="space-y-2.5 flex-1">
-              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block flex items-center gap-1.5"><SlidersHorizontal size={10} /> Year</span>
-              <div className="flex flex-wrap gap-2">
-                {['ALL', '2026', '2025', '2024', '2023'].map((y) => (
-                  <button
-                    key={y}
-                    onClick={() => setFilterYear(y)}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${filterYear === y ? 'bg-cyan-400 text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}
-                  >
-                    {y}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Difficulty Filters */}
-            <div className="space-y-2.5 flex-1">
-              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block flex items-center gap-1.5"><SlidersHorizontal size={10} /> Difficulty</span>
-              <div className="flex gap-2 max-w-sm">
-                {['ALL', 'EASY', 'MED', 'HARD'].map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setFilterDifficulty(d)}
-                    className={`flex-1 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all ${filterDifficulty === d ? 'bg-purple/10 border-purple text-purple' : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'}`}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Step 2: Chapter */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">02</div>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">CHOOSE_CHAPTER</h2>
+            <div className="ml-auto text-[8px] font-bold uppercase tracking-widest text-[#7c3aed]">{selectedChapter || 'NONE SELECTED'}</div>
           </div>
-        </section>
-
-        {/* Recommended Chapters */}
-        {recommendedChapters.length > 0 && (
-          <section className="space-y-4">
-            <div className="an-section-label !mb-0">Recommended for You</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {recommendedChapters.map((ch, idx) => (
-                <div 
-                  key={idx}
-                  onClick={() => {
-                    setSelectedChapter(ch.chapter);
-                    setView('solving');
-                    setCurrentIndex(0);
-                  }}
-                  className="p-5 bg-gradient-to-br from-[#121424] to-[#0a0f1d] border border-white/[0.03] hover:border-cyan-500/20 rounded-2xl cursor-pointer transition-all flex items-center justify-between group"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[8px] bg-red-500/20 text-red-400 font-bold uppercase tracking-wider px-2 py-0.5 rounded">
-                        High Priority
-                      </span>
-                    </div>
-                    <h4 className="text-xs font-bold text-white mt-1 group-hover:text-cyan-400 transition-colors">{ch.chapter}</h4>
-                    <div className="flex items-center gap-4 text-[8px] font-mono text-gray-500 uppercase tracking-widest mt-1">
-                      <span>Accuracy: <strong className="text-red-400">{ch.accuracy}%</strong></span>
-                      <span>•</span>
-                      <span>Solved: {ch.total} Qs</span>
-                    </div>
-                  </div>
-                  
-                  <div className="w-8 h-8 rounded-full bg-white/5 text-white flex items-center justify-center group-hover:bg-cyan-400 group-hover:text-black transition-all">
-                    <Play size={12} fill="currentColor" className="ml-0.5" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Unified Chapters Grid */}
-        <section className="space-y-4">
-          <div className="an-section-label !mb-0">{subject.toUpperCase()} Chapters</div>
+          
           {loadingChapters ? (
-            <div className="flex py-12 justify-center">
-              <Loader2 className="animate-spin text-cyan-400" size={24} />
-            </div>
-          ) : filteredChapters.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredChapters.map((ch) => {
-                const isSelected = selectedChapter === ch.name;
-                
-                // Get accuracy from analyticsData if exists
-                const chapAnal = (analyticsData?.chapters.top || []).find((c: any) => c.chapter === ch.name && c.subject === subject.toLowerCase()) ||
-                                 (analyticsData?.chapters.weak || []).find((c: any) => c.chapter === ch.name && c.subject === subject.toLowerCase());
-                const acc = chapAnal ? chapAnal.accuracy : null;
-
-                // Determine badge and color
-                let badgeText = "New";
-                let badgeClass = "bg-green-500/10 text-green-400 border border-green-500/20";
-                
-                if (acc !== null) {
-                  if (acc < 50) {
-                    badgeText = "Needs Practice";
-                    badgeClass = "bg-red-500/10 text-red-400 border border-red-500/20";
-                  } else if (acc < 75) {
-                    badgeText = "Medium";
-                    badgeClass = "bg-orange-500/10 text-orange-400 border border-orange-500/20";
-                  } else {
-                    badgeText = "Mastered";
-                    badgeClass = "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20";
-                  }
-                }
-
-                return (
-                  <div 
-                    key={ch.name}
-                    onClick={() => setSelectedChapter(ch.name)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between min-h-[110px] ${isSelected ? 'bg-white/[0.03] border-cyan-400/40 shadow-lg' : 'bg-white/[0.01] border-white/[0.03] hover:border-white/[0.08]'}`}
-                  >
-                    <div>
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="text-[10px] font-bold text-white leading-tight truncate max-w-[70%]">{ch.name}</span>
-                        <span className={`text-[7px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 ${badgeClass}`}>
-                          {badgeText}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-[8px] font-mono text-gray-500 uppercase tracking-widest mt-2">
-                        <span>Q's: {ch.count}</span>
-                        {acc !== null && (
-                          <>
-                            <span>•</span>
-                            <span>Acc: <strong className={acc < 60 ? 'text-red-400' : 'text-green-400'}>{acc}%</strong></span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/[0.03]">
-                      <span className="text-[7px] text-gray-500 font-mono uppercase">JEE MAIN ENGINE ACTIVE</span>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedChapter(ch.name);
-                          setView('solving');
-                          setCurrentIndex(0);
-                        }}
-                        className="w-7 h-7 rounded-full bg-white/5 hover:bg-cyan-400 hover:text-black transition-all flex items-center justify-center"
-                      >
-                        <Play size={10} fill="currentColor" className="ml-0.5 text-white hover:text-black" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="flex py-10 justify-center">
+              <Loader2 className="animate-spin text-gray-600" size={20} />
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500 font-mono text-xs">No chapters match your search.</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {chapters.map(ch => (
+                <button 
+                  key={ch.name}
+                  onClick={() => setSelectedChapter(ch.name)}
+                  className={`p-3 rounded-xl border text-left transition-all relative ${selectedChapter === ch.name ? 'bg-purple/10 border-purple text-foreground' : 'bg-bg-2 border-white/5 text-muted-foreground hover:border-white/10'}`}
+                >
+                  <div className="font-bold text-[11px] mb-1 line-clamp-1">{ch.name}</div>
+                  <div className="flex items-center gap-1.5 text-[8px] font-bold text-purple/60 uppercase tracking-widest">
+                     <BookOpen size={8} /> {ch.count} Q
+                  </div>
+                  {selectedChapter === ch.name && (
+                    <div className="absolute top-3 right-3">
+                      <Check size={12} className="text-purple" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
           )}
-        </section>
+        </div>
 
-        {/* Sticky Bottom Bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-[#070810]/85 backdrop-blur-xl border-t border-white/[0.03] p-3 flex items-center justify-between z-[1100]">
+        {/* Step 3: Fine Tune */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">03</div>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">FINE_TUNE</h2>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">EXAM YEARS</label>
+              <div className="flex flex-wrap gap-2">
+                {['ALL', '2026', '2025', '2024', '2023'].map(year => (
+                  <button
+                    key={year}
+                    onClick={() => setFilterYear(year)}
+                    className={`px-4 py-1.5 rounded-full text-[9px] font-bold transition-all ${filterYear === year ? 'bg-purple text-white' : 'bg-bg-2 border border-white/5 text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">DIFFICULTY</label>
+                <div className="flex gap-2">
+                  {['ALL', 'EASY', 'MED', 'HARD'].map(diff => (
+                    <button
+                      key={diff}
+                      onClick={() => setFilterDifficulty(diff)}
+                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterDifficulty === diff ? 'bg-purple/10 border-purple text-purple' : 'bg-bg-2 border-white/5 text-muted-foreground hover:text-foreground'}`}
+                    >
+                      {diff}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">QUESTION TYPE</label>
+                <div className="flex gap-2">
+                  {['ALL', 'MCQ', 'MULTI-CORRECT', 'NUMERICAL'].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setFilterType(type)}
+                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterType === type ? 'bg-purple/10 border-purple text-purple' : 'bg-bg-2 border-white/5 text-muted-foreground hover:text-foreground'}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a10]/80 backdrop-blur-xl border-t border-white/[0.05] p-3 flex items-center justify-between z-[1100]">
            <div className="flex items-center gap-6 px-6">
               <div className="flex flex-col">
                 <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">SUBJECT</span>
-                <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400">{subject}</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">{subject}</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">CHAPTER</span>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-white truncate max-w-[150px]">{selectedChapter || '—'}</span>
+                <span className="text-[7px] text-muted-foreground font-bold uppercase tracking-widest">CHAPTER</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">{selectedChapter || '—'}</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">QUESTIONS</span>
-                <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">
-                  {selectedChapter ? chapters.find(c => c.name === selectedChapter)?.count || '—' : '—'}
+                <span className="text-[7px] text-muted-foreground font-bold uppercase tracking-widest">QUESTIONS</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">
+                  {selectedChapter ? questions.length : '—'}
                 </span>
               </div>
            </div>
-           
            <button 
-              disabled={!selectedChapter}
+              disabled={!selectedChapter || questions.length === 0}
               onClick={() => {
                 setView('solving');
                 setCurrentIndex(0);
               }}
-              className="bg-cyan-400 hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed text-black px-8 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/10"
+              className="bg-purple hover:bg-purple-600 text-white px-8 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]"
             >
-              <Zap size={12} /> Start Solving
+              <Zap size={12} /> START SOLVING
            </button>
         </div>
-
       </div>
     );
   }
