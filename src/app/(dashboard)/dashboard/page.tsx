@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [activeSession, setActiveSession] = useState<any>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [activeRecTab, setActiveRecTab] = useState('weak');
+  const [activeTests, setActiveTests] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchBanners() {
@@ -121,6 +122,25 @@ export default function DashboardPage() {
       }
     }
     fetchSession();
+
+    async function fetchActiveTests() {
+      const { data: attempts } = await supabase
+        .from('mock_test_live_attempts')
+        .select('id, test_id, completed')
+        .eq('user_id', profile!.id)
+        .eq('completed', false);
+      
+      if (!attempts || attempts.length === 0) return;
+      const testIds = attempts.map(a => a.test_id);
+      
+      const { data: testsData } = await supabase
+        .from('mock_tests')
+        .select('id, title, exam_type, total_questions, duration')
+        .in('id', testIds);
+        
+      if (testsData) setActiveTests(testsData);
+    }
+    fetchActiveTests();
   }, [profile?.id]);
 
   if (loading) {
@@ -296,8 +316,8 @@ export default function DashboardPage() {
         
         <div className="sm-rec-grid">
           {activeRecTab === 'weak' && (
-            data?.chapters.weak && data.chapters.weak.length > 0 ? (
-              data.chapters.weak.slice(0, 4).map((c: any, i: number) => (
+            data?.chapters.weak && data.chapters.weak.filter((c: any) => c.accuracy >= 20 && c.accuracy <= 70).length > 0 ? (
+              data.chapters.weak.filter((c: any) => c.accuracy >= 20 && c.accuracy <= 70).slice(0, 4).map((c: any, i: number) => (
                 <div key={i} className="sm-card sm-rec-card">
                   <div>
                     <div className="sm-rec-meta uppercase tracking-wider text-red-500 mb-1">{c.subject}</div>
@@ -315,28 +335,22 @@ export default function DashboardPage() {
           )}
           
           {activeRecTab === 'tests' && (
-            <>
-              <div className="sm-card sm-rec-card border-cyan-500/30 bg-cyan-500/5">
-                <div>
-                  <div className="sm-rec-meta uppercase tracking-wider text-cyan-500 mb-1">JEE MAIN</div>
-                  <div className="sm-rec-title">Full Syllabus Mock Test 1</div>
+            activeTests.length > 0 ? (
+              activeTests.map(test => (
+                <div key={test.id} className="sm-card sm-rec-card border-cyan-500/30 bg-cyan-500/5">
+                  <div>
+                    <div className="sm-rec-meta uppercase tracking-wider text-cyan-500 mb-1">{test.exam_type}</div>
+                    <div className="sm-rec-title">{test.title}</div>
+                  </div>
+                  <div className="sm-rec-footer">
+                    <span className="text-xs text-gray-400">{test.total_questions} Questions • {test.duration} Mins</span>
+                    <Link href="/tests" className="text-xs font-bold text-cyan-500 hover:text-cyan-400">RESUME</Link>
+                  </div>
                 </div>
-                <div className="sm-rec-footer">
-                  <span className="text-xs text-gray-400">90 Questions • 180 Mins</span>
-                  <Link href="/tests" className="text-xs font-bold text-cyan-500 hover:text-cyan-400">ATTEMPT</Link>
-                </div>
-              </div>
-              <div className="sm-card sm-rec-card">
-                <div>
-                  <div className="sm-rec-meta uppercase tracking-wider text-purple-500 mb-1">BITSAT</div>
-                  <div className="sm-rec-title">Speed Test Series Alpha</div>
-                </div>
-                <div className="sm-rec-footer">
-                  <span className="text-xs text-gray-400">130 Questions • 180 Mins</span>
-                  <Link href="/tests" className="text-xs font-bold text-purple-500 hover:text-purple-400">ATTEMPT</Link>
-                </div>
-              </div>
-            </>
+              ))
+            ) : (
+              <div className="col-span-full py-8 text-center text-gray-500 text-sm">No active mock tests right now. Start one from the Mock Tests section!</div>
+            )
           )}
 
           {activeRecTab === 'revision' && (
@@ -360,11 +374,30 @@ export default function DashboardPage() {
       <section>
         <div className="sm-section-title">Explore Exams</div>
         <div className="sm-exam-grid">
-          {['JEE Main', 'JEE Advanced', 'BITSAT', 'IAT', 'MHT CET', 'COMEDK'].map((exam) => (
-            <Link key={exam} href={`/solving?exam=${encodeURIComponent(exam)}`} className="sm-card sm-exam-card">
-              <div className="sm-exam-logo">{exam.charAt(0)}</div>
-              <div className="sm-exam-name">{exam}</div>
-            </Link>
+          {[
+            { name: 'JEE Main', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/1714022307392-4pune-jee-main-results-decla-1599551417_qb0dhp.jpg', comingSoon: false },
+            { name: 'JEE Advanced', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/jee-advance_sh2wwu.png', comingSoon: false },
+            { name: 'BITSAT', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/BITS_Pilani-Logo.svg_o2z5v1.png', comingSoon: true },
+            { name: 'IAT', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265252/iiser_ll9ssf.png', comingSoon: true },
+            { name: 'MHT CET', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/MHT-CET_logo_ejx6dg.png', comingSoon: true },
+            { name: 'COMEDK', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265234/comedk_gsw5ye.jpg', comingSoon: true },
+          ].map((exam) => (
+            exam.comingSoon ? (
+              <div key={exam.name} className="sm-card sm-exam-card relative opacity-70">
+                <span className="absolute top-2 right-2 text-[0.6rem] font-bold uppercase tracking-wider bg-[var(--bg3)] text-[var(--text2)] px-2 py-1 rounded">Soon</span>
+                <div className="sm-exam-logo overflow-hidden bg-white/5 p-0">
+                  <img src={exam.logo} alt={exam.name} className="w-full h-full object-contain p-2" />
+                </div>
+                <div className="sm-exam-name">{exam.name}</div>
+              </div>
+            ) : (
+              <Link key={exam.name} href={`/solving?exam=${encodeURIComponent(exam.name)}`} className="sm-card sm-exam-card">
+                <div className="sm-exam-logo overflow-hidden bg-white/5 p-0">
+                  <img src={exam.logo} alt={exam.name} className="w-full h-full object-contain p-2" />
+                </div>
+                <div className="sm-exam-name">{exam.name}</div>
+              </Link>
+            )
           ))}
         </div>
       </section>
