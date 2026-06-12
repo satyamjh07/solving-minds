@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { launchBrowser } from '@/lib/puppeteer';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 interface RouteParams {
   params: Promise<{ attemptId: string }>;
@@ -45,11 +46,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     console.log(`PDF Generator: Navigating to print view: ${printUrl}`);
     // Go to the print-optimized route
-    await page.goto(printUrl, { waitUntil: 'networkidle0', timeout: 30000 });
+    const isDev = process.env.NODE_ENV === 'development';
+    await page.goto(printUrl, { waitUntil: 'load', timeout: isDev ? 120000 : 30000 });
 
     // Wait for the charts to finish mounting and rendering SVGs
     console.log('PDF Generator: Waiting for charts to load...');
-    await page.waitForSelector('.recharts-responsive-container', { timeout: 15000 });
+    await page.waitForSelector('.recharts-responsive-container', { timeout: isDev ? 60000 : 15000 });
     
     // Add brief delay for smooth transition and rendering
     await new Promise(resolve => setTimeout(resolve, 1500));

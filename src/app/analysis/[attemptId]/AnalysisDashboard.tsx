@@ -187,7 +187,16 @@ export default function AnalysisDashboard({
     try {
       const response = await fetch(`/api/analysis/${attemptId}/pdf`);
       if (!response.ok) {
-        throw new Error('Failed to generate PDF on server');
+        let errMsg = 'Failed to generate PDF on server';
+        try {
+          const jsonErr = await response.json();
+          if (jsonErr.details) {
+            errMsg = `${jsonErr.error} Details: ${jsonErr.details}`;
+          } else if (jsonErr.error) {
+            errMsg = jsonErr.error;
+          }
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
       const blob = await response.blob();
@@ -201,9 +210,9 @@ export default function AnalysisDashboard({
       // Cleanup
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch (err: any) {
       console.error('PDF Download failed:', err);
-      alert('Failed to generate and download PDF report. Please try again.');
+      alert(`Failed to generate and download PDF report. Error: ${err.message || err}`);
     } finally {
       setPdfGenerating(false);
     }

@@ -3,6 +3,24 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 
+function getSystemChromePath() {
+  const paths = [
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  ];
+  for (const p of paths) {
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return undefined;
+}
+
 async function runTest() {
   const attemptId = '25af9421-141f-4d2c-96a4-a6a6ab5181fc';
   console.log('Starting Next.js dev server...');
@@ -45,6 +63,7 @@ async function runTest() {
   try {
     console.log('Launching test Puppeteer browser...');
     browser = await puppeteer.launch({
+      executablePath: getSystemChromePath(),
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
@@ -53,7 +72,7 @@ async function runTest() {
     await page.setViewport({ width: 1280, height: 800 });
 
     console.log('Navigating to login page...');
-    await page.goto('http://localhost:3000/auth/login', { waitUntil: 'networkidle2' });
+    await page.goto('http://localhost:3000/auth/login', { waitUntil: 'load', timeout: 120000 });
 
     console.log('Filling in login credentials...');
     await page.type('input[type="email"]', 'mockstudent@solvingminds.com');
@@ -62,7 +81,7 @@ async function runTest() {
     console.log('Submitting login form...');
     await Promise.all([
       page.click('button[type="submit"]'),
-      page.waitForNavigation({ waitUntil: 'networkidle2' })
+      page.waitForNavigation({ waitUntil: 'load', timeout: 120000 })
     ]);
 
     console.log('Successfully logged in! Current URL:', page.url());
