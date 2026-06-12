@@ -7,6 +7,7 @@ import { useAttempts, Attempt } from '@/hooks/useAttempts';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
 import 'katex/dist/katex.min.css';
+import './solving-redesign.css';
 import { 
   Zap,
   Loader2,
@@ -17,7 +18,12 @@ import {
   Award,
   Lock,
   Sparkles,
-  ChevronLeft
+  ChevronLeft,
+  X,
+  Target,
+  Clock,
+  Flame,
+  TrendingUp
 } from 'lucide-react';
 
 // ─── Module-level helpers (defined OUTSIDE the component so React never recreates them) ───
@@ -137,6 +143,42 @@ const QuestionTimer = memo(({ timerRef, timerIntervalRef, questionId, isAnswered
   );
 });
 
+// ─── Exam data for cards ───
+const EXAM_DATA = [
+  {
+    id: 'jee-mains',
+    name: 'JEE Main',
+    desc: 'Complete archive of JEE Main past year questions (2023–2026). Chapter-wise analytics and custom solving modes.',
+    logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/1714022307392-4pune-jee-main-results-decla-1599551417_qb0dhp.jpg',
+    active: true,
+    color: 'var(--accent)',
+  },
+  {
+    id: 'jee-advanced',
+    name: 'JEE Advanced',
+    desc: 'Full archive of JEE Advanced questions. Single-correct, multiple-correct, and numerical answer types.',
+    logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/jee-advance_sh2wwu.png',
+    active: true,
+    color: 'var(--orange)',
+  },
+  {
+    id: 'neet',
+    name: 'NEET (UG)',
+    desc: 'Biology, Physics, and Chemistry drills with authentic negative marking patterns.',
+    logo: '',
+    active: false,
+    color: 'var(--green)',
+  },
+  {
+    id: 'bitsat',
+    name: 'BITSAT',
+    desc: 'Speed-accuracy focused drills for rapid mathematical, logical and English proficiency modules.',
+    logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/BITS_Pilani-Logo.svg_o2z5v1.png',
+    active: false,
+    color: 'var(--purple)',
+  },
+];
+
 export default function SolvingPage() {
   const { profile } = useProfile();
   const router = useRouter();
@@ -197,6 +239,11 @@ export default function SolvingPage() {
   const [filterYear, setFilterYear] = useState('ALL');
   const [filterDifficulty, setFilterDifficulty] = useState('ALL');
   const [filterType, setFilterType] = useState('ALL');
+
+  // ─── Analysis overlay state ───
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [examAnalytics, setExamAnalytics] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Fetch chapters and counts for the subject
   useEffect(() => {
@@ -273,7 +320,7 @@ export default function SolvingPage() {
     ? !!currentAttempt && !reattemptingQIds.has(currentQuestion._dbId)
     : false;
 
-  // Reset attempt cache when chapter changes so old answers don’t bleed through.
+  // Reset attempt cache when chapter changes so old answers don't bleed through.
   useEffect(() => {
     attemptCacheRef.current = {};
     setLocalAttempts({});
@@ -314,6 +361,85 @@ export default function SolvingPage() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qIds.join(',')]);
+
+  // ─── Fetch exam-specific analytics ───
+  const fetchExamAnalytics = useCallback(async () => {
+    if (!profile?.id || !selectedExam) return;
+    setAnalyticsLoading(true);
+    setShowAnalysis(true);
+    try {
+      const mappedExam = selectedExam === 'jee-mains' ? 'jee-main' : selectedExam;
+      const { data: attempts } = await supabase
+        .from('user_attempts')
+        .select('id, is_correct, time_taken, created_at, questions!inner(subject, chapter, exam_type)')
+        .eq('user_id', profile.id)
+        .eq('questions.exam_type', mappedExam)
+        .order('created_at', { ascending: true });
+
+      const rows = attempts || [];
+      const subjectMap: Record<string, { total: number; correct: number; time: number }> = {
+        physics: { total: 0, correct: 0, time: 0 },
+        chemistry: { total: 0, correct: 0, time: 0 },
+        mathematics: { total: 0, correct: 0, time: 0 }
+      };
+      const chapterMap: Record<string, { subject: string; chapter: string; total: number; correct: number }> = {};
+      const now = new Date();
+      const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+      const weekStart = new Date(now); weekStart.setDate(now.getDate() - 7);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      let todayCount = 0, weekCount = 0, monthCount = 0;
+
+      rows.forEach(row => {
+        const subj = ((row.questions as any)?.subject || '').toLowerCase();
+        const normSubj = subj === 'math' || subj === 'maths' ? 'mathematics' : subj;
+        const chap = (row.questions as any)?.chapter || 'Unknown';
+        const isCorr = !!row.is_correct;
+        const timeTk = (row as any).time_taken || 0;
+        const createdAt = new Date(row.created_at);
+        if (createdAt >= todayStart) todayCount++;
+        if (createdAt >= weekStart) weekCount++;
+        if (createdAt >= monthStart) monthCount++;
+        if (subjectMap[normSubj]) {
+          subjectMap[normSubj].total++;
+          if (isCorr) subjectMap[normSubj].correct++;
+          subjectMap[normSubj].time += timeTk;
+        }
+        const chapKey = normSubj + '/' + chap;
+        if (!chapterMap[chapKey]) {
+          chapterMap[chapKey] = { subject: normSubj, chapter: chap, total: 0, correct: 0 };
+        }
+        chapterMap[chapKey].total++;
+        if (isCorr) chapterMap[chapKey].correct++;
+      });
+
+      const totalCorrect = rows.filter(r => r.is_correct).length;
+      const chapterStats = Object.values(chapterMap).map(c => ({
+        ...c,
+        accuracy: c.total > 0 ? Math.round((c.correct / c.total) * 100) : 0
+      })).sort((a, b) => b.total - a.total);
+
+      setExamAnalytics({
+        totalQuestions: rows.length,
+        correctQuestions: totalCorrect,
+        overallAccuracy: rows.length > 0 ? Math.round((totalCorrect / rows.length) * 100) : 0,
+        subjectStats: Object.fromEntries(
+          Object.entries(subjectMap).map(([k, v]) => [k, {
+            ...v,
+            accuracy: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0
+          }])
+        ),
+        chapterStats,
+        questionsSolved: { today: todayCount, week: weekCount, month: monthCount },
+        weakChapters: chapterStats.filter(c => c.accuracy < 75 && c.total >= 3),
+        strongChapters: chapterStats.filter(c => c.accuracy >= 75 && c.total >= 3),
+        totalTime: Object.values(subjectMap).reduce((a, b) => a + b.time, 0)
+      });
+    } catch (err) {
+      console.error('Failed to fetch exam analytics:', err);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [profile?.id, selectedExam]);
 
   const handleSubmit = (optionIdx?: number) => {
     if (!currentQuestion || isAnswered) return;
@@ -417,248 +543,322 @@ export default function SolvingPage() {
     setIntegerInput('');
   };
 
+  // ─── Helper: get accent color for accuracy ───
+  const getAccColor = (acc: number) => {
+    if (acc >= 75) return 'var(--green)';
+    if (acc >= 50) return 'var(--orange)';
+    return 'var(--red)';
+  };
+
+  // ═══════════════════════════════════════════
   // View 1: Mode Selection
+  // ═══════════════════════════════════════════
   if (view === 'modes') {
     return (
-      <div className="an-content max-w-5xl mx-auto py-12 px-6">
-        <div className="mb-10">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Select your training interface</p>
+      <div className="sp-page">
+        <div className="sp-header">
+          <div className="sp-header-left">
+            <div className="sp-page-title">Practice Hub</div>
+            <div className="sp-page-subtitle">Choose your training mode to begin solving.</div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div onClick={() => setView('pyq-selection')} className="bg-bg-2 border border-white/5 rounded-3xl p-8 cursor-pointer hover:border-purple/40 hover:bg-purple/5 transition-all group relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                <Zap size={80} />
-             </div>
-             <div className="bg-purple/10 text-purple w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
-                <Zap size={24} />
-             </div>
-             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">PYQ Solver</h3>
-             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Full access to JEE Main & Advanced archive. Original Solving Minds solving layout.</p>
-             <div className="flex items-center text-purple text-[10px] font-bold uppercase tracking-widest">
-                Initiate <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
-             </div>
+        <div className="sp-exams-grid">
+          <div onClick={() => setView('pyq-selection')} className="sp-exam-card" style={{ cursor: 'pointer' }}>
+            <div className="sp-exam-card-head">
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Zap size={24} style={{ color: 'var(--purple)' }} />
+              </div>
+              <span className="sp-exam-badge active">Active</span>
+            </div>
+            <div className="sp-exam-name">PYQ Solver</div>
+            <div className="sp-exam-desc">Full access to JEE Main & Advanced archive. Chapter-wise practice with detailed analytics.</div>
+            <div className="sp-exam-cta">Start Solving <ChevronRight size={14} /></div>
           </div>
 
-          <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden">
-             <div className="bg-accent/10 text-accent w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
-                <BookOpen size={24} />
-             </div>
-             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">Booklets</h3>
-             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Topic-wise modules and study material. Integrates soon.</p>
-             <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
+          <div className="sp-exam-card disabled">
+            <div className="sp-exam-card-head">
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(0,210,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <BookOpen size={24} style={{ color: 'var(--accent)' }} />
+              </div>
+              <span className="sp-exam-badge locked"><Lock size={8} style={{ marginRight: 4 }} />Coming Soon</span>
+            </div>
+            <div className="sp-exam-name">Booklets</div>
+            <div className="sp-exam-desc">Topic-wise curated study modules and revision material.</div>
           </div>
 
-          <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden">
-             <div className="bg-green/10 text-green w-12 h-12 rounded-2xl flex items-center justify-center mb-6">
-                <BarChart3 size={24} />
-             </div>
-             <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">Mock Tests</h3>
-             <p className="text-xs text-muted-foreground leading-relaxed mb-6">Full simulations with ranking systems. In calibration.</p>
-             <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Protocol Locked</div>
+          <div className="sp-exam-card disabled">
+            <div className="sp-exam-card-head">
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <BarChart3 size={24} style={{ color: 'var(--green)' }} />
+              </div>
+              <span className="sp-exam-badge locked"><Lock size={8} style={{ marginRight: 4 }} />Coming Soon</span>
+            </div>
+            <div className="sp-exam-name">Mock Tests</div>
+            <div className="sp-exam-desc">Full exam simulations with ranking systems and time analysis.</div>
           </div>
         </div>
       </div>
     );
   }
 
-  // View 2: PYQ Selection (Legacy Style)
+  // ═══════════════════════════════════════════
+  // View 2: PYQ Selection (Redesigned)
+  // ═══════════════════════════════════════════
   if (view === 'pyq-selection') {
-    if (!selectedExam) {
+
+    // ── Analytics Overlay ──
+    if (showAnalysis) {
       return (
-        <div className="an-content max-w-5xl mx-auto py-8 px-6 pb-32">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-6">
-             <button onClick={() => setView('modes')} className="hover:text-foreground transition-colors">MODES</button>
-             <span className="opacity-30">/</span>
-             <span className="text-muted-foreground/60">EXAM SELECTION</span>
-          </div>
-
-          <div className="mb-10">
-            <p className="font-mono text-[10px] text-purple uppercase tracking-[0.2em] mb-2">Select Target Qualification</p>
-            <h1 className="text-4xl font-[family-name:var(--font-bebas)] tracking-wider text-foreground mb-3">EXAM SELECTION PORTAL</h1>
-            <p className="text-gray-500 text-xs max-w-2xl leading-relaxed">
-              Select your target qualification. Solving Minds provides authentic past-year exam simulation engines calibrated to the latest syllabus standards.
-            </p>
-          </div>
-
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Card 1: JEE Main (Active) */}
-            <div 
-              onClick={() => setSelectedExam('jee-mains')}
-              className="bg-bg-2 border border-white/5 hover:border-purple/40 hover:bg-purple/5 rounded-3xl p-8 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-between min-h-[250px]"
-            >
-              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                <Award size={80} className="text-purple" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="bg-purple/10 text-purple w-12 h-12 rounded-2xl flex items-center justify-center">
-                    <Award size={24} />
-                  </div>
-                  <span className="bg-green/10 text-green border border-green/20 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-                    ACTIVE ENGINE
-                  </span>
+        <div className="sp-overlay">
+          <div className="sp-overlay-inner">
+            <div className="sp-overlay-header">
+              <div className="sp-overlay-title-group">
+                <div className="sp-overlay-title">
+                  {selectedExam === 'jee-mains' ? 'JEE Main' : selectedExam === 'jee-advanced' ? 'JEE Advanced' : selectedExam?.toUpperCase()} Performance
                 </div>
-                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">JEE MAIN</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                  Complete archive of JEE Main past year questions (2023-2026). Calibrated with chapter-wise micro analytics and custom solving modes.
-                </p>
+                <div className="sp-overlay-subtitle">Your detailed analytics for this exam</div>
               </div>
-              <div className="flex items-center text-purple text-[10px] font-bold uppercase tracking-widest mt-auto">
-                 INITIATE SESSION <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
-              </div>
+              <button className="sp-overlay-close" onClick={() => setShowAnalysis(false)}>
+                <X size={18} />
+              </button>
             </div>
 
-            {/* Card 2: JEE Advanced (Active) */}
-            <div
-              onClick={() => setSelectedExam('jee-advanced')}
-              className="bg-bg-2 border border-white/5 hover:border-orange/40 hover:bg-orange/5 rounded-3xl p-8 cursor-pointer transition-all group relative overflow-hidden flex flex-col justify-between min-h-[250px]"
-            >
-              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                <Sparkles size={80} className="text-orange" />
+            {analyticsLoading ? (
+              <div className="sp-loading">
+                <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                <div className="sp-loading-text">Loading your performance data...</div>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="bg-orange/10 text-orange w-12 h-12 rounded-2xl flex items-center justify-center">
-                    <Sparkles size={24} />
+            ) : !examAnalytics || examAnalytics.totalQuestions === 0 ? (
+              <div className="sp-empty-analytics">
+                <BarChart3 size={48} className="sp-empty-analytics-icon" />
+                <div className="sp-empty-analytics-text">No data yet</div>
+                <div className="sp-empty-analytics-sub">Start solving questions for this exam to see your analytics here.</div>
+              </div>
+            ) : (
+              <>
+                {/* KPI Row */}
+                <div className="sp-kpi-row">
+                  <div className="sp-kpi">
+                    <div className="sp-kpi-label">Questions Solved</div>
+                    <div className="sp-kpi-value">{examAnalytics.totalQuestions}</div>
+                    <div className="sp-kpi-sub">{examAnalytics.correctQuestions} correct</div>
                   </div>
-                  <span className="bg-green/10 text-green border border-green/20 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-                    ACTIVE ENGINE
-                  </span>
+                  <div className="sp-kpi">
+                    <div className="sp-kpi-label">Overall Accuracy</div>
+                    <div className="sp-kpi-value" style={{ color: getAccColor(examAnalytics.overallAccuracy) }}>{examAnalytics.overallAccuracy}%</div>
+                    <div className="sp-kpi-sub">{examAnalytics.totalQuestions - examAnalytics.correctQuestions} incorrect</div>
+                  </div>
+                  <div className="sp-kpi">
+                    <div className="sp-kpi-label">Study Time</div>
+                    <div className="sp-kpi-value">
+                      {examAnalytics.totalTime >= 3600
+                        ? `${(examAnalytics.totalTime / 3600).toFixed(1)}h`
+                        : `${Math.round(examAnalytics.totalTime / 60)}m`}
+                    </div>
+                    <div className="sp-kpi-sub">Total practice time</div>
+                  </div>
+                  <div className="sp-kpi">
+                    <div className="sp-kpi-label">Chapters Covered</div>
+                    <div className="sp-kpi-value">{examAnalytics.chapterStats.length}</div>
+                    <div className="sp-kpi-sub">{examAnalytics.weakChapters.length} need work</div>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">JEE ADVANCED</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                  Full archive of JEE Advanced past year questions. Supports single-correct, multiple-correct, and numerical answer types.
-                </p>
-              </div>
-              <div className="flex items-center text-orange text-[10px] font-bold uppercase tracking-widest mt-auto">
-                INITIATE SESSION <ChevronRight size={14} className="ml-1 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
 
-            {/* Card 3: NEET (Coming Soon) */}
-            <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden flex flex-col justify-between min-h-[250px]">
-              <div className="absolute top-0 right-0 p-6 opacity-5">
-                <BookOpen size={80} className="text-blue" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="bg-blue/10 text-blue w-12 h-12 rounded-2xl flex items-center justify-center">
-                    <BookOpen size={24} />
+                {/* Questions Solved */}
+                <div className="sp-section-heading">Questions Solved</div>
+                <div className="sp-solved-row">
+                  <div className="sp-solved-card">
+                    <div className="sp-solved-val">{examAnalytics.questionsSolved.today}</div>
+                    <div className="sp-solved-label">Today</div>
                   </div>
-                  <span className="bg-white/5 text-muted-foreground border border-white/5 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1">
-                    <Lock size={8} /> COMING SOON
-                  </span>
+                  <div className="sp-solved-card">
+                    <div className="sp-solved-val">{examAnalytics.questionsSolved.week}</div>
+                    <div className="sp-solved-label">This Week</div>
+                  </div>
+                  <div className="sp-solved-card">
+                    <div className="sp-solved-val">{examAnalytics.questionsSolved.month}</div>
+                    <div className="sp-solved-label">This Month</div>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">NEET (UG)</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                  High-speed biological & chemical entry drills. Authentic negative marking mock trials and error notebooks.
-                </p>
-              </div>
-              <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-auto">
-                 PROTOCOL LOCKED
-              </div>
-            </div>
 
-            {/* Card 4: BITSAT (Coming Soon) */}
-            <div className="bg-bg-2 border border-white/5 rounded-3xl p-8 opacity-50 relative overflow-hidden flex flex-col justify-between min-h-[250px]">
-              <div className="absolute top-0 right-0 p-6 opacity-5">
-                <Zap size={80} className="text-yellow" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="bg-yellow/10 text-yellow w-12 h-12 rounded-2xl flex items-center justify-center">
-                    <Zap size={24} />
-                  </div>
-                  <span className="bg-white/5 text-muted-foreground border border-white/5 text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1">
-                    <Lock size={8} /> COMING SOON
-                  </span>
+                {/* Subject Breakdown */}
+                <div className="sp-section-heading">Subject Breakdown</div>
+                <div className="sp-subject-row">
+                  {['physics', 'chemistry', 'mathematics'].map(subj => {
+                    const stats = examAnalytics.subjectStats[subj];
+                    return (
+                      <div key={subj} className="sp-subject-card">
+                        <div className="sp-subject-card-name">{subj}</div>
+                        <div className="sp-subject-card-acc" style={{ color: getAccColor(stats?.accuracy || 0) }}>
+                          {stats?.accuracy || 0}%
+                        </div>
+                        <div className="sp-subject-card-bar">
+                          <div className="sp-subject-card-fill" style={{ width: `${stats?.accuracy || 0}%`, background: getAccColor(stats?.accuracy || 0) }}></div>
+                        </div>
+                        <div className="sp-subject-card-meta">{stats?.correct || 0} / {stats?.total || 0} correct</div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <h3 className="text-2xl font-[family-name:var(--font-bebas)] tracking-wide text-foreground mb-2">BITSAT</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                  Speed-accuracy optimizer focusing on rapid mathematical drills, logical reasoning, and English proficiency modules.
-                </p>
-              </div>
-              <div className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-auto">
-                 PROTOCOL LOCKED
-              </div>
-            </div>
+
+                {/* Chapter Performance Table */}
+                <div className="sp-section-heading">Chapter Performance</div>
+                <div className="sp-table-wrap">
+                  <table className="sp-table">
+                    <thead>
+                      <tr>
+                        <th>Chapter</th>
+                        <th>Subject</th>
+                        <th>Solved</th>
+                        <th>Accuracy</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {examAnalytics.chapterStats.map((ch: any, i: number) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600 }}>{ch.chapter}</td>
+                          <td style={{ textTransform: 'capitalize', color: 'var(--text3)' }}>{ch.subject}</td>
+                          <td>{ch.correct}/{ch.total}</td>
+                          <td>
+                            <div className="sp-acc-bar-cell">
+                              <div className="sp-acc-bar-bg">
+                                <div className="sp-acc-bar-fill" style={{ width: `${ch.accuracy}%`, background: getAccColor(ch.accuracy) }}></div>
+                              </div>
+                              <span className="sp-acc-value" style={{ color: getAccColor(ch.accuracy) }}>{ch.accuracy}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </div>
       );
     }
 
+    // ── Exam Selection (no exam chosen yet) ──
+    if (!selectedExam) {
+      return (
+        <div className="sp-page">
+          <div className="sp-breadcrumb">
+            <button onClick={() => setView('modes')}>Modes</button>
+            <span className="sp-breadcrumb-sep">/</span>
+            <span>Exam Selection</span>
+          </div>
+
+          <div className="sp-header">
+            <div className="sp-header-left">
+              <div className="sp-page-title">Select Exam</div>
+              <div className="sp-page-subtitle">Choose your target exam to start practicing from the question archive.</div>
+            </div>
+          </div>
+
+          <div className="sp-exams-grid">
+            {EXAM_DATA.map(exam => (
+              <div
+                key={exam.id}
+                className={`sp-exam-card ${!exam.active ? 'disabled' : ''}`}
+                onClick={() => exam.active && setSelectedExam(exam.id)}
+              >
+                <div className="sp-exam-card-head">
+                  <div className="sp-exam-logo">
+                    {exam.logo ? (
+                      <img src={exam.logo} alt={exam.name} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', fontWeight: 800, color: 'var(--text3)' }}>
+                        {exam.name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <span className={`sp-exam-badge ${exam.active ? 'active' : 'locked'}`}>
+                    {exam.active ? 'Active' : <><Lock size={8} style={{ marginRight: 3 }} />Coming Soon</>}
+                  </span>
+                </div>
+                <div className="sp-exam-name">{exam.name}</div>
+                <div className="sp-exam-desc">{exam.desc}</div>
+                {exam.active && (
+                  <div className="sp-exam-cta">Start Solving <ChevronRight size={14} /></div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Chapter & Filter Selection (exam chosen) ──
+    const examDisplayName = selectedExam === 'jee-mains' ? 'JEE Main' : selectedExam === 'jee-advanced' ? 'JEE Advanced' : selectedExam.toUpperCase();
+    
     return (
-      <div className="an-content max-w-5xl mx-auto py-8 px-6 pb-32">
-        <div className="flex items-center gap-2 text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-4">
-           <button onClick={() => setView('modes')} className="hover:text-foreground transition-colors">MODES</button>
-           <span className="opacity-30">/</span>
-           <button onClick={() => setSelectedExam(null)} className="hover:text-foreground transition-colors">EXAMS</button>
-           <span className="opacity-30">/</span>
-           <span className="text-muted-foreground/60">{selectedExam.toUpperCase().replace('-', ' ')}</span>
+      <div className="sp-page">
+        <div className="sp-breadcrumb">
+          <button onClick={() => setView('modes')}>Modes</button>
+          <span className="sp-breadcrumb-sep">/</span>
+          <button onClick={() => setSelectedExam(null)}>Exams</button>
+          <span className="sp-breadcrumb-sep">/</span>
+          <span>{examDisplayName}</span>
         </div>
 
-        <button 
-          onClick={() => setSelectedExam(null)}
-          className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-white transition-colors mb-6 uppercase tracking-wider font-bold"
-        >
-          <ChevronLeft size={14} /> Back to Exam Selection
-        </button>
-
-        <p className="text-gray-500 text-[10px] mb-8">Target high-yield concepts. Select your focus area to begin the deep-work session.</p>
+        <div className="sp-header">
+          <div className="sp-header-left">
+            <button className="sp-back-btn" onClick={() => setSelectedExam(null)}>
+              <ChevronLeft size={16} /> Back to Exams
+            </button>
+            <div className="sp-page-title">{examDisplayName}</div>
+            <div className="sp-page-subtitle">Select your subject, chapter, and filters to begin practice.</div>
+          </div>
+          <div className="sp-header-actions">
+            <button className="sp-analysis-btn" onClick={fetchExamAnalytics}>
+              <BarChart3 size={16} /> Analysis
+            </button>
+          </div>
+        </div>
 
         {/* Step 1: Subject */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">01</div>
-            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">SELECT_SUBJECT</h2>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div className="sp-section-label">
+            <span className="sp-section-num">1</span> Subject
           </div>
-          <div className="grid grid-cols-3 gap-3 max-w-2xl">
+          <div className="sp-subjects">
             {['physics', 'chemistry', 'mathematics'].map(s => (
-              <button 
+              <button
                 key={s}
                 onClick={() => setSubject(s)}
-                className={`flex flex-col gap-2 p-4 rounded-xl border transition-all ${subject === s ? 'bg-purple/20 border-purple text-foreground shadow-[0_0_15px_rgba(124,58,237,0.2)]' : 'bg-bg-2 border-white/5 text-muted-foreground hover:border-white/10'}`}
+                className={`sp-subject-tab ${subject === s ? 'active' : ''}`}
               >
-                <div className="text-2xl font-black">
-                  {s === 'physics' ? 'Σ' : s === 'chemistry' ? 'Δ' : '∫'}
-                </div>
-                <div className="text-[8px] font-bold uppercase tracking-[0.2em]">{s === 'mathematics' ? 'MATHS' : s}</div>
+                {s === 'mathematics' ? 'Maths' : s.charAt(0).toUpperCase() + s.slice(1)}
               </button>
             ))}
           </div>
         </div>
 
         {/* Step 2: Chapter */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">02</div>
-            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">CHOOSE_CHAPTER</h2>
-            <div className="ml-auto text-[8px] font-bold uppercase tracking-widest text-[#7c3aed]">{selectedChapter || 'NONE SELECTED'}</div>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div className="sp-section-label">
+            <span className="sp-section-num">2</span> Chapter
+            {selectedChapter && <span style={{ marginLeft: 'auto', color: 'var(--accent)', fontSize: '0.7rem' }}>{selectedChapter}</span>}
           </div>
-          
+
           {loadingChapters ? (
-            <div className="flex py-10 justify-center">
-              <Loader2 className="animate-spin text-gray-600" size={20} />
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+              <Loader2 className="animate-spin" size={20} style={{ color: 'var(--text3)' }} />
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="sp-chapters-grid">
               {chapters.map(ch => (
-                <button 
+                <button
                   key={ch.name}
                   onClick={() => setSelectedChapter(ch.name)}
-                  className={`p-3 rounded-xl border text-left transition-all relative ${selectedChapter === ch.name ? 'bg-purple/10 border-purple text-foreground' : 'bg-bg-2 border-white/5 text-muted-foreground hover:border-white/10'}`}
+                  className={`sp-chapter-card ${selectedChapter === ch.name ? 'active' : ''}`}
                 >
-                  <div className="font-bold text-[11px] mb-1 line-clamp-1">{ch.name}</div>
-                  <div className="flex items-center gap-1.5 text-[8px] font-bold text-purple/60 uppercase tracking-widest">
-                     <BookOpen size={8} /> {ch.count} Q
-                  </div>
+                  <div className="sp-chapter-name">{ch.name}</div>
+                  <div className="sp-chapter-count">{ch.count} Questions</div>
                   {selectedChapter === ch.name && (
-                    <div className="absolute top-3 right-3">
-                      <Check size={12} className="text-purple" />
-                    </div>
+                    <div className="sp-chapter-check"><Check size={14} /></div>
                   )}
                 </button>
               ))}
@@ -666,97 +866,70 @@ export default function SolvingPage() {
           )}
         </div>
 
-        {/* Step 3: Fine Tune */}
-        <div className="mb-12">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-6 h-6 rounded-full bg-[#1c1c28] border border-white/10 flex items-center justify-center text-[9px] font-bold text-[#7c3aed]">03</div>
-            <h2 className="text-[10px] font-bold uppercase tracking-widest text-white">FINE_TUNE</h2>
+        {/* Step 3: Filters */}
+        <div style={{ marginBottom: '2rem' }}>
+          <div className="sp-section-label">
+            <span className="sp-section-num">3</span> Filters
           </div>
-
-          <div className="space-y-6">
-            <div>
-              <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">EXAM YEARS</label>
-              <div className="flex flex-wrap gap-2">
+          <div className="sp-filters">
+            <div className="sp-filter-row">
+              <span className="sp-filter-label">Exam Years</span>
+              <div className="sp-filter-pills">
                 {['ALL', '2026', '2025', '2024', '2023'].map(year => (
-                  <button
-                    key={year}
-                    onClick={() => setFilterYear(year)}
-                    className={`px-4 py-1.5 rounded-full text-[9px] font-bold transition-all ${filterYear === year ? 'bg-purple text-white' : 'bg-bg-2 border border-white/5 text-muted-foreground hover:text-foreground'}`}
-                  >
-                    {year}
-                  </button>
+                  <button key={year} onClick={() => setFilterYear(year)} className={`sp-filter-pill ${filterYear === year ? 'active' : ''}`}>{year}</button>
                 ))}
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">DIFFICULTY</label>
-                <div className="flex gap-2">
-                  {['ALL', 'EASY', 'MED', 'HARD'].map(diff => (
-                    <button
-                      key={diff}
-                      onClick={() => setFilterDifficulty(diff)}
-                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterDifficulty === diff ? 'bg-purple/10 border-purple text-purple' : 'bg-bg-2 border-white/5 text-muted-foreground hover:text-foreground'}`}
-                    >
-                      {diff}
-                    </button>
-                  ))}
-                </div>
+            <div className="sp-filter-row">
+              <span className="sp-filter-label">Difficulty</span>
+              <div className="sp-filter-pills">
+                {['ALL', 'EASY', 'MED', 'HARD'].map(d => (
+                  <button key={d} onClick={() => setFilterDifficulty(d)} className={`sp-filter-pill ${filterDifficulty === d ? 'active' : ''}`}>{d}</button>
+                ))}
               </div>
-
-              <div>
-                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-3">QUESTION TYPE</label>
-                <div className="flex gap-2">
-                  {['ALL', 'MCQ', 'MULTI-CORRECT', 'NUMERICAL'].map(type => (
-                    <button
-                      key={type}
-                      onClick={() => setFilterType(type)}
-                      className={`flex-1 py-2 rounded-lg text-[9px] font-bold border transition-all ${filterType === type ? 'bg-purple/10 border-purple text-purple' : 'bg-bg-2 border-white/5 text-muted-foreground hover:text-foreground'}`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
+            </div>
+            <div className="sp-filter-row">
+              <span className="sp-filter-label">Question Type</span>
+              <div className="sp-filter-pills">
+                {['ALL', 'MCQ', 'MULTI-CORRECT', 'NUMERICAL'].map(t => (
+                  <button key={t} onClick={() => setFilterType(t)} className={`sp-filter-pill ${filterType === t ? 'active' : ''}`}>{t}</button>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a10]/80 backdrop-blur-xl border-t border-white/[0.05] p-3 flex items-center justify-between z-[1100]">
-           <div className="flex items-center gap-6 px-6">
-              <div className="flex flex-col">
-                <span className="text-[7px] text-gray-600 font-bold uppercase tracking-widest">SUBJECT</span>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">{subject}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[7px] text-muted-foreground font-bold uppercase tracking-widest">CHAPTER</span>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">{selectedChapter || '—'}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[7px] text-muted-foreground font-bold uppercase tracking-widest">QUESTIONS</span>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-purple">
-                  {selectedChapter ? questions.length : '—'}
-                </span>
-              </div>
-           </div>
-           <button 
-              disabled={!selectedChapter || questions.length === 0}
-              onClick={() => {
-                setView('solving');
-                setCurrentIndex(0);
-              }}
-              className="bg-purple hover:bg-purple-600 text-white px-8 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]"
-            >
-              <Zap size={12} /> START SOLVING
-           </button>
+        {/* Bottom Action Bar */}
+        <div className="sp-action-bar">
+          <div className="sp-action-meta">
+            <div className="sp-action-item">
+              <span className="sp-action-item-label">Subject</span>
+              <span className="sp-action-item-value">{subject.charAt(0).toUpperCase() + subject.slice(1)}</span>
+            </div>
+            <div className="sp-action-item">
+              <span className="sp-action-item-label">Chapter</span>
+              <span className="sp-action-item-value">{selectedChapter || '—'}</span>
+            </div>
+            <div className="sp-action-item">
+              <span className="sp-action-item-label">Questions</span>
+              <span className="sp-action-item-value">{selectedChapter ? questions.length : '—'}</span>
+            </div>
+          </div>
+          <button
+            disabled={!selectedChapter || questions.length === 0}
+            onClick={() => { setView('solving'); setCurrentIndex(0); }}
+            className="sp-start-btn"
+          >
+            <Zap size={14} /> Start Solving
+          </button>
         </div>
       </div>
     );
   }
 
+  // ═══════════════════════════════════════════
   // View 3: Solving Environment — Distraction-Free Focus Mode
+  // ═══════════════════════════════════════════
   return (
     <div className="sf-wrapper">
       {/* Top bar: chapter name + back button */}
@@ -1346,4 +1519,3 @@ export default function SolvingPage() {
     </div>
   );
 }
-
