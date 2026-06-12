@@ -261,7 +261,7 @@ export default function TestsPage() {
                 ) : completedAttempts.has(mock.id) ? (
                   <div className="flex gap-2 w-full">
                     <button
-                      onClick={() => router.push(`/exam/${mock.id}/analysis?attemptId=${completedAttempts.get(mock.id)}`)}
+                      onClick={() => router.push(`/analysis/${completedAttempts.get(mock.id)}`)}
                       className="flex-1 py-3 rounded-2xl transition-all flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider font-mono border border-[var(--green)]/30 bg-[var(--green)]/10 text-[var(--green)] hover:bg-[var(--green)] hover:text-black hover:border-transparent"
                     >
                       Analysis
@@ -365,7 +365,7 @@ export default function TestsPage() {
                 ) : completedAttempts.has(pyp.id) ? (
                   <div className="flex gap-2 w-full">
                     <button
-                      onClick={() => router.push(`/exam/${pyp.id}/analysis?attemptId=${completedAttempts.get(pyp.id)}`)}
+                      onClick={() => router.push(`/analysis/${completedAttempts.get(pyp.id)}`)}
                       className="flex-1 py-3 rounded-2xl transition-all flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider font-mono border border-[var(--green)]/30 bg-[var(--green)]/10 text-[var(--green)] hover:bg-[var(--green)] hover:text-black hover:border-transparent"
                     >
                       Analysis

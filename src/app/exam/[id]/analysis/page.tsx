@@ -56,6 +56,13 @@ export default function AnalysisPage() {
   const searchParams = useSearchParams();
   const testId = params.id as string;
   const attemptId = searchParams.get('attemptId');
+
+  useEffect(() => {
+    if (attemptId) {
+      router.replace(`/analysis/${attemptId}`);
+    }
+  }, [attemptId, router]);
+
   const { profile, loading: profileLoading } = useProfile();
 
   const [test, setTest] = useState<MockTest | null>(null);

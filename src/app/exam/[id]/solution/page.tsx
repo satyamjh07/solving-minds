@@ -461,7 +461,7 @@ export default function SolutionPage() {
       >
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push(`/exam/${testId}/analysis?attemptId=${attempt.id}`)}
+            onClick={() => router.push(`/analysis/${attempt.id}`)}
             className="flex items-center gap-1.5 px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-[11px] font-bold font-mono transition-colors uppercase tracking-wider"
           >
             <ArrowLeft size={12} /> Back to Analysis
