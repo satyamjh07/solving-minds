@@ -52,14 +52,14 @@ export default function PrintDashboard({
 
   // Static colors for clean light-mode printing
   const colors = {
-    accent: '#2563eb', // Indigo Blue
+    accent: '#2563eb',
     accentLight: '#60a5fa',
-    green: '#10b981', // Emerald Green
-    red: '#ef4444', // Crimson Red
-    orange: '#f97316', // Orange
-    purple: '#8b5cf6', // Violet
-    text: '#0f172a', // Slate 900
-    textMuted: '#475569', // Slate 600
+    green: '#10b981',
+    red: '#ef4444',
+    orange: '#f97316',
+    purple: '#8b5cf6',
+    text: '#0f172a',
+    textMuted: '#475569',
     border: '#e2eaf4',
     bg: '#f8fafc'
   };
@@ -72,610 +72,603 @@ export default function PrintDashboard({
     );
   }
 
-  const PageHeader = ({ pageNum }: { pageNum: number }) => (
-    <div className="border-b-2 border-blue-600 pb-3 mb-6 flex justify-between items-end">
-      <div>
-        <h2 className="text-[10px] font-mono font-bold tracking-widest text-blue-600 uppercase">
-          SOLVINGMINDS TEST ANALYSIS REPORT
-        </h2>
-        <h1 className="text-sm font-black text-slate-800 tracking-tight mt-0.5">{testTitle}</h1>
-      </div>
-      <div className="text-right text-[9px] font-mono text-slate-500 uppercase">
-        <div>Attempt: {attemptId}</div>
-        <div>Page {pageNum} of 9</div>
-      </div>
-    </div>
-  );
-
-  const PageFooter = () => (
-    <div className="border-t border-slate-200 pt-3 mt-6 flex justify-between items-center text-[9px] font-mono text-slate-400">
-      <span>Factual performance statistics compiled on SolvingMinds. Searchable vector print layout.</span>
-      <span>SolvingMinds © 2026</span>
-    </div>
-  );
-
   return (
-    <div className="bg-white text-slate-900 font-sans p-6 max-w-4xl mx-auto space-y-16 print:space-y-0 print:p-0">
-      {/* GLOBAL PRINT STYLES */}
+    <div className="pr-report">
+      {/* ── PRINT STYLES ── */}
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        
+
+        /* ── Page setup ── */
+        @page {
+          size: A4;
+          margin: 12mm 10mm 14mm 10mm;
+        }
+
         @media print {
-          body {
-            background: #ffffff !important;
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
             color: #0f172a !important;
             font-family: 'Inter', system-ui, sans-serif !important;
-            font-size: 11px;
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
+            font-size: 10px !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
           }
-          .print-page {
-            page-break-after: always !important;
-            break-after: page !important;
-            height: 297mm; /* Full A4 height */
-            box-sizing: border-box;
-            padding: 15mm 10mm !important;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+
+          /* Hide everything except the report */
+          body > *:not(.pr-report):not(script):not(style) { display: none !important; }
+
+          .pr-report {
+            padding: 0 !important;
+            border: none !important;
+            max-width: none !important;
           }
+
+          /* ── CRITICAL: No forced page breaks, no fixed heights ── */
+          .pr-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          /* Allow tables to flow across pages naturally */
+          .pr-table-flow {
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+          }
+          .pr-table-flow thead {
+            display: table-header-group;
+          }
+          .pr-table-flow tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          /* Keep chart cards together */
+          .pr-chart-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          /* Recharts: cap height and force vector rendering */
           .recharts-responsive-container {
             width: 100% !important;
-            height: 250px !important;
+          }
+          .recharts-surface {
+            max-width: 100% !important;
+          }
+
+          /* Report footer only at end */
+          .pr-end-footer {
+            margin-top: 2rem;
           }
         }
-        .print-page {
-          background: white;
-          padding: 20px;
-          border: 1px solid #e2eaf4;
-          border-radius: 12px;
-          min-height: 297mm;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
+
+        /* ── Screen preview styles ── */
+        .pr-report {
           font-family: 'Inter', system-ui, sans-serif;
+          background: white;
+          color: #0f172a;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 24px;
+        }
+
+        /* ── Shared styles ── */
+        .pr-report-header {
+          border-bottom: 2px solid #2563eb;
+          padding-bottom: 12px;
+          margin-bottom: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+        }
+        .pr-section {
+          margin-bottom: 16px;
+        }
+        .pr-section-title {
+          font-size: 11px;
+          font-weight: 700;
+          color: #0f172a;
+          text-transform: uppercase;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          border-bottom: 1px solid #f1f5f9;
+          padding-bottom: 6px;
+          margin-bottom: 10px;
+          letter-spacing: 0.02em;
+        }
+        .pr-card {
+          border: 1px solid #e2eaf4;
+          border-radius: 8px;
+          padding: 10px;
+        }
+        .pr-label {
+          font-size: 7px;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          display: block;
+          margin-bottom: 3px;
+        }
+        .pr-big {
+          font-size: 18px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+        .pr-small {
+          font-size: 8px;
+          color: #64748b;
+        }
+        .pr-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .pr-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .pr-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+
+        /* Table styles */
+        .pr-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 8px;
+        }
+        .pr-table th {
+          text-align: left;
+          padding: 5px 6px;
+          font-size: 7px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: 1px solid #e2eaf4;
+          background: #f8fafc;
+        }
+        .pr-table td {
+          padding: 4px 6px;
+          border-bottom: 1px solid #f1f5f9;
+          color: #334155;
+        }
+        .pr-table tr:last-child td { border-bottom: none; }
+
+        /* Chart container */
+        .pr-chart-card {
+          border: 1px solid #e2eaf4;
+          border-radius: 8px;
+          padding: 10px;
+        }
+        .pr-chart-label {
+          font-size: 7px;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: 1px solid #f1f5f9;
+          padding-bottom: 4px;
+          margin-bottom: 6px;
         }
       `}</style>
 
-      {/* PAGE 1: OVERVIEW */}
-      <div className="print-page">
+      {/* ══════════ REPORT HEADER ══════════ */}
+      <div className="pr-report-header">
         <div>
-          <PageHeader pageNum={1} />
-          
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <Award size={18} className="text-blue-600" /> 1. Performance Overview
-            </h2>
+          <div style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#2563eb', textTransform: 'uppercase' as const }}>
+            SolvingMinds Test Analysis Report
+          </div>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: 2 }}>{testTitle}</div>
+          <div style={{ fontSize: '8px', color: '#64748b', marginTop: 2 }}>
+            {formatDate(attemptDate)} · {examType.toUpperCase()} · Attempt {attemptId.slice(0, 8)}
+          </div>
+        </div>
+        <div style={{ fontSize: '8px', color: '#94a3b8', textAlign: 'right' as const }}>
+          SolvingMinds © 2026
+        </div>
+      </div>
 
-            <div className="grid grid-cols-3 gap-6">
-              {/* Score ring stats */}
-              <div className="border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
-                <span className="text-[9px] font-mono text-slate-500 uppercase font-bold mb-2">Total Score Card</span>
-                <div className="relative w-32 h-32 flex items-center justify-center">
-                  <svg className="w-28 h-28 transform -rotate-90">
-                    <circle cx="56" cy="56" r="48" className="stroke-slate-100" strokeWidth="8" fill="transparent" />
-                    <circle
-                      cx="56"
-                      cy="56"
-                      r="48"
-                      className="stroke-blue-600"
-                      strokeWidth="8"
-                      fill="transparent"
-                      strokeDasharray={2 * Math.PI * 48}
-                      strokeDashoffset={2 * Math.PI * 48 * (1 - Math.max(0, Math.min(100, (stats.overview.totalScore / stats.overview.maxScore))))}
-                    />
-                  </svg>
-                  <div className="absolute flex flex-col items-center">
-                    <span className="text-2xl font-black text-slate-800">{stats.overview.totalScore}</span>
-                    <span className="text-[8px] font-mono text-slate-400">/ {stats.overview.maxScore}</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 w-full mt-3 pt-3 border-t border-slate-100 text-[10px] font-mono">
-                  <div>
-                    <span className="text-slate-400 uppercase text-[8px] block">Positive</span>
-                    <span className="font-bold text-emerald-600">+{stats.overview.positiveMarks}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 uppercase text-[8px] block">Negative</span>
-                    <span className="font-bold text-red-500">-{stats.overview.negativeMarks}</span>
-                  </div>
-                </div>
+      {/* ══════════ 1. PERFORMANCE OVERVIEW ══════════ */}
+      <div className="pr-section">
+        <div className="pr-section-title">
+          <Award size={13} color="#2563eb" /> 1. Performance Overview
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '10px' }}>
+          {/* Score ring */}
+          <div className="pr-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="pr-label" style={{ textAlign: 'center' as const }}>Total Score</span>
+            <div style={{ position: 'relative', width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="40" cy="40" r="34" stroke="#f1f5f9" strokeWidth="6" fill="transparent" />
+                <circle
+                  cx="40" cy="40" r="34"
+                  stroke="#2563eb" strokeWidth="6" fill="transparent"
+                  strokeDasharray={2 * Math.PI * 34}
+                  strokeDashoffset={2 * Math.PI * 34 * (1 - Math.max(0, Math.min(1, stats.overview.totalScore / stats.overview.maxScore)))}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div style={{ position: 'absolute', textAlign: 'center' as const }}>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{stats.overview.totalScore}</div>
+                <div style={{ fontSize: 7, color: '#94a3b8' }}>/ {stats.overview.maxScore}</div>
               </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', marginTop: 6, paddingTop: 6, borderTop: '1px solid #f1f5f9', fontSize: 8, textAlign: 'center' as const }}>
+              <div>
+                <span style={{ fontSize: 7, color: '#94a3b8', display: 'block' }}>POSITIVE</span>
+                <span style={{ fontWeight: 700, color: '#10b981' }}>+{stats.overview.positiveMarks}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 7, color: '#94a3b8', display: 'block' }}>NEGATIVE</span>
+                <span style={{ fontWeight: 700, color: '#ef4444' }}>-{stats.overview.negativeMarks}</span>
+              </div>
+            </div>
+          </div>
 
-              {/* KPIs */}
-              <div className="col-span-2 grid grid-cols-2 gap-4">
-                <div className="border border-slate-200 rounded-xl p-4">
-                  <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block mb-1">Accuracy</span>
-                  <span className="text-2xl font-black text-emerald-600">{stats.overview.accuracy}%</span>
-                  <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
-                    <div className="bg-emerald-600 h-full rounded-full" style={{ width: `${stats.overview.accuracy}%` }} />
-                  </div>
+          {/* KPIs grid */}
+          <div className="pr-grid-2" style={{ alignContent: 'start' }}>
+            <div className="pr-card">
+              <span className="pr-label">Accuracy</span>
+              <span className="pr-big" style={{ color: '#10b981' }}>{stats.overview.accuracy}%</span>
+              <div style={{ width: '100%', background: '#f1f5f9', height: 4, borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${stats.overview.accuracy}%`, background: '#10b981', height: '100%', borderRadius: 99 }} />
+              </div>
+            </div>
+            <div className="pr-card">
+              <span className="pr-label">Time Taken</span>
+              <span className="pr-big">{formatSeconds(stats.overview.timeTaken)}</span>
+              <span className="pr-small">Avg pace: {formatSeconds(stats.timeAnalysis.avgTimePerQuestion)}/q</span>
+            </div>
+            <div className="pr-card">
+              <span className="pr-label">Attempt Rate</span>
+              <span className="pr-big" style={{ color: '#2563eb' }}>
+                {Math.round((stats.overview.questionsAttempted / (stats.overview.questionsAttempted + stats.overview.questionsUnattempted)) * 100)}%
+              </span>
+              <span className="pr-small">{stats.overview.questionsAttempted} / {stats.overview.questionsAttempted + stats.overview.questionsUnattempted} Qs</span>
+            </div>
+            <div className="pr-card">
+              <div className="pr-grid-3" style={{ textAlign: 'center' as const }}>
+                <div>
+                  <span className="pr-label">Correct</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#10b981', display: 'block' }}>{stats.overview.questionsCorrect}</span>
                 </div>
-
-                <div className="border border-slate-200 rounded-xl p-4">
-                  <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block mb-1">Time Taken</span>
-                  <span className="text-lg font-black text-slate-850 block">{formatSeconds(stats.overview.timeTaken)}</span>
-                  <span className="text-[9px] text-slate-400 font-mono mt-1 block">Avg pace: {formatSeconds(stats.timeAnalysis.avgTimePerQuestion)}/q</span>
+                <div>
+                  <span className="pr-label">Wrong</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', display: 'block' }}>{stats.overview.questionsIncorrect}</span>
                 </div>
-
-                <div className="border border-slate-200 rounded-xl p-4">
-                  <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block mb-1">Attempt Rate</span>
-                  <span className="text-2xl font-black text-blue-600">
-                    {Math.round((stats.overview.questionsAttempted / (stats.overview.questionsAttempted + stats.overview.questionsUnattempted)) * 100)}%
-                  </span>
-                  <span className="text-[9px] text-slate-400 block font-mono">{stats.overview.questionsAttempted} / {stats.overview.questionsAttempted + stats.overview.questionsUnattempted} Qs</span>
-                </div>
-
-                <div className="border border-slate-200 rounded-xl p-4 grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <span className="text-[8px] font-mono text-slate-400 uppercase block">Correct</span>
-                    <span className="text-sm font-bold text-emerald-600 block mt-1">{stats.overview.questionsCorrect}</span>
-                  </div>
-                  <div>
-                    <span className="text-[8px] font-mono text-slate-400 uppercase block">Incorrect</span>
-                    <span className="text-sm font-bold text-red-500 block mt-1">{stats.overview.questionsIncorrect}</span>
-                  </div>
-                  <div>
-                    <span className="text-[8px] font-mono text-slate-400 uppercase block">Skipped</span>
-                    <span className="text-sm font-bold text-slate-500 block mt-1">{stats.overview.questionsUnattempted}</span>
-                  </div>
+                <div>
+                  <span className="pr-label">Skipped</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#64748b', display: 'block' }}>{stats.overview.questionsUnattempted}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <PageFooter />
       </div>
 
-      {/* PAGE 2: SUBJECT ANALYSIS */}
-      <div className="print-page">
-        <div>
-          <PageHeader pageNum={2} />
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <BookOpen size={18} className="text-blue-600" /> 2. Subject-wise Analysis
-            </h2>
+      {/* ══════════ 2. SUBJECT ANALYSIS ══════════ */}
+      <div className="pr-section">
+        <div className="pr-section-title">
+          <BookOpen size={13} color="#2563eb" /> 2. Subject-wise Analysis
+        </div>
 
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2 space-y-3">
-                {stats.subjects.map((sub: SubjectStats) => (
-                  <div key={sub.subjectName} className="border border-slate-200 rounded-xl p-4 flex justify-between items-center">
-                    <div>
-                      <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-850 mb-1">{sub.subjectName}</h3>
-                      <div className="grid grid-cols-3 gap-4 text-[10px] font-mono">
-                        <div>
-                          <span className="text-slate-400 uppercase text-[8px] block">Score</span>
-                          <span className="font-bold text-slate-700">{sub.score} / {sub.maxMarks}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 uppercase text-[8px] block">Correct</span>
-                          <span className="font-bold text-emerald-600">{sub.questionsCorrect}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 uppercase text-[8px] block">Wrong</span>
-                          <span className="font-bold text-red-500">{sub.questionsIncorrect}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[8px] font-mono text-slate-400 uppercase block">Accuracy</span>
-                      <span className="text-base font-black text-blue-600">{sub.accuracy}%</span>
-                    </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {stats.subjects.map((sub: SubjectStats) => (
+              <div key={sub.subjectName} className="pr-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px' }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>{sub.subjectName}</div>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 8, color: '#64748b', marginTop: 2 }}>
+                    <span>Score: <b style={{ color: '#0f172a' }}>{sub.score}/{sub.maxMarks}</b></span>
+                    <span>Correct: <b style={{ color: '#10b981' }}>{sub.questionsCorrect}</b></span>
+                    <span>Wrong: <b style={{ color: '#ef4444' }}>{sub.questionsIncorrect}</b></span>
                   </div>
-                ))}
-              </div>
-
-              <div className="border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
-                <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block border-b border-slate-100 pb-2 mb-2">Accuracy Compare</span>
-                <div className="h-48 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.subjects} margin={{ top: 10, right: 5, bottom: 5, left: -20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                      <XAxis dataKey="subjectName" stroke={colors.textMuted} fontSize={8} tickFormatter={v => v.substring(0, 4).toUpperCase()} />
-                      <YAxis stroke={colors.textMuted} fontSize={8} domain={[0, 100]} />
-                      <Bar dataKey="accuracy" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                        {stats.subjects.map((entry, idx) => (
-                          <Cell key={`cell-${idx}`} fill={idx === 0 ? colors.accent : idx === 1 ? colors.purple : colors.orange} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                </div>
+                <div style={{ textAlign: 'right' as const }}>
+                  <span className="pr-label">Accuracy</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: '#2563eb' }}>{sub.accuracy}%</span>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
-        </div>
-        <PageFooter />
-      </div>
 
-      {/* PAGE 3: CHAPTER ANALYSIS */}
-      <div className="print-page">
-        <div>
-          <PageHeader pageNum={3} />
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <Layers size={18} className="text-blue-600" /> 3. Chapter-wise Coverage
-            </h2>
-
-            <div className="border border-slate-200 rounded-2xl overflow-hidden">
-              <table className="w-full text-left border-collapse text-[10px] font-mono">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-550/5 text-slate-500 uppercase tracking-wider text-[8px]">
-                    <th className="py-2.5 px-4">Chapter Name</th>
-                    <th className="py-2.5 px-2">Subject</th>
-                    <th className="py-2.5 px-2 text-center">Seen</th>
-                    <th className="py-2.5 px-2 text-center">Attempted</th>
-                    <th className="py-2.5 px-2 text-center">Accuracy</th>
-                    <th className="py-2.5 px-2 text-center">Gained</th>
-                    <th className="py-2.5 px-2 text-center">Lost</th>
-                    <th className="py-2.5 px-4 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-600">
-                  {stats.chapters.slice(0, 18).map((c: ChapterStats) => (
-                    <tr key={`${c.subject}_${c.chapterName}`}>
-                      <td className="py-2 px-4 font-bold text-slate-800 font-sans">{c.chapterName}</td>
-                      <td className="py-2 px-2 uppercase text-[8px]">{c.subject}</td>
-                      <td className="py-2 px-2 text-center">{c.questionsSeen}</td>
-                      <td className="py-2 px-2 text-center">{c.questionsAttempted}</td>
-                      <td className="py-2 px-2 text-center font-bold">{c.questionsAttempted > 0 ? `${c.accuracy}%` : '-'}</td>
-                      <td className="py-2 px-2 text-center text-emerald-600">+{c.marksGained}</td>
-                      <td className="py-2 px-2 text-center text-red-500">{c.marksLost}</td>
-                      <td className="py-2 px-4 text-right uppercase text-[8px] font-bold">
-                        <span className={c.status === 'strong' ? 'text-emerald-650' : c.status === 'average' ? 'text-blue-600' : 'text-red-500'}>
-                          {c.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <PageFooter />
-      </div>
-
-      {/* PAGE 4: DIFFICULTY & ATTEMPT */}
-      <div className="print-page">
-        <div>
-          <PageHeader pageNum={4} />
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <TrendingUp size={18} className="text-blue-600" /> 4. Difficulty &amp; Pacing Analytics
-            </h2>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div className="border border-slate-200 rounded-xl p-4">
-                <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block mb-3 border-b border-slate-100 pb-2">Difficulty Accuracy</span>
-                <div className="h-44 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.difficulties} margin={{ top: 10, right: 5, bottom: 5, left: -20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                      <XAxis dataKey="name" stroke={colors.textMuted} fontSize={8} />
-                      <YAxis stroke={colors.textMuted} fontSize={8} domain={[0, 100]} />
-                      <Bar dataKey="accuracy" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                        {stats.difficulties.map((entry, idx) => (
-                          <Cell key={`cell-${idx}`} fill={entry.name === 'Easy' ? colors.green : entry.name === 'Moderate' ? colors.orange : colors.red} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="border border-slate-200 rounded-xl p-4">
-                <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block mb-3 border-b border-slate-100 pb-2">Attempt Profile</span>
-                <div className="h-44 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={[
-                        { name: 'Perf', count: stats.attempts.overall.perfect },
-                        { name: 'Wast', count: stats.attempts.overall.wasted },
-                        { name: 'Ot C', count: stats.attempts.overall.overtimeCorrect },
-                        { name: 'Ot W', count: stats.attempts.overall.overtimeMistake },
-                        { name: 'Conf', count: stats.attempts.overall.confused }
-                      ]}
-                      margin={{ top: 10, right: 5, bottom: 5, left: -20 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                      <XAxis dataKey="name" stroke={colors.textMuted} fontSize={8} />
-                      <YAxis stroke={colors.textMuted} fontSize={8} />
-                      <Bar dataKey="count" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                        {[
-                          { color: colors.green },
-                          { color: colors.red },
-                          { color: colors.accent },
-                          { color: colors.orange },
-                          { color: colors.purple }
-                        ].map((entry, idx) => (
-                          <Cell key={`cell-${idx}`} fill={entry.color} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="border border-slate-200 rounded-xl p-3 text-center">
-                <span className="text-[8px] font-mono text-slate-400 uppercase block font-bold">Perfect Attempts</span>
-                <span className="text-base font-black text-emerald-600 block mt-1">{stats.attempts.overall.perfect} Qs</span>
-              </div>
-              <div className="border border-slate-200 rounded-xl p-3 text-center">
-                <span className="text-[8px] font-mono text-slate-400 uppercase block font-bold">Wasted Attempts</span>
-                <span className="text-base font-black text-red-500 block mt-1">{stats.attempts.overall.wasted} Qs</span>
-              </div>
-              <div className="border border-slate-200 rounded-xl p-3 text-center">
-                <span className="text-[8px] font-mono text-slate-400 uppercase block font-bold">Confused Skips</span>
-                <span className="text-base font-black text-purple-600 block mt-1">{stats.attempts.overall.confused} Qs</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <PageFooter />
-      </div>
-
-      {/* PAGE 5: TIME PACING */}
-      <div className="print-page">
-        <div>
-          <PageHeader pageNum={5} />
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <Clock size={18} className="text-blue-600" /> 5. Time Insights &amp; Pacing Extremes
-            </h2>
-
-            <div className="grid grid-cols-3 gap-6">
-              <div className="border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center">
-                <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block mb-4">Time spent per Subject</span>
-                <div className="h-40 w-full flex justify-center items-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={stats.timeAnalysis.subjectTimeDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={55}
-                        paddingAngle={5}
-                        dataKey="value"
-                        isAnimationActive={false}
-                      >
-                        {stats.timeAnalysis.subjectTimeDistribution.map((entry, idx) => (
-                          <Cell key={`cell-${idx}`} fill={idx === 0 ? colors.accent : idx === 1 ? colors.purple : colors.orange} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="col-span-2 border border-slate-200 rounded-xl p-4">
-                <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block mb-3 border-b border-slate-100 pb-2">Time Spent vs Accuracy</span>
-                <div className="h-40 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.timeAnalysis.timeSpentVsAccuracy} margin={{ top: 10, right: 5, bottom: 5, left: -20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                      <XAxis dataKey="bucketName" stroke={colors.textMuted} fontSize={8} />
-                      <YAxis stroke={colors.textMuted} fontSize={8} domain={[0, 100]} />
-                      <Bar dataKey="accuracy" fill={colors.accent} radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div className="border border-slate-200 rounded-xl p-4">
-                <span className="text-[9px] font-mono text-slate-400 uppercase block font-bold mb-2">Fastest Solved Correct</span>
-                <ul className="space-y-1.5 text-[9px] font-mono text-slate-600">
-                  {stats.timeAnalysis.fastestSolved.slice(0, 3).map((f, idx) => (
-                    <li key={idx} className="flex justify-between border-b border-slate-100 pb-1">
-                      <span>Q.{f.questionNumber} ({f.subject.toUpperCase()})</span>
-                      <span className="text-emerald-600 font-bold">{formatSeconds(f.timeTaken)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="border border-slate-200 rounded-xl p-4">
-                <span className="text-[9px] font-mono text-slate-400 uppercase block font-bold mb-2">Slowest Solved Attempted</span>
-                <ul className="space-y-1.5 text-[9px] font-mono text-slate-600">
-                  {stats.timeAnalysis.slowestSolved.slice(0, 3).map((s, idx) => (
-                    <li key={idx} className="flex justify-between border-b border-slate-100 pb-1">
-                      <span>Q.{s.questionNumber} ({s.subject.toUpperCase()})</span>
-                      <span className="text-orange-650 font-bold">{formatSeconds(s.timeTaken)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-        <PageFooter />
-      </div>
-
-      {/* PAGE 6: QUESTION JOURNEY */}
-      <div className="print-page">
-        <div>
-          <PageHeader pageNum={6} />
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <FileText size={18} className="text-blue-600" /> 6. Question Journey Palette
-            </h2>
-
-            <div className="border border-slate-200 rounded-2xl p-6">
-              <div className="grid grid-cols-10 gap-3">
-                {stats.questionJourney.map((j) => {
-                  let statusBg = 'bg-slate-100 border-slate-200 text-slate-500';
-                  if (j.status === 'correct') {
-                    statusBg = 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold';
-                  } else if (j.status === 'incorrect') {
-                    statusBg = 'bg-red-55/10 border-red-200 text-red-600 font-bold';
-                  } else if (j.status === 'marked') {
-                    statusBg = 'bg-amber-50 border-amber-300 text-amber-600 font-bold';
-                  }
-                  return (
-                    <div
-                      key={j.id}
-                      className={`h-10 rounded-xl border flex flex-col items-center justify-center text-xs font-mono ${statusBg}`}
-                    >
-                      {j.questionNumber}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-        <PageFooter />
-      </div>
-
-      {/* PAGE 7: QUESTION LOG 1 */}
-      <div className="print-page">
-        <div>
-          <PageHeader pageNum={7} />
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <Layers size={18} className="text-blue-600" /> 7. Detailed Question Log (Part 1)
-            </h2>
-
-            <div className="border border-slate-200 rounded-2xl overflow-hidden">
-              <table className="w-full text-left border-collapse text-[9px] font-mono">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-55/5 text-slate-500 uppercase tracking-wider text-[8px]">
-                    <th className="py-2 px-3 text-center">No.</th>
-                    <th className="py-2 px-2">Subject</th>
-                    <th className="py-2 px-2">Chapter</th>
-                    <th className="py-2 px-2 text-center">Difficulty</th>
-                    <th className="py-2 px-2 text-center">Time Spent</th>
-                    <th className="py-2 px-2 text-center">Status</th>
-                    <th className="py-2 px-2 text-center">Marks</th>
-                    <th className="py-2 px-2 text-center">Response</th>
-                    <th className="py-2 px-3 text-center">Correct Key</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-650">
-                  {stats.questionByQuestion.slice(0, 30).map((q: QuestionRow) => (
-                    <tr key={q.id}>
-                      <td className="py-1.5 px-3 text-center font-bold text-slate-800">{q.questionNumber}</td>
-                      <td className="py-1.5 px-2 uppercase text-[7px]">{q.subject}</td>
-                      <td className="py-1.5 px-2 font-sans text-slate-800 truncate max-w-[150px]">{q.chapter}</td>
-                      <td className="py-1.5 px-2 text-center font-sans text-[8px]">{q.difficulty}</td>
-                      <td className="py-1.5 px-2 text-center">{formatSeconds(q.timeTaken)}</td>
-                      <td className={`py-1.5 px-2 text-center ${q.attemptStatus === 'Correct' ? 'text-emerald-600 font-bold' : q.attemptStatus === 'Incorrect' ? 'text-red-500 font-bold' : ''}`}>{q.attemptStatus}</td>
-                      <td className="py-1.5 px-2 text-center font-bold">{q.attemptStatus === 'Correct' ? `+${q.marksAwarded}` : q.attemptStatus === 'Incorrect' ? `-1` : '0'}</td>
-                      <td className="py-1.5 px-2 text-center font-bold text-slate-800">{q.studentResponse}</td>
-                      <td className="py-1.5 px-3 text-center font-bold text-emerald-600">{q.correctAnswer}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <PageFooter />
-      </div>
-
-      {/* PAGE 8: QUESTION LOG 2 */}
-      <div className="print-page">
-        <div>
-          <PageHeader pageNum={8} />
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <Layers size={18} className="text-blue-600" /> 8. Detailed Question Log (Part 2)
-            </h2>
-
-            <div className="border border-slate-200 rounded-2xl overflow-hidden">
-              <table className="w-full text-left border-collapse text-[9px] font-mono">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-55/5 text-slate-500 uppercase tracking-wider text-[8px]">
-                    <th className="py-2 px-3 text-center">No.</th>
-                    <th className="py-2 px-2">Subject</th>
-                    <th className="py-2 px-2">Chapter</th>
-                    <th className="py-2 px-2 text-center">Difficulty</th>
-                    <th className="py-2 px-2 text-center">Time Spent</th>
-                    <th className="py-2 px-2 text-center">Status</th>
-                    <th className="py-2 px-2 text-center">Marks</th>
-                    <th className="py-2 px-2 text-center">Response</th>
-                    <th className="py-2 px-3 text-center">Correct Key</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-650">
-                  {stats.questionByQuestion.slice(30, 65).map((q: QuestionRow) => (
-                    <tr key={q.id}>
-                      <td className="py-1.5 px-3 text-center font-bold text-slate-800">{q.questionNumber}</td>
-                      <td className="py-1.5 px-2 uppercase text-[7px]">{q.subject}</td>
-                      <td className="py-1.5 px-2 font-sans text-slate-800 truncate max-w-[150px]">{q.chapter}</td>
-                      <td className="py-1.5 px-2 text-center font-sans text-[8px]">{q.difficulty}</td>
-                      <td className="py-1.5 px-2 text-center">{formatSeconds(q.timeTaken)}</td>
-                      <td className={`py-1.5 px-2 text-center ${q.attemptStatus === 'Correct' ? 'text-emerald-600 font-bold' : q.attemptStatus === 'Incorrect' ? 'text-red-500 font-bold' : ''}`}>{q.attemptStatus}</td>
-                      <td className="py-1.5 px-2 text-center font-bold">{q.attemptStatus === 'Correct' ? `+${q.marksAwarded}` : q.attemptStatus === 'Incorrect' ? `-1` : '0'}</td>
-                      <td className="py-1.5 px-2 text-center font-bold text-slate-800">{q.studentResponse}</td>
-                      <td className="py-1.5 px-3 text-center font-bold text-emerald-600">{q.correctAnswer}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <PageFooter />
-      </div>
-
-      {/* PAGE 9: QUESTION LOG 3 & SCORE MOVEMENT */}
-      <div className="print-page">
-        <div>
-          <PageHeader pageNum={9} />
-          <div className="space-y-6">
-            <h2 className="text-md font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <TrendingUp size={18} className="text-blue-600" /> 9. Cumulative Score Progression &amp; Log End
-            </h2>
-
-            <div className="border border-slate-200 rounded-xl p-4">
-              <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block mb-3 border-b border-slate-100 pb-2">Subject Cumulative Score Progression</span>
-              <div className="h-44 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={stats.subjectMovement} margin={{ top: 10, right: 5, bottom: 5, left: -20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                    <XAxis dataKey="questionNumber" stroke={colors.textMuted} fontSize={8} />
-                    <YAxis stroke={colors.textMuted} fontSize={8} />
-                    <Legend verticalAlign="top" height={24} fontSize={8} />
-                    <Line type="monotone" dataKey="physicsScore" name="Physics" stroke={colors.accent} strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="chemistryScore" name="Chemistry" stroke={colors.orange} strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="mathScore" name="Maths" stroke={colors.purple} strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="totalScore" name="Total" stroke={colors.text} strokeWidth={2} dot={false} isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Remaining questions from log if total questions > 65 */}
-            {stats.questionByQuestion.length > 65 && (
-              <div className="border border-slate-200 rounded-2xl overflow-hidden mt-4">
-                <table className="w-full text-left border-collapse text-[9px] font-mono">
-                  <tbody className="divide-y divide-slate-100 text-slate-650">
-                    {stats.questionByQuestion.slice(65).map((q: QuestionRow) => (
-                      <tr key={q.id}>
-                        <td className="py-1 px-3 text-center font-bold text-slate-800 w-12">{q.questionNumber}</td>
-                        <td className="py-1 px-2 uppercase text-[7px] w-20">{q.subject}</td>
-                        <td className="py-1 px-2 font-sans text-slate-800 truncate max-w-[150px]">{q.chapter}</td>
-                        <td className="py-1 px-2 text-center font-sans text-[8px] w-20">{q.difficulty}</td>
-                        <td className="py-1 px-2 text-center w-20">{formatSeconds(q.timeTaken)}</td>
-                        <td className={`py-1 px-2 text-center w-20 ${q.attemptStatus === 'Correct' ? 'text-emerald-600 font-bold' : q.attemptStatus === 'Incorrect' ? 'text-red-500 font-bold' : ''}`}>{q.attemptStatus}</td>
-                        <td className="py-1 px-2 text-center font-bold w-12">{q.attemptStatus === 'Correct' ? `+${q.marksAwarded}` : q.attemptStatus === 'Incorrect' ? `-1` : '0'}</td>
-                        <td className="py-1 px-2 text-center font-bold text-slate-800 w-16">{q.studentResponse}</td>
-                        <td className="py-1 px-3 text-center font-bold text-emerald-600 w-16">{q.correctAnswer}</td>
-                      </tr>
+          <div className="pr-chart-card">
+            <div className="pr-chart-label">Accuracy Compare</div>
+            <div style={{ height: 130, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.subjects} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                  <XAxis dataKey="subjectName" stroke={colors.textMuted} fontSize={7} tickFormatter={v => v.substring(0, 4).toUpperCase()} />
+                  <YAxis stroke={colors.textMuted} fontSize={7} domain={[0, 100]} />
+                  <Bar dataKey="accuracy" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                    {stats.subjects.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={idx === 0 ? colors.accent : idx === 1 ? colors.purple : colors.orange} />
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
-        <PageFooter />
+      </div>
+
+      {/* ══════════ 3. CHAPTER ANALYSIS ══════════ */}
+      <div className="pr-section">
+        <div className="pr-section-title">
+          <Layers size={13} color="#2563eb" /> 3. Chapter-wise Coverage
+        </div>
+        <div style={{ border: '1px solid #e2eaf4', borderRadius: 8, overflow: 'hidden' }}>
+          <table className="pr-table pr-table-flow">
+            <thead>
+              <tr>
+                <th style={{ paddingLeft: 8 }}>Chapter</th>
+                <th>Subject</th>
+                <th style={{ textAlign: 'center' }}>Seen</th>
+                <th style={{ textAlign: 'center' }}>Tried</th>
+                <th style={{ textAlign: 'center' }}>Accuracy</th>
+                <th style={{ textAlign: 'center' }}>Gained</th>
+                <th style={{ textAlign: 'center' }}>Lost</th>
+                <th style={{ textAlign: 'right', paddingRight: 8 }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.chapters.map((c: ChapterStats) => (
+                <tr key={`${c.subject}_${c.chapterName}`}>
+                  <td style={{ paddingLeft: 8, fontWeight: 600, color: '#0f172a' }}>{c.chapterName}</td>
+                  <td style={{ fontSize: 7, textTransform: 'uppercase' }}>{c.subject}</td>
+                  <td style={{ textAlign: 'center' }}>{c.questionsSeen}</td>
+                  <td style={{ textAlign: 'center' }}>{c.questionsAttempted}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 600 }}>{c.questionsAttempted > 0 ? `${c.accuracy}%` : '-'}</td>
+                  <td style={{ textAlign: 'center', color: '#10b981' }}>+{c.marksGained}</td>
+                  <td style={{ textAlign: 'center', color: '#ef4444' }}>{c.marksLost}</td>
+                  <td style={{ textAlign: 'right', paddingRight: 8, fontSize: 7, fontWeight: 700, textTransform: 'uppercase' as const, color: c.status === 'strong' ? '#10b981' : c.status === 'average' ? '#2563eb' : '#ef4444' }}>
+                    {c.status}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ══════════ 4. DIFFICULTY & ATTEMPT ANALYTICS ══════════ */}
+      <div className="pr-section">
+        <div className="pr-section-title">
+          <TrendingUp size={13} color="#2563eb" /> 4. Difficulty &amp; Pacing Analytics
+        </div>
+
+        <div className="pr-grid-2">
+          <div className="pr-chart-card">
+            <div className="pr-chart-label">Difficulty Accuracy</div>
+            <div style={{ height: 120, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.difficulties} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                  <XAxis dataKey="name" stroke={colors.textMuted} fontSize={7} />
+                  <YAxis stroke={colors.textMuted} fontSize={7} domain={[0, 100]} />
+                  <Bar dataKey="accuracy" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                    {stats.difficulties.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={entry.name === 'Easy' ? colors.green : entry.name === 'Moderate' ? colors.orange : colors.red} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="pr-chart-card">
+            <div className="pr-chart-label">Attempt Profile</div>
+            <div style={{ height: 120, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { name: 'Perf', count: stats.attempts.overall.perfect },
+                    { name: 'Wast', count: stats.attempts.overall.wasted },
+                    { name: 'Ot C', count: stats.attempts.overall.overtimeCorrect },
+                    { name: 'Ot W', count: stats.attempts.overall.overtimeMistake },
+                    { name: 'Conf', count: stats.attempts.overall.confused }
+                  ]}
+                  margin={{ top: 5, right: 5, bottom: 0, left: -25 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                  <XAxis dataKey="name" stroke={colors.textMuted} fontSize={7} />
+                  <YAxis stroke={colors.textMuted} fontSize={7} />
+                  <Bar dataKey="count" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                    {[colors.green, colors.red, colors.accent, colors.orange, colors.purple].map((color, idx) => (
+                      <Cell key={`cell-${idx}`} fill={color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="pr-grid-3" style={{ marginTop: 8 }}>
+          <div className="pr-card" style={{ textAlign: 'center' }}>
+            <span className="pr-label">Perfect Attempts</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#10b981', display: 'block', marginTop: 2 }}>{stats.attempts.overall.perfect} Qs</span>
+          </div>
+          <div className="pr-card" style={{ textAlign: 'center' }}>
+            <span className="pr-label">Wasted Attempts</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#ef4444', display: 'block', marginTop: 2 }}>{stats.attempts.overall.wasted} Qs</span>
+          </div>
+          <div className="pr-card" style={{ textAlign: 'center' }}>
+            <span className="pr-label">Confused Skips</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#8b5cf6', display: 'block', marginTop: 2 }}>{stats.attempts.overall.confused} Qs</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════ 5. TIME INSIGHTS ══════════ */}
+      <div className="pr-section">
+        <div className="pr-section-title">
+          <Clock size={13} color="#2563eb" /> 5. Time Insights &amp; Pacing
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10 }}>
+          <div className="pr-chart-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="pr-chart-label" style={{ width: '100%' }}>Time per Subject</div>
+            <div style={{ height: 110, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats.timeAnalysis.subjectTimeDistribution}
+                    cx="50%" cy="50%"
+                    innerRadius={30} outerRadius={42}
+                    paddingAngle={5} dataKey="value"
+                    isAnimationActive={false}
+                  >
+                    {stats.timeAnalysis.subjectTimeDistribution.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={idx === 0 ? colors.accent : idx === 1 ? colors.purple : colors.orange} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ fontSize: 7, color: '#64748b', textAlign: 'center', marginTop: 2 }}>
+              {stats.timeAnalysis.subjectTimeDistribution.map((d, i) => (
+                <span key={i} style={{ display: 'inline-block', marginRight: 6 }}>
+                  <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 2, background: i === 0 ? colors.accent : i === 1 ? colors.purple : colors.orange, marginRight: 2, verticalAlign: 'middle' }} />
+                  {d.name}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="pr-chart-card">
+            <div className="pr-chart-label">Time Spent vs Accuracy</div>
+            <div style={{ height: 110, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.timeAnalysis.timeSpentVsAccuracy} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                  <XAxis dataKey="bucketName" stroke={colors.textMuted} fontSize={7} />
+                  <YAxis stroke={colors.textMuted} fontSize={7} domain={[0, 100]} />
+                  <Bar dataKey="accuracy" fill={colors.accent} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="pr-grid-2" style={{ marginTop: 8 }}>
+          <div className="pr-card">
+            <span className="pr-label">Fastest Solved Correct</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+              {stats.timeAnalysis.fastestSolved.slice(0, 3).map((f, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, borderBottom: '1px solid #f1f5f9', paddingBottom: 2 }}>
+                  <span style={{ color: '#475569' }}>Q.{f.questionNumber} ({f.subject.toUpperCase()})</span>
+                  <span style={{ fontWeight: 700, color: '#10b981' }}>{formatSeconds(f.timeTaken)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="pr-card">
+            <span className="pr-label">Slowest Attempted</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+              {stats.timeAnalysis.slowestSolved.slice(0, 3).map((s, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, borderBottom: '1px solid #f1f5f9', paddingBottom: 2 }}>
+                  <span style={{ color: '#475569' }}>Q.{s.questionNumber} ({s.subject.toUpperCase()})</span>
+                  <span style={{ fontWeight: 700, color: '#f97316' }}>{formatSeconds(s.timeTaken)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════ 6. QUESTION JOURNEY ══════════ */}
+      <div className="pr-section">
+        <div className="pr-section-title">
+          <FileText size={13} color="#2563eb" /> 6. Question Journey Palette
+        </div>
+        <div className="pr-card">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 4 }}>
+            {stats.questionJourney.map((j) => {
+              let bg = '#f1f5f9', border = '#e2e8f0', fg = '#94a3b8';
+              if (j.status === 'correct') { bg = '#ecfdf5'; border = '#86efac'; fg = '#059669'; }
+              else if (j.status === 'incorrect') { bg = '#fef2f2'; border = '#fca5a5'; fg = '#dc2626'; }
+              else if (j.status === 'marked') { bg = '#fffbeb'; border = '#fcd34d'; fg = '#d97706'; }
+              return (
+                <div
+                  key={j.id}
+                  style={{ height: 22, borderRadius: 4, border: `1px solid ${border}`, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 700, color: fg }}
+                >
+                  {j.questionNumber}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════ 7. COMPLETE QUESTION LOG (single flowing table) ══════════ */}
+      <div className="pr-section">
+        <div className="pr-section-title">
+          <Layers size={13} color="#2563eb" /> 7. Detailed Question Log
+        </div>
+        <div style={{ border: '1px solid #e2eaf4', borderRadius: 8, overflow: 'hidden' }}>
+          <table className="pr-table pr-table-flow">
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'center', width: 30, paddingLeft: 6 }}>No.</th>
+                <th style={{ width: 50 }}>Subject</th>
+                <th>Chapter</th>
+                <th style={{ textAlign: 'center', width: 50 }}>Diff</th>
+                <th style={{ textAlign: 'center', width: 45 }}>Time</th>
+                <th style={{ textAlign: 'center', width: 50 }}>Status</th>
+                <th style={{ textAlign: 'center', width: 35 }}>Marks</th>
+                <th style={{ textAlign: 'center', width: 45 }}>Resp</th>
+                <th style={{ textAlign: 'center', width: 45, paddingRight: 6 }}>Key</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.questionByQuestion.map((q: QuestionRow) => (
+                <tr key={q.id}>
+                  <td style={{ textAlign: 'center', fontWeight: 700, color: '#0f172a', paddingLeft: 6 }}>{q.questionNumber}</td>
+                  <td style={{ fontSize: 7, textTransform: 'uppercase' }}>{q.subject}</td>
+                  <td style={{ color: '#0f172a', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.chapter}</td>
+                  <td style={{ textAlign: 'center', fontSize: 7 }}>{q.difficulty}</td>
+                  <td style={{ textAlign: 'center' }}>{formatSeconds(q.timeTaken)}</td>
+                  <td style={{ textAlign: 'center', fontWeight: q.attemptStatus !== 'Skipped' ? 700 : 400, color: q.attemptStatus === 'Correct' ? '#10b981' : q.attemptStatus === 'Incorrect' ? '#ef4444' : '#94a3b8' }}>
+                    {q.attemptStatus}
+                  </td>
+                  <td style={{ textAlign: 'center', fontWeight: 600 }}>
+                    {q.attemptStatus === 'Correct' ? `+${q.marksAwarded}` : q.attemptStatus === 'Incorrect' ? `-1` : '0'}
+                  </td>
+                  <td style={{ textAlign: 'center', fontWeight: 600, color: '#0f172a' }}>{q.studentResponse}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 600, color: '#10b981', paddingRight: 6 }}>{q.correctAnswer}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ══════════ 8. SCORE PROGRESSION ══════════ */}
+      <div className="pr-section">
+        <div className="pr-section-title">
+          <TrendingUp size={13} color="#2563eb" /> 8. Cumulative Score Progression
+        </div>
+        <div className="pr-chart-card">
+          <div style={{ height: 160, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={stats.subjectMovement} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                <XAxis dataKey="questionNumber" stroke={colors.textMuted} fontSize={7} />
+                <YAxis stroke={colors.textMuted} fontSize={7} />
+                <Legend verticalAlign="top" height={18} iconSize={8} wrapperStyle={{ fontSize: 7 }} />
+                <Line type="monotone" dataKey="physicsScore" name="Physics" stroke={colors.accent} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="chemistryScore" name="Chemistry" stroke={colors.orange} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="mathScore" name="Maths" stroke={colors.purple} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="totalScore" name="Total" stroke={colors.text} strokeWidth={2} dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════ END FOOTER ══════════ */}
+      <div className="pr-end-footer" style={{ borderTop: '1px solid #e2eaf4', paddingTop: 8, marginTop: 16, display: 'flex', justifyContent: 'space-between', fontSize: 7, color: '#94a3b8' }}>
+        <span>Factual performance statistics compiled on SolvingMinds. Searchable vector print layout.</span>
+        <span>SolvingMinds © 2026</span>
       </div>
     </div>
   );
