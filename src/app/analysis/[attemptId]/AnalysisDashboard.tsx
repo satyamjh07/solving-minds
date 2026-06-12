@@ -185,83 +185,25 @@ export default function AnalysisDashboard({
     setPdfGenerating(true);
 
     try {
-      // Dynamic imports for client-side libraries
-      const html2canvas = (await import('html2canvas')).default;
-      const jsPDF = (await import('jspdf')).default;
-
-      // We will render sections one-by-one into canvas pages
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const contentWidth = pdfWidth - 2 * margin;
-
-      // Select container divs to print
-      const printTargets = [
-        { id: 'overview', title: 'Performance Overview' },
-        { id: 'subject', title: 'Subject-wise Analytics' },
-        { id: 'chapter', title: 'Chapter-wise Coverage & Accuracy' },
-        { id: 'difficulty', title: 'Difficulty Distribution & Strategy' },
-        { id: 'attempt', title: 'Attempt Quality Profiling' },
-        { id: 'time', title: 'Time Distribution Analytics' },
-        { id: 'journey', title: 'Question Solving Timeline' },
-        { id: 'qbyq', title: 'Detailed Question Log' },
-        { id: 'movement', title: 'Running Score Progression' }
-      ];
-
-      for (let i = 0; i < printTargets.length; i++) {
-        const target = printTargets[i];
-        const element = sectionRefs[target.id as keyof typeof sectionRefs].current;
-
-        if (element) {
-          // Adjust options for clear scaling
-          const canvas = await html2canvas(element, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: theme === 'dark' ? '#030712' : '#ffffff',
-            logging: false
-          });
-
-          const imgData = canvas.toDataURL('image/png');
-          const imgHeight = (canvas.height * contentWidth) / canvas.width;
-
-          if (i > 0) pdf.addPage();
-
-          // Header
-          pdf.setFillColor(79, 70, 229); // Brand primary Indigo
-          pdf.rect(0, 0, pdfWidth, 15, 'F');
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(10);
-          pdf.text('SOLVINGMINDS TEST ANALYSIS REPORT', margin, 9);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(8);
-          pdf.text(`Attempt: ${attemptId} | ${testTitle}`, pdfWidth - margin, 9, { align: 'right' });
-
-          // Content body
-          let yPos = 20;
-          pdf.setTextColor(theme === 'dark' ? 240 : 20);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(14);
-          pdf.text(`${i + 1}. ${target.title}`, margin, yPos);
-          
-          yPos += 7;
-          pdf.addImage(imgData, 'PNG', margin, yPos, contentWidth, Math.min(imgHeight, pdfHeight - yPos - 15));
-
-          // Footer
-          pdf.setDrawColor(226, 232, 240);
-          pdf.line(margin, pdfHeight - 12, pdfWidth - margin, pdfHeight - 12);
-          pdf.setTextColor(100, 116, 139);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(8);
-          pdf.text('Factual performance statistics compiled on SolvingMinds. No AI recommendation fallback.', margin, pdfHeight - 8);
-          pdf.text(`Page ${i + 1} of ${printTargets.length}`, pdfWidth - margin, pdfHeight - 8, { align: 'right' });
-        }
+      const response = await fetch(`/api/analysis/${attemptId}/pdf`);
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF on server');
       }
 
-      pdf.save(`SolvingMinds_Analysis_${attemptId}.pdf`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `SolvingMinds_Report_${attemptId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('PDF Generation failed:', err);
+      console.error('PDF Download failed:', err);
+      alert('Failed to generate and download PDF report. Please try again.');
     } finally {
       setPdfGenerating(false);
     }
