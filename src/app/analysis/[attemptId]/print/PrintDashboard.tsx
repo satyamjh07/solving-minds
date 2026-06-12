@@ -1,22 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { CheckCircle2, XCircle, Clock, Award, BookOpen, Layers, TrendingUp, BookOpenCheck, FileText } from 'lucide-react';
+import {
+  ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend
+} from 'recharts';
 import { PreCalculatedAnalytics, SubjectStats, ChapterStats, DifficultyBucket, QuestionRow } from '../analyticsHelper';
-
-/*
- * PRINT-OPTIMIZED DASHBOARD — Zero SVG, Zero Recharts
- * 
- * Performance strategy:
- * - NO Recharts (was generating 700+ SVG nodes)
- * - NO Lucide icons (was generating 50+ SVG paths)
- * - NO Google Fonts @import (was embedding 6 font weights)
- * - NO SVG score ring
- * - NO border-radius on tables (eliminates clip paths)
- * - Charts replaced with pure CSS percentage bars
- * - System fonts only: Inter falls back to system-ui
- * 
- * Result: ~0 SVG nodes, pure HTML/CSS, instant PDF rendering
- */
 
 interface PrintDashboardProps {
   stats: PreCalculatedAnalytics;
@@ -39,7 +29,7 @@ export default function PrintDashboard({
     setMounted(true);
     const timer = setTimeout(() => {
       window.print();
-    }, 500); // No charts to wait for — 500ms is plenty
+    }, 1500); // Allow charts to render completely without animation
     return () => clearTimeout(timer);
   }, []);
 
@@ -60,222 +50,375 @@ export default function PrintDashboard({
     });
   };
 
-  const accColor = (acc: number) => acc >= 75 ? '#10b981' : acc >= 50 ? '#f97316' : '#ef4444';
+  // Static colors for clean light-mode printing
+  const colors = {
+    accent: '#2563eb',
+    accentLight: '#60a5fa',
+    green: '#10b981',
+    red: '#ef4444',
+    orange: '#f97316',
+    purple: '#8b5cf6',
+    text: '#0f172a',
+    textMuted: '#475569',
+    border: '#e2eaf4',
+    bg: '#f8fafc'
+  };
 
   if (!mounted) {
     return (
-      <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif', fontSize: 11, color: '#64748b' }}>
-        Preparing report...
+      <div className="min-h-screen bg-white text-slate-900 flex items-center justify-center p-8 font-mono uppercase text-xs">
+        Preparing print layout...
       </div>
     );
   }
 
-  // Pre-compute attempt rate
-  const totalQs = stats.overview.questionsAttempted + stats.overview.questionsUnattempted;
-  const attemptRate = totalQs > 0 ? Math.round((stats.overview.questionsAttempted / totalQs) * 100) : 0;
-  const scorePercent = stats.overview.maxScore > 0 ? Math.round((stats.overview.totalScore / stats.overview.maxScore) * 100) : 0;
-
   return (
-    <div className="pr">
+    <div className="pr-report">
+      {/* ── PRINT STYLES ── */}
       <style jsx global>{`
-        @page { size: A4; margin: 12mm 10mm 12mm 10mm; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+        /* ── Page setup ── */
+        @page {
+          size: A4;
+          margin: 12mm 10mm 14mm 10mm;
+        }
+
         @media print {
           html, body {
-            margin: 0 !important; padding: 0 !important;
-            background: #fff !important; color: #0f172a !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            color: #0f172a !important;
+            font-family: 'Inter', system-ui, sans-serif !important;
             font-size: 10px !important;
             print-color-adjust: exact !important;
             -webkit-print-color-adjust: exact !important;
           }
-          body > *:not(.pr):not(script):not(style) { display: none !important; }
-          .pr { padding: 0 !important; max-width: none !important; }
-          .pr-section { break-inside: avoid; page-break-inside: avoid; }
-          .pr-tbl-flow { break-inside: auto !important; page-break-inside: auto !important; }
-          .pr-tbl-flow thead { display: table-header-group; }
-          .pr-tbl-flow tr { break-inside: avoid; page-break-inside: avoid; }
+
+          /* Hide everything except the report */
+          body > *:not(.pr-report):not(script):not(style) { display: none !important; }
+
+          .pr-report {
+            padding: 0 !important;
+            border: none !important;
+            max-width: none !important;
+          }
+
+          /* ── CRITICAL: No forced page breaks, no fixed heights ── */
+          .pr-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          /* Allow tables to flow across pages naturally */
+          .pr-table-flow {
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+          }
+          .pr-table-flow thead {
+            display: table-header-group;
+          }
+          .pr-table-flow tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          /* Keep chart cards together */
+          .pr-chart-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          /* Recharts: cap height and force vector rendering */
+          .recharts-responsive-container {
+            width: 100% !important;
+          }
+          .recharts-surface {
+            max-width: 100% !important;
+          }
+
+          /* Report footer only at end */
+          .pr-end-footer {
+            margin-top: 2rem;
+          }
         }
-        .pr {
-          font-family: Inter, system-ui, -apple-system, sans-serif;
-          background: #fff; color: #0f172a;
-          max-width: 780px; margin: 0 auto; padding: 20px;
-          line-height: 1.4;
+
+        /* ── Screen preview styles ── */
+        .pr-report {
+          font-family: 'Inter', system-ui, sans-serif;
+          background: white;
+          color: #0f172a;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 24px;
         }
-        /* ── Primitives ── */
-        .pr-hdr { border-bottom: 2px solid #2563eb; padding-bottom: 10px; margin-bottom: 14px; }
-        .pr-section { margin-bottom: 14px; }
-        .pr-stitle {
-          font-size: 10px; font-weight: 700; text-transform: uppercase;
-          letter-spacing: 0.03em; color: #0f172a;
-          border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 8px;
+
+        /* ── Shared styles ── */
+        .pr-report-header {
+          border-bottom: 2px solid #2563eb;
+          padding-bottom: 12px;
+          margin-bottom: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+        }
+        .pr-section {
+          margin-bottom: 16px;
+        }
+        .pr-section-title {
+          font-size: 11px;
+          font-weight: 700;
+          color: #0f172a;
+          text-transform: uppercase;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          border-bottom: 1px solid #f1f5f9;
+          padding-bottom: 6px;
+          margin-bottom: 10px;
+          letter-spacing: 0.02em;
         }
         .pr-card {
-          border: 1px solid #e2e8f0; padding: 8px 10px;
+          border: 1px solid #e2eaf4;
+          border-radius: 8px;
+          padding: 10px;
         }
-        .pr-lbl {
-          font-size: 7px; font-weight: 700; color: #94a3b8;
-          text-transform: uppercase; letter-spacing: 0.05em;
-          display: block; margin-bottom: 2px;
+        .pr-label {
+          font-size: 7px;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          display: block;
+          margin-bottom: 3px;
         }
-        .pr-val { font-size: 16px; font-weight: 800; }
-        .pr-sm { font-size: 8px; color: #64748b; }
-        /* ── CSS Bar (replaces Recharts) ── */
-        .pr-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-        .pr-bar-label { font-size: 8px; font-weight: 600; width: 50px; text-align: right; color: #475569; flex-shrink: 0; }
-        .pr-bar-track { flex: 1; height: 10px; background: #f1f5f9; overflow: hidden; }
-        .pr-bar-fill { height: 100%; }
-        .pr-bar-val { font-size: 8px; font-weight: 700; width: 32px; flex-shrink: 0; }
-        /* ── Tables ── */
-        .pr-tbl { width: 100%; border-collapse: collapse; font-size: 8px; }
-        .pr-tbl th {
-          text-align: left; padding: 4px 5px; font-size: 7px; font-weight: 700;
-          color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;
-          border-bottom: 1px solid #cbd5e1; background: #f8fafc;
+        .pr-big {
+          font-size: 18px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
         }
-        .pr-tbl td { padding: 3px 5px; border-bottom: 1px solid #f1f5f9; }
-        /* ── Grid helpers ── */
-        .pr-g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .pr-g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-        .pr-g4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
-        /* ── Journey cells ── */
-        .pr-jcell {
-          width: 100%; height: 18px; display: flex; align-items: center;
-          justify-content: center; font-size: 7px; font-weight: 700;
-          border: 1px solid #e2e8f0; background: #f8fafc; color: #94a3b8;
+        .pr-small {
+          font-size: 8px;
+          color: #64748b;
         }
-        .pr-jcell.c { background: #ecfdf5; border-color: #86efac; color: #059669; }
-        .pr-jcell.w { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
-        .pr-jcell.m { background: #fffbeb; border-color: #fcd34d; color: #d97706; }
+        .pr-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .pr-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .pr-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+
+        /* Table styles */
+        .pr-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 8px;
+        }
+        .pr-table th {
+          text-align: left;
+          padding: 5px 6px;
+          font-size: 7px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: 1px solid #e2eaf4;
+          background: #f8fafc;
+        }
+        .pr-table td {
+          padding: 4px 6px;
+          border-bottom: 1px solid #f1f5f9;
+          color: #334155;
+        }
+        .pr-table tr:last-child td { border-bottom: none; }
+
+        /* Chart container */
+        .pr-chart-card {
+          border: 1px solid #e2eaf4;
+          border-radius: 8px;
+          padding: 10px;
+        }
+        .pr-chart-label {
+          font-size: 7px;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: 1px solid #f1f5f9;
+          padding-bottom: 4px;
+          margin-bottom: 6px;
+        }
       `}</style>
 
-      {/* ══════════ HEADER ══════════ */}
-      <div className="pr-hdr">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div>
-            <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', color: '#2563eb', textTransform: 'uppercase' as const }}>
-              SolvingMinds Analysis Report
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 800, marginTop: 1 }}>{testTitle}</div>
-            <div style={{ fontSize: 8, color: '#64748b', marginTop: 1 }}>
-              {formatDate(attemptDate)} · {examType.toUpperCase()} · ID {attemptId.slice(0, 8)}
-            </div>
+      {/* ══════════ REPORT HEADER ══════════ */}
+      <div className="pr-report-header">
+        <div>
+          <div style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#2563eb', textTransform: 'uppercase' as const }}>
+            SolvingMinds Test Analysis Report
           </div>
-          <div style={{ fontSize: 7, color: '#94a3b8', textAlign: 'right' as const }}>SolvingMinds © 2026</div>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: 2 }}>{testTitle}</div>
+          <div style={{ fontSize: '8px', color: '#64748b', marginTop: 2 }}>
+            {formatDate(attemptDate)} · {examType.toUpperCase()} · Attempt {attemptId.slice(0, 8)}
+          </div>
+        </div>
+        <div style={{ fontSize: '8px', color: '#94a3b8', textAlign: 'right' as const }}>
+          SolvingMinds © 2026
         </div>
       </div>
 
       {/* ══════════ 1. PERFORMANCE OVERVIEW ══════════ */}
       <div className="pr-section">
-        <div className="pr-stitle">1 · Performance Overview</div>
+        <div className="pr-section-title">
+          <Award size={13} color="#2563eb" /> 1. Performance Overview
+        </div>
 
-        <div className="pr-g4">
-          <div className="pr-card" style={{ textAlign: 'center' }}>
-            <span className="pr-lbl">Score</span>
-            <span className="pr-val" style={{ color: '#2563eb' }}>{stats.overview.totalScore}</span>
-            <span className="pr-sm"> / {stats.overview.maxScore} ({scorePercent}%)</span>
-          </div>
-          <div className="pr-card" style={{ textAlign: 'center' }}>
-            <span className="pr-lbl">Accuracy</span>
-            <span className="pr-val" style={{ color: '#10b981' }}>{stats.overview.accuracy}%</span>
-            <div style={{ height: 4, background: '#f1f5f9', marginTop: 3, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${stats.overview.accuracy}%`, background: '#10b981' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '10px' }}>
+          {/* Score ring */}
+          <div className="pr-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="pr-label" style={{ textAlign: 'center' as const }}>Total Score</span>
+            <div style={{ position: 'relative', width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="40" cy="40" r="34" stroke="#f1f5f9" strokeWidth="6" fill="transparent" />
+                <circle
+                  cx="40" cy="40" r="34"
+                  stroke="#2563eb" strokeWidth="6" fill="transparent"
+                  strokeDasharray={2 * Math.PI * 34}
+                  strokeDashoffset={2 * Math.PI * 34 * (1 - Math.max(0, Math.min(1, stats.overview.totalScore / stats.overview.maxScore)))}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div style={{ position: 'absolute', textAlign: 'center' as const }}>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{stats.overview.totalScore}</div>
+                <div style={{ fontSize: 7, color: '#94a3b8' }}>/ {stats.overview.maxScore}</div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', marginTop: 6, paddingTop: 6, borderTop: '1px solid #f1f5f9', fontSize: 8, textAlign: 'center' as const }}>
+              <div>
+                <span style={{ fontSize: 7, color: '#94a3b8', display: 'block' }}>POSITIVE</span>
+                <span style={{ fontWeight: 700, color: '#10b981' }}>+{stats.overview.positiveMarks}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 7, color: '#94a3b8', display: 'block' }}>NEGATIVE</span>
+                <span style={{ fontWeight: 700, color: '#ef4444' }}>-{stats.overview.negativeMarks}</span>
+              </div>
             </div>
           </div>
-          <div className="pr-card" style={{ textAlign: 'center' }}>
-            <span className="pr-lbl">Time Taken</span>
-            <span className="pr-val">{formatSeconds(stats.overview.timeTaken)}</span>
-            <span className="pr-sm">Avg: {formatSeconds(stats.timeAnalysis.avgTimePerQuestion)}/q</span>
-          </div>
-          <div className="pr-card" style={{ textAlign: 'center' }}>
-            <span className="pr-lbl">Attempt Rate</span>
-            <span className="pr-val" style={{ color: '#2563eb' }}>{attemptRate}%</span>
-            <span className="pr-sm">{stats.overview.questionsAttempted}/{totalQs} Qs</span>
-          </div>
-        </div>
 
-        <div className="pr-g3" style={{ marginTop: 6 }}>
-          <div className="pr-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="pr-lbl" style={{ marginBottom: 0 }}>Correct</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#10b981' }}>{stats.overview.questionsCorrect}</span>
-          </div>
-          <div className="pr-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="pr-lbl" style={{ marginBottom: 0 }}>Incorrect</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#ef4444' }}>{stats.overview.questionsIncorrect}</span>
-          </div>
-          <div className="pr-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="pr-lbl" style={{ marginBottom: 0 }}>Skipped</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#94a3b8' }}>{stats.overview.questionsUnattempted}</span>
-          </div>
-        </div>
-
-        <div className="pr-g2" style={{ marginTop: 6 }}>
-          <div className="pr-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="pr-lbl" style={{ marginBottom: 0 }}>Positive Marks</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>+{stats.overview.positiveMarks}</span>
-          </div>
-          <div className="pr-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="pr-lbl" style={{ marginBottom: 0 }}>Negative Marks</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>-{stats.overview.negativeMarks}</span>
+          {/* KPIs grid */}
+          <div className="pr-grid-2" style={{ alignContent: 'start' }}>
+            <div className="pr-card">
+              <span className="pr-label">Accuracy</span>
+              <span className="pr-big" style={{ color: '#10b981' }}>{stats.overview.accuracy}%</span>
+              <div style={{ width: '100%', background: '#f1f5f9', height: 4, borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${stats.overview.accuracy}%`, background: '#10b981', height: '100%', borderRadius: 99 }} />
+              </div>
+            </div>
+            <div className="pr-card">
+              <span className="pr-label">Time Taken</span>
+              <span className="pr-big">{formatSeconds(stats.overview.timeTaken)}</span>
+              <span className="pr-small">Avg pace: {formatSeconds(stats.timeAnalysis.avgTimePerQuestion)}/q</span>
+            </div>
+            <div className="pr-card">
+              <span className="pr-label">Attempt Rate</span>
+              <span className="pr-big" style={{ color: '#2563eb' }}>
+                {Math.round((stats.overview.questionsAttempted / (stats.overview.questionsAttempted + stats.overview.questionsUnattempted)) * 100)}%
+              </span>
+              <span className="pr-small">{stats.overview.questionsAttempted} / {stats.overview.questionsAttempted + stats.overview.questionsUnattempted} Qs</span>
+            </div>
+            <div className="pr-card">
+              <div className="pr-grid-3" style={{ textAlign: 'center' as const }}>
+                <div>
+                  <span className="pr-label">Correct</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#10b981', display: 'block' }}>{stats.overview.questionsCorrect}</span>
+                </div>
+                <div>
+                  <span className="pr-label">Wrong</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', display: 'block' }}>{stats.overview.questionsIncorrect}</span>
+                </div>
+                <div>
+                  <span className="pr-label">Skipped</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#64748b', display: 'block' }}>{stats.overview.questionsUnattempted}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* ══════════ 2. SUBJECT ANALYSIS ══════════ */}
       <div className="pr-section">
-        <div className="pr-stitle">2 · Subject-wise Analysis</div>
+        <div className="pr-section-title">
+          <BookOpen size={13} color="#2563eb" /> 2. Subject-wise Analysis
+        </div>
 
-        {/* Subject cards row */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {stats.subjects.map((sub: SubjectStats) => (
-            <div key={sub.subjectName} className="pr-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.03em', marginBottom: 3 }}>{sub.subjectName}</div>
-                <div style={{ display: 'flex', gap: 10, fontSize: 8, color: '#64748b' }}>
-                  <span>Score: <b style={{ color: '#0f172a' }}>{sub.score}/{sub.maxMarks}</b></span>
-                  <span>✓ <b style={{ color: '#10b981' }}>{sub.questionsCorrect}</b></span>
-                  <span>✗ <b style={{ color: '#ef4444' }}>{sub.questionsIncorrect}</b></span>
-                  <span>— <b>{sub.questionsUnattempted}</b></span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {stats.subjects.map((sub: SubjectStats) => (
+              <div key={sub.subjectName} className="pr-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px' }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>{sub.subjectName}</div>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 8, color: '#64748b', marginTop: 2 }}>
+                    <span>Score: <b style={{ color: '#0f172a' }}>{sub.score}/{sub.maxMarks}</b></span>
+                    <span>Correct: <b style={{ color: '#10b981' }}>{sub.questionsCorrect}</b></span>
+                    <span>Wrong: <b style={{ color: '#ef4444' }}>{sub.questionsIncorrect}</b></span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' as const }}>
+                  <span className="pr-label">Accuracy</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: '#2563eb' }}>{sub.accuracy}%</span>
                 </div>
               </div>
-              {/* CSS bar instead of Recharts */}
-              <div style={{ width: 120, flexShrink: 0 }}>
-                <div style={{ height: 8, background: '#f1f5f9', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${sub.accuracy}%`, background: accColor(sub.accuracy) }} />
-                </div>
-              </div>
-              <div style={{ width: 40, textAlign: 'right' as const, fontSize: 12, fontWeight: 800, color: '#2563eb', flexShrink: 0 }}>{sub.accuracy}%</div>
+            ))}
+          </div>
+
+          <div className="pr-chart-card">
+            <div className="pr-chart-label">Accuracy Compare</div>
+            <div style={{ height: 130, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.subjects} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                  <XAxis dataKey="subjectName" stroke={colors.textMuted} fontSize={7} tickFormatter={v => v.substring(0, 4).toUpperCase()} />
+                  <YAxis stroke={colors.textMuted} fontSize={7} domain={[0, 100]} />
+                  <Bar dataKey="accuracy" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                    {stats.subjects.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={idx === 0 ? colors.accent : idx === 1 ? colors.purple : colors.orange} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
       {/* ══════════ 3. CHAPTER ANALYSIS ══════════ */}
       <div className="pr-section">
-        <div className="pr-stitle">3 · Chapter-wise Coverage</div>
-        <div style={{ border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <table className="pr-tbl pr-tbl-flow">
+        <div className="pr-section-title">
+          <Layers size={13} color="#2563eb" /> 3. Chapter-wise Coverage
+        </div>
+        <div style={{ border: '1px solid #e2eaf4', borderRadius: 8, overflow: 'hidden' }}>
+          <table className="pr-table pr-table-flow">
             <thead>
               <tr>
-                <th style={{ paddingLeft: 6 }}>Chapter</th>
+                <th style={{ paddingLeft: 8 }}>Chapter</th>
                 <th>Subject</th>
                 <th style={{ textAlign: 'center' }}>Seen</th>
                 <th style={{ textAlign: 'center' }}>Tried</th>
-                <th style={{ textAlign: 'center' }}>Acc%</th>
-                <th style={{ textAlign: 'center' }}>+Marks</th>
-                <th style={{ textAlign: 'center' }}>−Marks</th>
-                <th style={{ textAlign: 'right', paddingRight: 6 }}>Status</th>
+                <th style={{ textAlign: 'center' }}>Accuracy</th>
+                <th style={{ textAlign: 'center' }}>Gained</th>
+                <th style={{ textAlign: 'center' }}>Lost</th>
+                <th style={{ textAlign: 'right', paddingRight: 8 }}>Status</th>
               </tr>
             </thead>
             <tbody>
               {stats.chapters.map((c: ChapterStats) => (
                 <tr key={`${c.subject}_${c.chapterName}`}>
-                  <td style={{ paddingLeft: 6, fontWeight: 600, color: '#0f172a' }}>{c.chapterName}</td>
+                  <td style={{ paddingLeft: 8, fontWeight: 600, color: '#0f172a' }}>{c.chapterName}</td>
                   <td style={{ fontSize: 7, textTransform: 'uppercase' }}>{c.subject}</td>
                   <td style={{ textAlign: 'center' }}>{c.questionsSeen}</td>
                   <td style={{ textAlign: 'center' }}>{c.questionsAttempted}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 600 }}>{c.questionsAttempted > 0 ? `${c.accuracy}%` : '—'}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 600 }}>{c.questionsAttempted > 0 ? `${c.accuracy}%` : '-'}</td>
                   <td style={{ textAlign: 'center', color: '#10b981' }}>+{c.marksGained}</td>
                   <td style={{ textAlign: 'center', color: '#ef4444' }}>{c.marksLost}</td>
-                  <td style={{ textAlign: 'right', paddingRight: 6, fontSize: 7, fontWeight: 700, textTransform: 'uppercase' as const, color: c.status === 'strong' ? '#10b981' : c.status === 'average' ? '#2563eb' : '#ef4444' }}>
+                  <td style={{ textAlign: 'right', paddingRight: 8, fontSize: 7, fontWeight: 700, textTransform: 'uppercase' as const, color: c.status === 'strong' ? '#10b981' : c.status === 'average' ? '#2563eb' : '#ef4444' }}>
                     {c.status}
                   </td>
                 </tr>
@@ -287,169 +430,211 @@ export default function PrintDashboard({
 
       {/* ══════════ 4. DIFFICULTY & ATTEMPT ANALYTICS ══════════ */}
       <div className="pr-section">
-        <div className="pr-stitle">4 · Difficulty &amp; Attempt Analytics</div>
+        <div className="pr-section-title">
+          <TrendingUp size={13} color="#2563eb" /> 4. Difficulty &amp; Pacing Analytics
+        </div>
 
-        <div className="pr-g2">
-          {/* Difficulty bars — pure CSS */}
-          <div className="pr-card">
-            <span className="pr-lbl" style={{ marginBottom: 6 }}>Difficulty Accuracy</span>
-            {stats.difficulties.map((d: DifficultyBucket) => (
-              <div key={d.name} className="pr-bar-row">
-                <span className="pr-bar-label">{d.name}</span>
-                <div className="pr-bar-track">
-                  <div className="pr-bar-fill" style={{ width: `${d.accuracy}%`, background: d.name === 'Easy' ? '#10b981' : d.name === 'Moderate' ? '#f97316' : '#ef4444' }} />
-                </div>
-                <span className="pr-bar-val" style={{ color: d.name === 'Easy' ? '#10b981' : d.name === 'Moderate' ? '#f97316' : '#ef4444' }}>{d.accuracy}%</span>
-              </div>
-            ))}
+        <div className="pr-grid-2">
+          <div className="pr-chart-card">
+            <div className="pr-chart-label">Difficulty Accuracy</div>
+            <div style={{ height: 120, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.difficulties} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                  <XAxis dataKey="name" stroke={colors.textMuted} fontSize={7} />
+                  <YAxis stroke={colors.textMuted} fontSize={7} domain={[0, 100]} />
+                  <Bar dataKey="accuracy" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                    {stats.difficulties.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={entry.name === 'Easy' ? colors.green : entry.name === 'Moderate' ? colors.orange : colors.red} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          {/* Attempt profile — pure CSS */}
-          <div className="pr-card">
-            <span className="pr-lbl" style={{ marginBottom: 6 }}>Attempt Profile</span>
-            {[
-              { label: 'Perfect', val: stats.attempts.overall.perfect, color: '#10b981' },
-              { label: 'Wasted', val: stats.attempts.overall.wasted, color: '#ef4444' },
-              { label: 'OT Correct', val: stats.attempts.overall.overtimeCorrect, color: '#2563eb' },
-              { label: 'OT Wrong', val: stats.attempts.overall.overtimeMistake, color: '#f97316' },
-              { label: 'Confused', val: stats.attempts.overall.confused, color: '#8b5cf6' },
-            ].map(item => {
-              const maxVal = Math.max(
-                stats.attempts.overall.perfect, stats.attempts.overall.wasted,
-                stats.attempts.overall.overtimeCorrect, stats.attempts.overall.overtimeMistake,
-                stats.attempts.overall.confused, 1
-              );
-              return (
-                <div key={item.label} className="pr-bar-row">
-                  <span className="pr-bar-label">{item.label}</span>
-                  <div className="pr-bar-track">
-                    <div className="pr-bar-fill" style={{ width: `${(item.val / maxVal) * 100}%`, background: item.color }} />
-                  </div>
-                  <span className="pr-bar-val" style={{ color: item.color }}>{item.val}</span>
-                </div>
-              );
-            })}
+          <div className="pr-chart-card">
+            <div className="pr-chart-label">Attempt Profile</div>
+            <div style={{ height: 120, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { name: 'Perf', count: stats.attempts.overall.perfect },
+                    { name: 'Wast', count: stats.attempts.overall.wasted },
+                    { name: 'Ot C', count: stats.attempts.overall.overtimeCorrect },
+                    { name: 'Ot W', count: stats.attempts.overall.overtimeMistake },
+                    { name: 'Conf', count: stats.attempts.overall.confused }
+                  ]}
+                  margin={{ top: 5, right: 5, bottom: 0, left: -25 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                  <XAxis dataKey="name" stroke={colors.textMuted} fontSize={7} />
+                  <YAxis stroke={colors.textMuted} fontSize={7} />
+                  <Bar dataKey="count" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                    {[colors.green, colors.red, colors.accent, colors.orange, colors.purple].map((color, idx) => (
+                      <Cell key={`cell-${idx}`} fill={color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div className="pr-grid-3" style={{ marginTop: 8 }}>
+          <div className="pr-card" style={{ textAlign: 'center' }}>
+            <span className="pr-label">Perfect Attempts</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#10b981', display: 'block', marginTop: 2 }}>{stats.attempts.overall.perfect} Qs</span>
+          </div>
+          <div className="pr-card" style={{ textAlign: 'center' }}>
+            <span className="pr-label">Wasted Attempts</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#ef4444', display: 'block', marginTop: 2 }}>{stats.attempts.overall.wasted} Qs</span>
+          </div>
+          <div className="pr-card" style={{ textAlign: 'center' }}>
+            <span className="pr-label">Confused Skips</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#8b5cf6', display: 'block', marginTop: 2 }}>{stats.attempts.overall.confused} Qs</span>
           </div>
         </div>
       </div>
 
       {/* ══════════ 5. TIME INSIGHTS ══════════ */}
       <div className="pr-section">
-        <div className="pr-stitle">5 · Time Insights</div>
+        <div className="pr-section-title">
+          <Clock size={13} color="#2563eb" /> 5. Time Insights &amp; Pacing
+        </div>
 
-        <div className="pr-g2">
-          {/* Time distribution — text based */}
-          <div className="pr-card">
-            <span className="pr-lbl" style={{ marginBottom: 6 }}>Time per Subject</span>
-            {stats.timeAnalysis.subjectTimeDistribution.map((d, idx) => {
-              const total = stats.timeAnalysis.subjectTimeDistribution.reduce((a, b) => a + b.value, 0) || 1;
-              const pct = Math.round((d.value / total) * 100);
-              const clr = idx === 0 ? '#2563eb' : idx === 1 ? '#8b5cf6' : '#f97316';
-              return (
-                <div key={d.name} className="pr-bar-row">
-                  <span className="pr-bar-label">{d.name}</span>
-                  <div className="pr-bar-track">
-                    <div className="pr-bar-fill" style={{ width: `${pct}%`, background: clr }} />
-                  </div>
-                  <span className="pr-bar-val" style={{ color: clr }}>{pct}%</span>
-                </div>
-              );
-            })}
+        <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10 }}>
+          <div className="pr-chart-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="pr-chart-label" style={{ width: '100%' }}>Time per Subject</div>
+            <div style={{ height: 110, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats.timeAnalysis.subjectTimeDistribution}
+                    cx="50%" cy="50%"
+                    innerRadius={30} outerRadius={42}
+                    paddingAngle={5} dataKey="value"
+                    isAnimationActive={false}
+                  >
+                    {stats.timeAnalysis.subjectTimeDistribution.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={idx === 0 ? colors.accent : idx === 1 ? colors.purple : colors.orange} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ fontSize: 7, color: '#64748b', textAlign: 'center', marginTop: 2 }}>
+              {stats.timeAnalysis.subjectTimeDistribution.map((d, i) => (
+                <span key={i} style={{ display: 'inline-block', marginRight: 6 }}>
+                  <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 2, background: i === 0 ? colors.accent : i === 1 ? colors.purple : colors.orange, marginRight: 2, verticalAlign: 'middle' }} />
+                  {d.name}
+                </span>
+              ))}
+            </div>
           </div>
 
-          {/* Time vs Accuracy — CSS bars */}
-          <div className="pr-card">
-            <span className="pr-lbl" style={{ marginBottom: 6 }}>Time Spent vs Accuracy</span>
-            {stats.timeAnalysis.timeSpentVsAccuracy.map((b) => (
-              <div key={b.bucketName} className="pr-bar-row">
-                <span className="pr-bar-label">{b.bucketName}</span>
-                <div className="pr-bar-track">
-                  <div className="pr-bar-fill" style={{ width: `${b.accuracy}%`, background: '#2563eb' }} />
-                </div>
-                <span className="pr-bar-val" style={{ color: '#2563eb' }}>{b.accuracy}%</span>
-              </div>
-            ))}
+          <div className="pr-chart-card">
+            <div className="pr-chart-label">Time Spent vs Accuracy</div>
+            <div style={{ height: 110, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.timeAnalysis.timeSpentVsAccuracy} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                  <XAxis dataKey="bucketName" stroke={colors.textMuted} fontSize={7} />
+                  <YAxis stroke={colors.textMuted} fontSize={7} domain={[0, 100]} />
+                  <Bar dataKey="accuracy" fill={colors.accent} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
-        <div className="pr-g2" style={{ marginTop: 6 }}>
+        <div className="pr-grid-2" style={{ marginTop: 8 }}>
           <div className="pr-card">
-            <span className="pr-lbl">Fastest Correct</span>
-            {stats.timeAnalysis.fastestSolved.slice(0, 3).map((f, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, borderBottom: '1px solid #f1f5f9', padding: '2px 0' }}>
-                <span style={{ color: '#475569' }}>Q.{f.questionNumber} ({f.subject.toUpperCase().slice(0, 4)})</span>
-                <span style={{ fontWeight: 700, color: '#10b981' }}>{formatSeconds(f.timeTaken)}</span>
-              </div>
-            ))}
+            <span className="pr-label">Fastest Solved Correct</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+              {stats.timeAnalysis.fastestSolved.slice(0, 3).map((f, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, borderBottom: '1px solid #f1f5f9', paddingBottom: 2 }}>
+                  <span style={{ color: '#475569' }}>Q.{f.questionNumber} ({f.subject.toUpperCase()})</span>
+                  <span style={{ fontWeight: 700, color: '#10b981' }}>{formatSeconds(f.timeTaken)}</span>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="pr-card">
-            <span className="pr-lbl">Slowest Attempted</span>
-            {stats.timeAnalysis.slowestSolved.slice(0, 3).map((s, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, borderBottom: '1px solid #f1f5f9', padding: '2px 0' }}>
-                <span style={{ color: '#475569' }}>Q.{s.questionNumber} ({s.subject.toUpperCase().slice(0, 4)})</span>
-                <span style={{ fontWeight: 700, color: '#f97316' }}>{formatSeconds(s.timeTaken)}</span>
-              </div>
-            ))}
+            <span className="pr-label">Slowest Attempted</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
+              {stats.timeAnalysis.slowestSolved.slice(0, 3).map((s, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, borderBottom: '1px solid #f1f5f9', paddingBottom: 2 }}>
+                  <span style={{ color: '#475569' }}>Q.{s.questionNumber} ({s.subject.toUpperCase()})</span>
+                  <span style={{ fontWeight: 700, color: '#f97316' }}>{formatSeconds(s.timeTaken)}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       {/* ══════════ 6. QUESTION JOURNEY ══════════ */}
       <div className="pr-section">
-        <div className="pr-stitle">6 · Question Journey</div>
-        <div className="pr-card" style={{ padding: 6 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 2 }}>
-            {stats.questionJourney.map((j) => (
-              <div
-                key={j.id}
-                className={`pr-jcell ${j.status === 'correct' ? 'c' : j.status === 'incorrect' ? 'w' : j.status === 'marked' ? 'm' : ''}`}
-              >
-                {j.questionNumber}
-              </div>
-            ))}
+        <div className="pr-section-title">
+          <FileText size={13} color="#2563eb" /> 6. Question Journey Palette
+        </div>
+        <div className="pr-card">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: 4 }}>
+            {stats.questionJourney.map((j) => {
+              let bg = '#f1f5f9', border = '#e2e8f0', fg = '#94a3b8';
+              if (j.status === 'correct') { bg = '#ecfdf5'; border = '#86efac'; fg = '#059669'; }
+              else if (j.status === 'incorrect') { bg = '#fef2f2'; border = '#fca5a5'; fg = '#dc2626'; }
+              else if (j.status === 'marked') { bg = '#fffbeb'; border = '#fcd34d'; fg = '#d97706'; }
+              return (
+                <div
+                  key={j.id}
+                  style={{ height: 22, borderRadius: 4, border: `1px solid ${border}`, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 700, color: fg }}
+                >
+                  {j.questionNumber}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* ══════════ 7. QUESTION LOG ══════════ */}
+      {/* ══════════ 7. COMPLETE QUESTION LOG (single flowing table) ══════════ */}
       <div className="pr-section">
-        <div className="pr-stitle">7 · Question Log</div>
-        <div style={{ border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <table className="pr-tbl pr-tbl-flow">
+        <div className="pr-section-title">
+          <Layers size={13} color="#2563eb" /> 7. Detailed Question Log
+        </div>
+        <div style={{ border: '1px solid #e2eaf4', borderRadius: 8, overflow: 'hidden' }}>
+          <table className="pr-table pr-table-flow">
             <thead>
               <tr>
-                <th style={{ textAlign: 'center', width: 26, paddingLeft: 4 }}>#</th>
-                <th style={{ width: 40 }}>Subj</th>
+                <th style={{ textAlign: 'center', width: 30, paddingLeft: 6 }}>No.</th>
+                <th style={{ width: 50 }}>Subject</th>
                 <th>Chapter</th>
-                <th style={{ textAlign: 'center', width: 40 }}>Diff</th>
-                <th style={{ textAlign: 'center', width: 36 }}>Time</th>
-                <th style={{ textAlign: 'center', width: 46 }}>Status</th>
-                <th style={{ textAlign: 'center', width: 30 }}>±</th>
-                <th style={{ textAlign: 'center', width: 34 }}>Ans</th>
-                <th style={{ textAlign: 'center', width: 34, paddingRight: 4 }}>Key</th>
+                <th style={{ textAlign: 'center', width: 50 }}>Diff</th>
+                <th style={{ textAlign: 'center', width: 45 }}>Time</th>
+                <th style={{ textAlign: 'center', width: 50 }}>Status</th>
+                <th style={{ textAlign: 'center', width: 35 }}>Marks</th>
+                <th style={{ textAlign: 'center', width: 45 }}>Resp</th>
+                <th style={{ textAlign: 'center', width: 45, paddingRight: 6 }}>Key</th>
               </tr>
             </thead>
             <tbody>
               {stats.questionByQuestion.map((q: QuestionRow) => (
                 <tr key={q.id}>
-                  <td style={{ textAlign: 'center', fontWeight: 700, color: '#0f172a', paddingLeft: 4 }}>{q.questionNumber}</td>
-                  <td style={{ fontSize: 7, textTransform: 'uppercase' }}>{q.subject.slice(0, 4)}</td>
-                  <td style={{ color: '#0f172a', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.chapter}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 700, color: '#0f172a', paddingLeft: 6 }}>{q.questionNumber}</td>
+                  <td style={{ fontSize: 7, textTransform: 'uppercase' }}>{q.subject}</td>
+                  <td style={{ color: '#0f172a', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.chapter}</td>
                   <td style={{ textAlign: 'center', fontSize: 7 }}>{q.difficulty}</td>
                   <td style={{ textAlign: 'center' }}>{formatSeconds(q.timeTaken)}</td>
-                  <td style={{
-                    textAlign: 'center',
-                    fontWeight: q.attemptStatus !== 'Skipped' ? 700 : 400,
-                    color: q.attemptStatus === 'Correct' ? '#10b981' : q.attemptStatus === 'Incorrect' ? '#ef4444' : '#94a3b8',
-                    fontSize: 7
-                  }}>
-                    {q.attemptStatus === 'Correct' ? '✓ Correct' : q.attemptStatus === 'Incorrect' ? '✗ Wrong' : 'Skip'}
+                  <td style={{ textAlign: 'center', fontWeight: q.attemptStatus !== 'Skipped' ? 700 : 400, color: q.attemptStatus === 'Correct' ? '#10b981' : q.attemptStatus === 'Incorrect' ? '#ef4444' : '#94a3b8' }}>
+                    {q.attemptStatus}
                   </td>
-                  <td style={{ textAlign: 'center', fontWeight: 600, color: q.attemptStatus === 'Correct' ? '#10b981' : q.attemptStatus === 'Incorrect' ? '#ef4444' : '#94a3b8' }}>
-                    {q.attemptStatus === 'Correct' ? `+${q.marksAwarded}` : q.attemptStatus === 'Incorrect' ? `−1` : '0'}
+                  <td style={{ textAlign: 'center', fontWeight: 600 }}>
+                    {q.attemptStatus === 'Correct' ? `+${q.marksAwarded}` : q.attemptStatus === 'Incorrect' ? `-1` : '0'}
                   </td>
                   <td style={{ textAlign: 'center', fontWeight: 600, color: '#0f172a' }}>{q.studentResponse}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 600, color: '#10b981', paddingRight: 4 }}>{q.correctAnswer}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 600, color: '#10b981', paddingRight: 6 }}>{q.correctAnswer}</td>
                 </tr>
               ))}
             </tbody>
@@ -459,39 +644,30 @@ export default function PrintDashboard({
 
       {/* ══════════ 8. SCORE PROGRESSION ══════════ */}
       <div className="pr-section">
-        <div className="pr-stitle">8 · Cumulative Score Progression</div>
-        <div style={{ border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <table className="pr-tbl pr-tbl-flow">
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'center', paddingLeft: 4 }}>Q#</th>
-                <th style={{ textAlign: 'center' }}>Physics</th>
-                <th style={{ textAlign: 'center' }}>Chemistry</th>
-                <th style={{ textAlign: 'center' }}>Maths</th>
-                <th style={{ textAlign: 'center', paddingRight: 4 }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Show every 5th question + the last one for density */}
-              {stats.subjectMovement
-                .filter((_, i) => i % 5 === 0 || i === stats.subjectMovement.length - 1)
-                .map((row: any, i: number) => (
-                <tr key={i}>
-                  <td style={{ textAlign: 'center', fontWeight: 700, paddingLeft: 4 }}>{row.questionNumber}</td>
-                  <td style={{ textAlign: 'center', color: '#2563eb' }}>{row.physicsScore}</td>
-                  <td style={{ textAlign: 'center', color: '#f97316' }}>{row.chemistryScore}</td>
-                  <td style={{ textAlign: 'center', color: '#8b5cf6' }}>{row.mathScore}</td>
-                  <td style={{ textAlign: 'center', fontWeight: 700, paddingRight: 4 }}>{row.totalScore}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="pr-section-title">
+          <TrendingUp size={13} color="#2563eb" /> 8. Cumulative Score Progression
+        </div>
+        <div className="pr-chart-card">
+          <div style={{ height: 160, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={stats.subjectMovement} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+                <XAxis dataKey="questionNumber" stroke={colors.textMuted} fontSize={7} />
+                <YAxis stroke={colors.textMuted} fontSize={7} />
+                <Legend verticalAlign="top" height={18} iconSize={8} wrapperStyle={{ fontSize: 7 }} />
+                <Line type="monotone" dataKey="physicsScore" name="Physics" stroke={colors.accent} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="chemistryScore" name="Chemistry" stroke={colors.orange} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="mathScore" name="Maths" stroke={colors.purple} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="totalScore" name="Total" stroke={colors.text} strokeWidth={2} dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
-      {/* ══════════ FOOTER ══════════ */}
-      <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 6, marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 7, color: '#94a3b8' }}>
-        <span>Performance statistics compiled on SolvingMinds. Pure HTML print layout — zero vector graphics.</span>
+      {/* ══════════ END FOOTER ══════════ */}
+      <div className="pr-end-footer" style={{ borderTop: '1px solid #e2eaf4', paddingTop: 8, marginTop: 16, display: 'flex', justifyContent: 'space-between', fontSize: 7, color: '#94a3b8' }}>
+        <span>Factual performance statistics compiled on SolvingMinds. Searchable vector print layout.</span>
         <span>SolvingMinds © 2026</span>
       </div>
     </div>
