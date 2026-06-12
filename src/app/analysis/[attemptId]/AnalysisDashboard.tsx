@@ -187,13 +187,20 @@ export default function AnalysisDashboard({
     try {
       const response = await fetch(`/api/analysis/${attemptId}/pdf`);
       if (!response.ok) {
-        let errMsg = 'Failed to generate PDF on server';
+        let errMsg = `Failed to generate PDF on server (HTTP ${response.status})`;
         try {
-          const jsonErr = await response.json();
-          if (jsonErr.details) {
-            errMsg = `${jsonErr.error} Details: ${jsonErr.details}`;
-          } else if (jsonErr.error) {
-            errMsg = jsonErr.error;
+          const text = await response.text();
+          try {
+            const jsonErr = JSON.parse(text);
+            if (jsonErr.details) {
+              errMsg = `${jsonErr.error} Details: ${jsonErr.details}`;
+            } else if (jsonErr.error) {
+              errMsg = jsonErr.error;
+            }
+          } catch {
+            if (text) {
+              errMsg = `${errMsg}. Server Response: ${text.slice(0, 250)}`;
+            }
           }
         } catch (_) {}
         throw new Error(errMsg);

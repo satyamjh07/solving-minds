@@ -1,6 +1,7 @@
 import puppeteerCore from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import fs from 'fs';
+import path from 'path';
 
 function getSystemChromePath(): string | undefined {
   const paths = [
@@ -35,10 +36,16 @@ export async function launchBrowser() {
     });
   } else {
     // Production / Vercel deployment: launch with sparticuz compressed chromium
+    const execPath = await chromium.executablePath();
+    if (execPath) {
+      const dir = path.dirname(execPath);
+      process.env.LD_LIBRARY_PATH = dir + (process.env.LD_LIBRARY_PATH ? `:${process.env.LD_LIBRARY_PATH}` : '');
+    }
+
     return await puppeteerCore.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: execPath,
       headless: chromium.headless as boolean | 'shell' | undefined,
     });
   }
