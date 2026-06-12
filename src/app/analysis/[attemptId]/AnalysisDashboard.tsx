@@ -49,7 +49,6 @@ export default function AnalysisDashboard({
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
-  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   // Sorting and searching states
   const [chapterSearch, setChapterSearch] = useState('');
@@ -179,50 +178,9 @@ export default function AnalysisDashboard({
     return true;
   });
 
-  // PDF Download Trigger
-  const handlePdfDownload = async () => {
-    if (pdfGenerating) return;
-    setPdfGenerating(true);
-
-    try {
-      const response = await fetch(`/api/analysis/${attemptId}/pdf`);
-      if (!response.ok) {
-        let errMsg = `Failed to generate PDF on server (HTTP ${response.status})`;
-        try {
-          const text = await response.text();
-          try {
-            const jsonErr = JSON.parse(text);
-            if (jsonErr.details) {
-              errMsg = `${jsonErr.error} Details: ${jsonErr.details}`;
-            } else if (jsonErr.error) {
-              errMsg = jsonErr.error;
-            }
-          } catch {
-            if (text) {
-              errMsg = `${errMsg}. Server Response: ${text.slice(0, 250)}`;
-            }
-          }
-        } catch (_) {}
-        throw new Error(errMsg);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `SolvingMinds_Report_${attemptId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      
-      // Cleanup
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      console.error('PDF Download failed:', err);
-      alert(`Failed to generate and download PDF report. Error: ${err.message || err}`);
-    } finally {
-      setPdfGenerating(false);
-    }
+  // PDF Download Trigger - Redirects to printable view that triggers window.print()
+  const handlePdfDownload = () => {
+    window.open(`/analysis/${attemptId}/print`, '_blank');
   };
 
   // Recharts colors dynamically loaded based on light/dark theme variables
@@ -331,20 +289,10 @@ export default function AnalysisDashboard({
             {/* Download analysis button */}
             <button
               onClick={handlePdfDownload}
-              disabled={pdfGenerating}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[var(--bg2)] hover:bg-[var(--bg3)] text-[var(--text)] border border-[var(--border)] font-mono text-xs uppercase tracking-widest font-bold transition-all disabled:opacity-50"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[var(--bg2)] hover:bg-[var(--bg3)] text-[var(--text)] border border-[var(--border)] font-mono text-xs uppercase tracking-widest font-bold transition-all"
             >
-              {pdfGenerating ? (
-                <>
-                  <RefreshCw size={14} className="animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Download size={14} />
-                  Download Report
-                </>
-              )}
+              <Download size={14} />
+              Download Report
             </button>
           </div>
         </header>

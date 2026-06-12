@@ -22,7 +22,7 @@ function getSystemChromePath() {
 }
 
 async function runTest() {
-  const attemptId = '25af9421-141f-4d2c-96a4-a6a6ab5181fc';
+  const attemptId = 'd011d55a-54b9-434c-8c7b-b7d80181dc7e';
   console.log('Starting Next.js dev server...');
   
   const devServer = spawn('npm', ['run', 'dev'], {

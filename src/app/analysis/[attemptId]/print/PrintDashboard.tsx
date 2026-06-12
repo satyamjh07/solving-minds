@@ -27,6 +27,10 @@ export default function PrintDashboard({
 
   useEffect(() => {
     setMounted(true);
+    const timer = setTimeout(() => {
+      window.print();
+    }, 1500); // Allow charts to render completely without animation
+    return () => clearTimeout(timer);
   }, []);
 
   const formatSeconds = (sec: number) => {
@@ -94,10 +98,13 @@ export default function PrintDashboard({
     <div className="bg-white text-slate-900 font-sans p-6 max-w-4xl mx-auto space-y-16 print:space-y-0 print:p-0">
       {/* GLOBAL PRINT STYLES */}
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        
         @media print {
           body {
             background: #ffffff !important;
             color: #0f172a !important;
+            font-family: 'Inter', system-ui, sans-serif !important;
             font-size: 11px;
             print-color-adjust: exact;
             -webkit-print-color-adjust: exact;
@@ -109,7 +116,7 @@ export default function PrintDashboard({
             box-sizing: border-box;
             padding: 15mm 10mm !important;
             display: flex;
-            flex-col: column;
+            flex-direction: column;
             justify-content: space-between;
           }
           .recharts-responsive-container {
@@ -126,6 +133,7 @@ export default function PrintDashboard({
           display: flex;
           flex-direction: column;
           justify-content: space-between;
+          font-family: 'Inter', system-ui, sans-serif;
         }
       `}</style>
 
@@ -265,7 +273,7 @@ export default function PrintDashboard({
                       <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                       <XAxis dataKey="subjectName" stroke={colors.textMuted} fontSize={8} tickFormatter={v => v.substring(0, 4).toUpperCase()} />
                       <YAxis stroke={colors.textMuted} fontSize={8} domain={[0, 100]} />
-                      <Bar dataKey="accuracy" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="accuracy" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                         {stats.subjects.map((entry, idx) => (
                           <Cell key={`cell-${idx}`} fill={idx === 0 ? colors.accent : idx === 1 ? colors.purple : colors.orange} />
                         ))}
@@ -305,7 +313,7 @@ export default function PrintDashboard({
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-600">
                   {stats.chapters.slice(0, 18).map((c: ChapterStats) => (
-                    <tr key={`${c.subject}_${c.chapterName}`} className="hover:bg-slate-50">
+                    <tr key={`${c.subject}_${c.chapterName}`}>
                       <td className="py-2 px-4 font-bold text-slate-800 font-sans">{c.chapterName}</td>
                       <td className="py-2 px-2 uppercase text-[8px]">{c.subject}</td>
                       <td className="py-2 px-2 text-center">{c.questionsSeen}</td>
@@ -346,7 +354,7 @@ export default function PrintDashboard({
                       <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                       <XAxis dataKey="name" stroke={colors.textMuted} fontSize={8} />
                       <YAxis stroke={colors.textMuted} fontSize={8} domain={[0, 100]} />
-                      <Bar dataKey="accuracy" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="accuracy" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                         {stats.difficulties.map((entry, idx) => (
                           <Cell key={`cell-${idx}`} fill={entry.name === 'Easy' ? colors.green : entry.name === 'Moderate' ? colors.orange : colors.red} />
                         ))}
@@ -373,7 +381,7 @@ export default function PrintDashboard({
                       <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                       <XAxis dataKey="name" stroke={colors.textMuted} fontSize={8} />
                       <YAxis stroke={colors.textMuted} fontSize={8} />
-                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                         {[
                           { color: colors.green },
                           { color: colors.red },
@@ -432,6 +440,7 @@ export default function PrintDashboard({
                         outerRadius={55}
                         paddingAngle={5}
                         dataKey="value"
+                        isAnimationActive={false}
                       >
                         {stats.timeAnalysis.subjectTimeDistribution.map((entry, idx) => (
                           <Cell key={`cell-${idx}`} fill={idx === 0 ? colors.accent : idx === 1 ? colors.purple : colors.orange} />
@@ -450,7 +459,7 @@ export default function PrintDashboard({
                       <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
                       <XAxis dataKey="bucketName" stroke={colors.textMuted} fontSize={8} />
                       <YAxis stroke={colors.textMuted} fontSize={8} domain={[0, 100]} />
-                      <Bar dataKey="accuracy" fill={colors.accent} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="accuracy" fill={colors.accent} radius={[4, 4, 0, 0]} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -633,10 +642,10 @@ export default function PrintDashboard({
                     <XAxis dataKey="questionNumber" stroke={colors.textMuted} fontSize={8} />
                     <YAxis stroke={colors.textMuted} fontSize={8} />
                     <Legend verticalAlign="top" height={24} fontSize={8} />
-                    <Line type="monotone" dataKey="physicsScore" name="Physics" stroke={colors.accent} strokeWidth={1.5} dot={false} />
-                    <Line type="monotone" dataKey="chemistryScore" name="Chemistry" stroke={colors.orange} strokeWidth={1.5} dot={false} />
-                    <Line type="monotone" dataKey="mathScore" name="Maths" stroke={colors.purple} strokeWidth={1.5} dot={false} />
-                    <Line type="monotone" dataKey="totalScore" name="Total" stroke={colors.text} strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="physicsScore" name="Physics" stroke={colors.accent} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="chemistryScore" name="Chemistry" stroke={colors.orange} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="mathScore" name="Maths" stroke={colors.purple} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="totalScore" name="Total" stroke={colors.text} strokeWidth={2} dot={false} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
