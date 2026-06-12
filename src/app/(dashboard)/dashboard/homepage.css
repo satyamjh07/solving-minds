@@ -1,0 +1,538 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* 
+  SolvingMinds Redesigned Homepage
+  Premium SaaS Aesthetic - Spotify/Linear style
+*/
+
+.sm-homepage-center, .sm-homepage-center * {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.sm-homepage-center {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  padding-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Section Titles */
+.sm-section-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.sm-section-subtitle {
+  font-size: 0.875rem;
+  color: var(--text3);
+  font-weight: 500;
+  margin-top: -0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* Base Card */
+.sm-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.2s ease-out;
+}
+
+.sm-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Banner Slider */
+.sm-banner-container {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+}
+
+.sm-banner-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+  display: flex;
+  pointer-events: none;
+}
+
+.sm-banner-slide.active {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.sm-banner-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.sm-banner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0) 100%);
+  z-index: 1;
+}
+
+.sm-banner-content {
+  position: relative;
+  z-index: 2;
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  max-width: 60%;
+}
+
+.sm-banner-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: white;
+  line-height: 1.1;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.sm-banner-subtitle {
+  font-size: 1rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1.5rem;
+}
+
+.sm-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent);
+  color: white !important;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+  width: fit-content;
+  border: none;
+  cursor: pointer;
+}
+
+.sm-btn-primary:hover {
+  background: var(--blue);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.sm-banner-dots {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 3rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 2;
+}
+
+.sm-banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sm-banner-dot.active {
+  background: white;
+  transform: scale(1.2);
+}
+
+/* Continue Learning */
+.sm-continue-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  gap: 1.5rem;
+  background: linear-gradient(145deg, var(--bg2) 0%, var(--bg) 100%);
+}
+
+.sm-continue-info {
+  flex: 1;
+}
+
+.sm-continue-chapter {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.sm-continue-subject {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+.sm-progress-wrap {
+  margin-bottom: 0.5rem;
+}
+
+.sm-progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text3);
+  margin-bottom: 0.5rem;
+}
+
+.sm-progress-bar-bg {
+  height: 6px;
+  background: var(--bg3);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.sm-progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.5s ease-out;
+}
+
+.sm-continue-action {
+  flex-shrink: 0;
+}
+
+/* Quick Access */
+.sm-qa-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+
+.sm-qa-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 1rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  color: var(--text);
+}
+
+.sm-qa-btn:hover {
+  background: var(--bg3);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+
+.sm-qa-icon {
+  color: var(--text2);
+  margin-bottom: 0.75rem;
+  transition: color 0.2s;
+}
+
+.sm-qa-btn:hover .sm-qa-icon {
+  color: var(--accent);
+}
+
+.sm-qa-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Daily Progress (Compact KPI) */
+.sm-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.sm-kpi-card {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sm-kpi-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sm-kpi-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.sm-kpi-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Colors for KPI icons */
+.sm-c-orange { background: rgba(249, 115, 22, 0.1); color: var(--orange); }
+.sm-c-purple { background: rgba(168, 85, 247, 0.1); color: var(--purple); }
+.sm-c-green { background: rgba(16, 185, 129, 0.1); color: var(--green); }
+.sm-c-cyan { background: rgba(0, 210, 255, 0.1); color: var(--accent); }
+
+/* Recommended For You */
+.sm-tabs {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sm-tabs::-webkit-scrollbar { display: none; }
+
+.sm-tab {
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.sm-tab:hover {
+  color: var(--text2);
+}
+
+.sm-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.sm-rec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.sm-rec-card {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sm-rec-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sm-rec-meta {
+  font-size: 0.75rem;
+  color: var(--text3);
+}
+
+.sm-rec-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Explore Exams */
+.sm-exam-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.sm-exam-card {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.sm-exam-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text2);
+  transition: all 0.2s;
+}
+
+.sm-exam-card:hover .sm-exam-logo {
+  background: var(--accent);
+  color: white;
+}
+
+.sm-exam-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Coming Soon */
+.sm-soon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.sm-soon-card {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.sm-soon-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.sm-soon-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg3);
+  color: var(--text2);
+}
+
+.sm-soon-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 1rem;
+}
+
+.sm-soon-desc {
+  font-size: 0.75rem;
+  color: var(--text3);
+  line-height: 1.4;
+}
+
+/* Responsive Overrides */
+@media (max-width: 1024px) {
+  .sm-qa-grid, .sm-kpi-grid, .sm-soon-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .sm-banner-container {
+    height: 320px;
+  }
+  .sm-banner-content {
+    max-width: 100%;
+    padding: 2rem;
+    align-items: center;
+    text-align: center;
+  }
+  .sm-banner-title {
+    font-size: 2rem;
+  }
+  .sm-banner-overlay {
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%);
+    justify-content: flex-end;
+  }
+  .sm-banner-dots {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 1rem;
+  }
+  .sm-continue-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sm-continue-action {
+    display: flex;
+  }
+  .sm-continue-action .sm-btn-primary {
+    width: 100%;
+  }
+  .sm-qa-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .sm-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sm-soon-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .sm-qa-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sm-exam-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
