@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuestions, Question } from '@/hooks/useQuestions';
 import { useAttempts, Attempt } from '@/hooks/useAttempts';
 import { useProfile } from '@/hooks/useProfile';
+import { awardAtoms } from '@/lib/atoms';
 import { supabase } from '@/lib/supabase/client';
 import 'katex/dist/katex.min.css';
 import './solving-redesign.css';
@@ -23,8 +24,10 @@ import {
   Target,
   Clock,
   Flame,
-  TrendingUp
+  TrendingUp,
+  Flag
 } from 'lucide-react';
+import { ReportQuestionModal } from '@/components/Solving/ReportQuestionModal';
 
 // ─── Module-level helpers (defined OUTSIDE the component so React never recreates them) ───
 
@@ -193,7 +196,14 @@ export default function SolvingPage() {
     if (exam) return 'pyq-selection';
     return 'modes';
   });
-  const [selectedExam, setSelectedExam] = useState<string | null>(() => searchParams.get('exam'));
+  const [selectedExam, setSelectedExam] = useState<string | null>(() => {
+    const raw = searchParams.get('exam');
+    if (!raw) return null;
+    const lower = raw.toLowerCase().trim();
+    if (lower === 'jee main' || lower === 'jee-main' || lower === 'jee-mains' || lower === 'jee mains') return 'jee-mains';
+    if (lower === 'jee advanced' || lower === 'jee-advanced') return 'jee-advanced';
+    return raw;
+  });
   const [subject, setSubject] = useState(() => searchParams.get('subject') || 'physics');
   const [selectedChapter, setSelectedChapter] = useState<string | null>(() => searchParams.get('chapter'));
   const [chapters, setChapters] = useState<ChapterInfo[]>([]);
@@ -220,6 +230,11 @@ export default function SolvingPage() {
   const timerRef = useRef<number>(0);                          // elapsed seconds (mutable, no re-render)
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // interval handle
 
+  // Filters
+  const [filterYear, setFilterYear] = useState(() => searchParams.get('year') || 'ALL');
+  const [filterDifficulty, setFilterDifficulty] = useState(() => searchParams.get('difficulty') || 'ALL');
+  const [filterType, setFilterType] = useState(() => searchParams.get('type') || 'ALL');
+
   // ─── Sync state → URL so refresh always restores position ───
   const didMountRef = useRef(false);
   useEffect(() => {
@@ -230,20 +245,19 @@ export default function SolvingPage() {
     if (subject !== 'physics') params.set('subject', subject);
     if (selectedChapter) params.set('chapter', selectedChapter);
     if (view === 'solving') params.set('q', currentIndex.toString());
+    if (filterYear !== 'ALL') params.set('year', filterYear);
+    if (filterDifficulty !== 'ALL') params.set('difficulty', filterDifficulty);
+    if (filterType !== 'ALL') params.set('type', filterType);
     const qs = params.toString();
     router.replace(qs ? `/solving?${qs}` : '/solving', { scroll: false } as any);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, selectedExam, subject, selectedChapter, currentIndex]);
-
-  // Filters
-  const [filterYear, setFilterYear] = useState('ALL');
-  const [filterDifficulty, setFilterDifficulty] = useState('ALL');
-  const [filterType, setFilterType] = useState('ALL');
+  }, [view, selectedExam, subject, selectedChapter, currentIndex, filterYear, filterDifficulty, filterType]);
 
   // ─── Analysis overlay state ───
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [examAnalytics, setExamAnalytics] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Fetch chapters and counts for the subject
   useEffect(() => {
@@ -511,6 +525,40 @@ export default function SolvingPage() {
           attemptCacheRef.current[qId] = (data as any)[0];
         }
       });
+
+      // Atoms awarding logic based on event type
+      let atomsAwarded = 0;
+      let atomType = "";
+      
+      // Since attemptsCount was incremented optimistically above, the first attempt will have a count of 1 now.
+      const isFirstAttempt = (attemptsCount[qId] || 0) === 0;
+
+      if (isFirstAttempt) {
+        if (isCorrect) {
+          atomsAwarded = 4;
+          atomType = "QUESTION_CORRECT";
+        } else {
+          atomsAwarded = -1;
+          atomType = "QUESTION_INCORRECT";
+        }
+      } else {
+        // Re-solving only gives rewards if the user successfully answers it correctly
+        if (isCorrect) {
+          const prevAttempt = localAttempts[qId];
+          const wasPrevCorrect = prevAttempt ? prevAttempt.is_correct : false;
+          if (wasPrevCorrect) {
+            atomsAwarded = 1;
+            atomType = "QUESTION_RESOLVE_CORRECT";
+          } else {
+            atomsAwarded = 2;
+            atomType = "QUESTION_RESOLVE_INCORRECT";
+          }
+        }
+      }
+
+      if (atomsAwarded !== 0) {
+        awardAtoms(userId, atomType, atomsAwarded, profile);
+      }
     }
   };
 
@@ -982,6 +1030,13 @@ export default function SolvingPage() {
                       ⏳ COOLDOWN ACTIVE
                     </span>
                   )}
+                  <button
+                    onClick={() => setShowReportModal(true)}
+                    className="solver-badge hover:bg-red-500/20 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-colors ml-auto flex items-center gap-1 cursor-pointer font-bold"
+                    style={{ background: 'rgba(239, 68, 68, 0.05)', color: '#f87171' }}
+                  >
+                    <Flag size={10} /> Report
+                  </button>
                   <QuestionTimer 
                     timerRef={timerRef}
                     timerIntervalRef={timerIntervalRef}
@@ -1174,6 +1229,12 @@ export default function SolvingPage() {
           </div>
         </div>
 
+      {showReportModal && currentQuestion && (
+        <ReportQuestionModal 
+          questionId={currentQuestion._dbId} 
+          onClose={() => setShowReportModal(false)} 
+        />
+      )}
       </div>
 
       <style jsx global>{`

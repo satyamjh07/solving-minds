@@ -159,7 +159,7 @@ export default function OnboardingPage() {
           <div className="inline-flex items-center gap-2 mb-4 bg-white/[0.02] border border-white/[0.07] px-4 py-1.5 rounded-full">
             <Zap className="w-4 h-4 text-[#00f0ff] animate-pulse" />
             <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#00f0ff]">
-              Aura Protocol Initializer
+              Atoms Protocol Initializer
             </span>
           </div>
           <h1 className="text-4xl font-[family-name:var(--font-bebas)] tracking-wider text-foreground">

@@ -274,7 +274,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <div className="sm-kpi-val">{profile?.aura_score || 0}</div>
-              <div className="sm-kpi-label">Aura Score</div>
+              <div className="sm-kpi-label">Atoms</div>
             </div>
           </div>
           <div className="sm-card sm-kpi-card">
@@ -361,7 +361,7 @@ export default function DashboardPage() {
             <div className="sm-card sm-rec-card col-span-full bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border-purple-500/20">
               <div className="flex items-center gap-3 mb-2">
                 <Brain className="text-purple-400" />
-                <span className="font-bold text-lg">Aura AI Protocol</span>
+                <span className="font-bold text-lg">AI Protocol</span>
               </div>
               <p className="text-sm text-gray-400 mb-4">Our neural engine is analyzing your solving patterns. Personalized hyper-optimization paths will appear here soon.</p>
               <div className="text-xs font-bold uppercase tracking-widest text-purple-400">Status: Calibrating</div>
@@ -375,12 +375,12 @@ export default function DashboardPage() {
         <div className="sm-section-title">Explore Exams</div>
         <div className="sm-exam-grid">
           {[
-            { name: 'JEE Main', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/1714022307392-4pune-jee-main-results-decla-1599551417_qb0dhp.jpg', comingSoon: false },
-            { name: 'JEE Advanced', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/jee-advance_sh2wwu.png', comingSoon: false },
-            { name: 'BITSAT', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/BITS_Pilani-Logo.svg_o2z5v1.png', comingSoon: true },
-            { name: 'IAT', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265252/iiser_ll9ssf.png', comingSoon: true },
-            { name: 'MHT CET', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/MHT-CET_logo_ejx6dg.png', comingSoon: true },
-            { name: 'COMEDK', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265234/comedk_gsw5ye.jpg', comingSoon: true },
+            { id: 'jee-mains', name: 'JEE Main', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/1714022307392-4pune-jee-main-results-decla-1599551417_qb0dhp.jpg', comingSoon: false },
+            { id: 'jee-advanced', name: 'JEE Advanced', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/jee-advance_sh2wwu.png', comingSoon: false },
+            { id: 'bitsat', name: 'BITSAT', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/BITS_Pilani-Logo.svg_o2z5v1.png', comingSoon: true },
+            { id: 'iat', name: 'IAT', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265252/iiser_ll9ssf.png', comingSoon: true },
+            { id: 'mht-cet', name: 'MHT CET', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265251/MHT-CET_logo_ejx6dg.png', comingSoon: true },
+            { id: 'comedk', name: 'COMEDK', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265234/comedk_gsw5ye.jpg', comingSoon: true },
           ].map((exam) => (
             exam.comingSoon ? (
               <div key={exam.name} className="sm-card sm-exam-card relative opacity-70">
@@ -391,7 +391,7 @@ export default function DashboardPage() {
                 <div className="sm-exam-name">{exam.name}</div>
               </div>
             ) : (
-              <Link key={exam.name} href={`/solving?exam=${encodeURIComponent(exam.name)}`} className="sm-card sm-exam-card">
+              <Link key={exam.name} href={`/solving?exam=${encodeURIComponent(exam.id)}`} className="sm-card sm-exam-card">
                 <div className="sm-exam-logo overflow-hidden bg-white/5 p-0">
                   <img src={exam.logo} alt={exam.name} className="w-full h-full object-contain p-2" />
                 </div>

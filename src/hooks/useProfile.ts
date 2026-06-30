@@ -17,6 +17,8 @@ export interface Profile {
   aura_level: string;
   muted_until: string | null;
   daily_target: number;
+  streak?: number;
+  lifetime_atoms?: number;
 }
 
 export function useProfile() {

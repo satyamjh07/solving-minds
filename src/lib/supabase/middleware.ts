@@ -49,8 +49,12 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute =
     !isCallbackRoute && !isOnboardingRoute && request.nextUrl.pathname.startsWith('/auth')
 
+  // Allow public access to individual post pages /community/[id]
+  const isCommunityPostRoute = request.nextUrl.pathname.startsWith('/community/') && 
+    request.nextUrl.pathname !== '/community/';
+
   const isProtectedRoute =
-    !isCallbackRoute && (
+    !isCallbackRoute && !isCommunityPostRoute && (
       request.nextUrl.pathname.startsWith('/dashboard') ||
       request.nextUrl.pathname.startsWith('/community') ||
       request.nextUrl.pathname.startsWith('/solving') ||

@@ -13,9 +13,9 @@ export interface DashboardStats {
   physicsAccuracy: number;
   chemistryAccuracy: number;
   mathAccuracy: number;
-  auraScore: number | string;
-  auraLevel: string;
-  auraPercentile: number | null;
+  atomsScore: number | string;
+  atomsLeague: string;
+  atomsPercentile: number | null;
   studyDates: Set<number>;
   dayTotals: number[];
 }
@@ -98,8 +98,7 @@ export function useDashboardStats(userId: string | undefined) {
       const totalCorrect = atts.filter(a => a.is_correct).length;
       const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
-      // 3. Aura (Mock for now, normally calls Edge Function)
-      // The user profile has aura_score and aura_level
+      // 3. Atoms (from profile)
       const { data: profile } = await supabase.from('profiles').select('aura_score, aura_level').eq('id', userId).single();
 
       setStats({
@@ -112,9 +111,9 @@ export function useDashboardStats(userId: string | undefined) {
         physicsAccuracy: subjs.physics.t > 0 ? Math.round((subjs.physics.c / subjs.physics.t) * 100) : 0,
         chemistryAccuracy: subjs.chemistry.t > 0 ? Math.round((subjs.chemistry.c / subjs.chemistry.t) * 100) : 0,
         mathAccuracy: subjs.mathematics.t > 0 ? Math.round((subjs.mathematics.c / subjs.mathematics.t) * 100) : 0,
-        auraScore: profile?.aura_score || '—',
-        auraLevel: profile?.aura_level || '',
-        auraPercentile: null,
+        atomsScore: profile?.aura_score || '—',
+        atomsLeague: profile?.aura_level || '',
+        atomsPercentile: null,
         studyDates,
         dayTotals
       });

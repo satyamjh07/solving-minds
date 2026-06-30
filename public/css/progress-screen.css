@@ -1,0 +1,173 @@
+/* ═══════════════════════════════════════════════════════
+   ATOMS PROGRESSION SYSTEM CSS
+   ═══════════════════════════════════════════════════════ */
+
+/* Floating $+N$ and $-N$ Atom animations */
+@keyframes floatAtom {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -30px) scale(1.1);
+  }
+  50% {
+    transform: translate(-30%, -70px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -120px) scale(0.85);
+  }
+}
+
+.animate-float-atom {
+  animation: floatAtom 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Spin animation for atom icon */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 8s linear infinite;
+}
+
+/* Header Atoms Chip pulse animation */
+@keyframes chipGlowPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 229, 160, 0.4);
+    border-color: rgba(0, 229, 160, 0.4);
+    background: rgba(0, 229, 160, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 15px 4px rgba(0, 229, 160, 0.35);
+    border-color: rgba(0, 229, 160, 0.9);
+    background: rgba(0, 229, 160, 0.25);
+    transform: scale(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 229, 160, 0);
+    border-color: var(--border);
+    background: rgba(255, 255, 255, 0.03);
+  }
+}
+
+.pulse-active {
+  animation: chipGlowPulse 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Bouncing slow animations for badges/emblems */
+@keyframes bounceSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-bounce-slow {
+  animation: bounceSlow 3.5s ease-in-out infinite;
+}
+
+/* Fullscreen promotion energy ripple */
+@keyframes energyRipple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.1);
+    opacity: 0.8;
+    box-shadow: 0 0 20px 4px rgba(0, 240, 255, 0.6);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 50px 15px rgba(0, 240, 255, 0.4);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(15);
+    opacity: 0;
+    box-shadow: 0 0 100px 30px rgba(124, 58, 237, 0);
+  }
+}
+
+.animate-energy-ripple {
+  animation: energyRipple 1.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+/* Atoms Confetti particles falling */
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-20px) rotate(0deg) scale(0.8);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(105vh) rotate(720deg) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.animate-confetti-particle {
+  animation: confettiFall 3s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* Pulsing slow glows */
+@keyframes pulseSlow {
+  0%, 100% { opacity: 0.7; transform: scale(1) translate(-50%, -50%); }
+  50% { opacity: 0.9; transform: scale(1.15) translate(-50%, -50%); }
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 5s ease-in-out infinite;
+}
+
+/* Custom scrollbars inside modal */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.15);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.3);
+}
+
+/* Responsive fixes for Atoms Chip */
+.atoms-chip-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #00e5a0;
+  letter-spacing: 0.04em;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  outline: none;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.atoms-chip-pill:hover {
+  border-color: #00e5a0;
+  box-shadow: 0 0 15px rgba(0, 229, 160, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  transform: translateY(-1.5px);
+}
+
+.atoms-chip-pill img {
+  width: 1.35rem;
+  height: 1.35rem;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(0, 229, 160, 0.8));
+}

@@ -246,7 +246,7 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
           <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
         </div>
       ) : (
-        <div className="space-y-4 mb-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+        <div className="space-y-4 mb-4 pb-32">
           {comments.length > 0 ? (
             comments.map((comment) => (
               <div key={comment.id} className="flex gap-3">
@@ -378,7 +378,7 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
       )}
 
       {profile ? (
-        <div className="space-y-3">
+        <div className="fixed bottom-[62px] left-1/2 -translate-x-1/2 w-full max-w-3xl z-40 bg-[#080f25]/90 border-t border-x border-white/10 px-4 py-4 rounded-t-3xl backdrop-blur-xl shadow-[0_-8px_30px_rgba(0,0,0,0.6)] flex flex-col gap-3">
           {imagePreview && (
             <div className="relative inline-block ml-11">
               <img src={imagePreview} alt="preview" className="w-20 h-20 object-cover rounded-xl border border-cyan-400/50 shadow-lg shadow-cyan-400/10" />
@@ -431,7 +431,9 @@ export function CommentsSection({ postId, onShowUser }: { postId: string; onShow
           </div>
         </div>
       ) : (
-        <p className="text-[10px] font-mono text-gray-600 text-center py-2 uppercase tracking-widest">Authentication required for transmission.</p>
+        <div className="fixed bottom-[62px] left-1/2 -translate-x-1/2 w-full max-w-3xl z-40 bg-[#080f25]/90 border-t border-x border-white/10 px-4 py-3 rounded-t-3xl backdrop-blur-xl shadow-[0_-8px_30px_rgba(0,0,0,0.6)]">
+          <p className="text-[10px] font-mono text-gray-500 text-center py-2 uppercase tracking-widest">Authentication required for transmission.</p>
+        </div>
       )}
 
       {lightboxImage && (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { calculateAura } from '@/lib/aura';
+import { getLeagueByAtoms } from '@/lib/aura';
 
 export interface DashboardAnalytics {
   streak: { current: number; best: number };
@@ -212,22 +212,12 @@ export function useDashboardAnalytics(userId: string | undefined) {
           globalAvgTimePerQ
         });
 
-        // 3. Update profile with new aura score (debounced or simple)
-        const aura = calculateAura({
-          totalQuestions: resourceAllocation.reduce((acc, curr) => acc + curr.totalQuestions, 0),
-          streak: currentStreak,
-          accuracy: rows.length > 0 ? Math.round((rows.filter(r => r.is_correct).length / rows.length) * 100) : 0
-        });
-
+        // 3. Update streak in profile (atoms are now transaction-based, not formula-based)
         if (userId) {
-          // 3.1 Update main profile
-          // Since aura_leaderboard is a VIEW, it will automatically reflect 
-          // changes made to the profiles table.
           await supabase
             .from('profiles')
             .update({ 
-              aura_score: aura.score,
-              aura_level: `Level ${aura.level}` 
+              streak: currentStreak
             })
             .eq('id', userId);
         }

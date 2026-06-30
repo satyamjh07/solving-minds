@@ -37,9 +37,9 @@ export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {
         const correctOnes = attempts?.filter(a => a.is_correct).length || 0;
         const accuracy = totalQuestions > 0 ? Math.round((correctOnes / totalQuestions) * 100) : 0;
 
-        // Normalize legacy levels (e.g., Delusional -> Level 1)
-        let displayLevel = profile.aura_level || 'Level 1';
-        if (displayLevel.includes('Delusional')) displayLevel = 'Level 1';
+        // Normalize legacy levels (e.g. Delusional/Level 1 -> Carbon)
+        let displayLevel = profile.aura_level || 'Carbon';
+        if (displayLevel.includes('Delusional') || displayLevel.includes('Level')) displayLevel = 'Carbon';
 
         setData({
           ...profile,
@@ -102,7 +102,7 @@ export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {
           <h3 className="text-xl font-black text-foreground mb-1">{data.name || 'Anonymous User'}</h3>
           <div className="flex items-center gap-2 mb-4">
             <span className="text-[9px] font-bold uppercase tracking-widest text-purple px-2 py-0.5 bg-purple/10 rounded border border-purple/20">
-              {data.aura_level || 'Level 1'}
+              {data.aura_level || 'Carbon'}
             </span>
             {data.class && (
                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
@@ -112,7 +112,7 @@ export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {
           </div>
 
           <p className="text-sm text-muted-foreground text-center line-clamp-3 mb-8 px-4">
-            {data.bio || "This user is on a mission to master the Aura Protocol. No bio provided yet."}
+            {data.bio || "This user is on a mission to earn Atoms. No bio provided yet."}
           </p>
 
           {/* Stats Grid */}

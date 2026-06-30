@@ -67,6 +67,7 @@ export default function RootLayout({
         <link rel="stylesheet" href="/css/solver.css" />
         <link rel="stylesheet" href="/css/bottom-nav-patch.css" />
         <link rel="stylesheet" href="/css/dashboard-analytics.css" />
+        <link rel="stylesheet" href="/css/progress-screen.css" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
         <Script 
           src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" 

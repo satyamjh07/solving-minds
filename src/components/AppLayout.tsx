@@ -23,13 +23,21 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { SupportModal } from '@/components/Support/SupportModal';
 import { LifeBuoy } from 'lucide-react';
+import { ProgressScreen } from '@/components/ProgressScreen';
+import { AtomAnimation } from '@/components/AtomAnimation';
+import { LeaguePromotionCelebration } from '@/components/LeaguePromotionCelebration';
+import { ATOMS_ICON_URL } from '@/lib/aura';
 
-function SearchParamsTracker({ onChange }: { onChange: (q: string | null) => void }) {
+function SearchParamsTracker({ onQChange, onViewChange }: { onQChange: (q: string | null) => void; onViewChange: (v: string | null) => void }) {
   const searchParams = useSearchParams();
   const q = searchParams.get('q');
+  const view = searchParams.get('view') || searchParams.get('modal');
   useEffect(() => {
-    onChange(q);
-  }, [q, onChange]);
+    onQChange(q);
+  }, [q, onQChange]);
+  useEffect(() => {
+    onViewChange(view);
+  }, [view, onViewChange]);
   return null;
 }
 
@@ -37,6 +45,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [qParam, setQParam] = useState<string | null>(null);
+  const [viewParam, setViewParam] = useState<string | null>(null);
   const { profile, loading } = useProfile();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
@@ -106,20 +115,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     '/tests':      { title: 'Test_Center',        sub: 'Attempt Mock Tests and Previous Year Papers' },
     '/solving':    { title: 'Solver_Protocol',    sub: 'Sharpen your problem-solving edge' },
     '/community':  { title: 'Social_Feed',        sub: 'Share, discuss, and grow together' },
-    '/levelup':    { title: 'Level_Up_Protocol',  sub: 'Ascend the ranks of elite solvers' },
     '/settings':   { title: 'Settings',           sub: 'Personalize your profile and preferences' },
     '/admin':      { title: 'Admin_Panel',        sub: 'Manage users, posts, and reports' },
     '/moderation': { title: 'Moderation',         sub: 'Reviewing user transmission reports' },
   };
 
-  const currentMeta = PAGE_META[pathname] ?? { title: 'Solving Minds', sub: 'Aura Protocol V3.0' };
+  const currentMeta = PAGE_META[pathname] ?? { title: 'Solving Minds', sub: 'Atoms Protocol V4.0' };
 
   const navLinks = [
     { name: 'Home', href: '/dashboard', icon: <LayoutDashboard size={18} />, page: 'dashboard' },
     { name: 'Tests', href: '/tests', icon: <ClipboardList size={18} />, page: 'tests', badge: 'NEW' },
     { name: 'Solver', href: '/solving', icon: <Target size={18} />, page: 'solving' },
     { name: 'Social', href: '/community', icon: <Users size={18} />, page: 'community' },
-    { name: 'Level Up', href: '/levelup', icon: <Award size={18} />, page: 'levelup' },
     { name: 'Settings', href: '/settings', icon: <Settings size={18} />, page: 'settings' },
   ];
 
@@ -131,6 +138,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     sessionStorage.clear();
     await supabase.auth.signOut();
     window.location.href = '/auth/login';
+  };
+
+  const handleOpenProgress = () => {
+    const params = new URLSearchParams(window.location.search);
+    params.set('view', 'progress');
+    router.replace(window.location.pathname + `?${params.toString()}`);
+  };
+
+  const handleCloseProgress = () => {
+    const params = new URLSearchParams(window.location.search);
+    params.delete('view');
+    params.delete('modal');
+    const newSearch = params.toString();
+    router.replace(window.location.pathname + (newSearch ? `?${newSearch}` : ''));
   };
 
   const needsOnboarding = 
@@ -175,7 +196,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)]">
       <Suspense fallback={null}>
-        <SearchParamsTracker onChange={setQParam} />
+        <SearchParamsTracker onQChange={setQParam} onViewChange={setViewParam} />
       </Suspense>
       {/* Topbar (Solving Minds Analytics Style) */}
       <header className="an-topbar">
@@ -185,10 +206,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
         
         <div className="an-topbar-right">
-          <div className="an-topbar-chip">
-            <div className="an-live-dot"></div>
-            Live tracking
-          </div>
           
           <div className="relative" ref={notifyRef}>
             <button 
@@ -236,6 +253,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </div>
+
+          {/* Atoms Chip */}
+          <button 
+            id="header-atoms-chip"
+            onClick={handleOpenProgress}
+            className="atoms-chip-pill"
+          >
+            <img 
+              src={ATOMS_ICON_URL} 
+              alt="Atoms" 
+              className="object-contain animate-spin-slow"
+            />
+            <span>{profile?.aura_score || 0}</span>
+          </button>
 
           <div className="zd-profile-wrap" ref={profileRef}>
             <button 
@@ -359,6 +390,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {isSupportOpen && <SupportModal onClose={() => setIsSupportOpen(false)} />}
+
+      {/* Progress Screen Modal (URL-driven) */}
+      {viewParam === 'progress' && (
+        <ProgressScreen onClose={handleCloseProgress} />
+      )}
+
+      {/* Atom floating +/- animations */}
+      <AtomAnimation />
+
+      {/* League promotion celebration */}
+      <LeaguePromotionCelebration />
 
       {/* Global CSS for Bottom Nav (using original patch style) */}
       <style jsx global>{`

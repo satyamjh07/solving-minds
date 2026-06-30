@@ -76,6 +76,10 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
   };
 
   const handlePost = async () => {
+    if (!title.trim()) {
+      toast('Please add a post title!', 'warning');
+      return;
+    }
     if (!content.trim() && selectedImages.length === 0) {
       toast('Write something before posting!', 'warning');
       return;
@@ -153,7 +157,7 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
             {/* Title */}
             <input
               type="text"
-              placeholder="Add a title (optional)"
+              placeholder="Post title (required)"
               value={title}
               onChange={e => setTitle(e.target.value)}
               maxLength={120}

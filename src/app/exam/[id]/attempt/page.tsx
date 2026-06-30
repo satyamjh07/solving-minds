@@ -555,12 +555,43 @@ export default function AttemptPage() {
         .eq('user_id', user.id)
         .eq('test_id', testId)
         .eq('completed', false);
+
+      // --- Atoms Earning Logic for Mock Tests ---
+      try {
+        const totalDurationSecs = (test?.duration || 0) * 60;
+        const secondsSpent = totalDurationSecs - timeLeftRef.current;
+        const attemptedCount = Object.keys(answers).filter(qId => answers[qId] !== null && answers[qId] !== undefined).length;
+
+        // Validation Checks:
+        // 1. Spent at least 30 minutes (1800s)
+        const isMinTime = secondsSpent >= 1800;
+        // 2. Attempted at least 10 questions
+        const isMinAttempted = attemptedCount >= 10;
+        // 3. Attempted at least 20% of total questions
+        const minPercentageCount = Math.ceil(questions.length * 0.20);
+        const isMinPercentage = attemptedCount >= minPercentageCount;
+
+        console.log(`[Atoms Mock Check] seconds spent: ${secondsSpent}s (req >=1800), attempted: ${attemptedCount} (req >=10 & >=${minPercentageCount})`);
+
+        if (isMinTime && isMinAttempted && isMinPercentage) {
+          const { score } = calcScore();
+          const atomReward = 100 + (2 * score);
+          console.log(`[Atoms Mock Reward] Valid mock attempt! Awarding ${atomReward} atoms.`);
+          
+          const { awardAtoms } = await import('@/lib/atoms');
+          await awardAtoms(user.id, "MOCK_TEST_COMPLETE", atomReward, profile);
+        } else {
+          console.log('[Atoms Mock Reward] Attempt is invalid based on limits. Awarding 0 atoms.');
+        }
+      } catch (err) {
+        console.error('Error calculating mock test atoms:', err);
+      }
     }
 
     setSubmitted(true);
     setShowSubmitModal(false);
     setShowTabWarning(false);
-  }, [testId, currentQ, questionDurations]);
+  }, [testId, currentQ, questionDurations, test, questions, answers, profile, calcScore]);
 
   const jumpToQuestion = async (subject: string, subsection: 'single-correct' | 'numerical', index: number) => {
     let nextStatuses = { ...statuses };

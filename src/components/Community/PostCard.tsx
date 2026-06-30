@@ -1,12 +1,9 @@
 'use client';
 
 import { Post } from '@/hooks/usePosts';
-import { useState } from 'react';
-import { MessageSquare, Flag, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
-import { CommentsSection } from './CommentsSection';
-import { ImageLightbox } from './ImageLightbox';
-import { ReportModal } from './ReportModal';
-import { useDialog } from '@/components/DialogProvider';
+import { ChevronUp, ChevronDown, MessageSquare, Share2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const TAG_COLORS: Record<string, string> = {
   physics: '#00c3ff', chemistry: '#b26bff', maths: '#00e5a0', jee: '#f59e0b',
@@ -25,10 +22,7 @@ interface PostCardProps {
 
 export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: PostCardProps) {
   const profile = post.profiles || {} as any;
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [showComments, setShowComments] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-  const { toast } = useDialog();
+  const router = useRouter();
 
   const tags = Array.isArray(post.tags) ? post.tags : [];
 
@@ -40,22 +34,56 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
     return Math.floor(diff / 86400) + 'd ago';
   };
 
-  const getImages = () => {
-    if (Array.isArray(post.image_urls)) return post.image_urls;
+  const getFirstImage = () => {
+    if (Array.isArray(post.image_urls) && post.image_urls.length > 0) return post.image_urls[0];
     if (typeof post.image_urls === 'string' && post.image_urls.startsWith('[')) {
-      try { return JSON.parse(post.image_urls); } catch (e) { return []; }
+      try { 
+        const parsed = JSON.parse(post.image_urls); 
+        return parsed.length > 0 ? parsed[0] : null;
+      } catch (e) { return null; }
     }
-    if (post.image_url) return [post.image_url];
-    return [];
+    if ((post as any).image_url) return (post as any).image_url;
+    return null;
   };
 
-  const images = getImages();
+  const getImageCount = () => {
+    if (Array.isArray(post.image_urls)) return post.image_urls.length;
+    if (typeof post.image_urls === 'string' && post.image_urls.startsWith('[')) {
+      try { return JSON.parse(post.image_urls).length; } catch { return 0; }
+    }
+    return (post as any).image_url ? 1 : 0;
+  };
+
+  const firstImage = getFirstImage();
+  const imageCount = getImageCount();
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/community/${post.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: post.title || 'SolvingMinds Post', url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch {
+      await navigator.clipboard.writeText(url);
+    }
+  };
 
   return (
-    <div className="post-card" data-id={post.id}>
+    <Link 
+      href={`/community/${post.id}`}
+      className="block post-card group hover:border-[var(--border-hover)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20"
+    >
       <div className="post-body">
+        {/* Author Row */}
         <div className="post-header">
-          <button className="post-avatar-btn" onClick={() => onShowUser(post.user_id)}>
+          <button 
+            className="post-avatar-btn" 
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowUser(post.user_id); }}
+          >
             <div className="post-avatar">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt={profile.name} />
@@ -65,7 +93,10 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
             </div>
           </button>
           <div className="post-header-info">
-            <button className="post-author-link" onClick={() => onShowUser(post.user_id)}>
+            <button 
+              className="post-author-link"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowUser(post.user_id); }}
+            >
               {profile.name || 'Anonymous'}
               {profile.role === 'admin' && <span className="role-badge badge-admin ml-1">ADMIN</span>}
               {profile.role === 'mod' && <span className="role-badge badge-mod ml-1">MOD</span>}
@@ -79,8 +110,17 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
           </div>
         </div>
 
-        {post.title && <div className="post-title font-bold text-foreground mb-2 text-base">{post.title}</div>}
-        <div className="post-content text-muted-foreground mb-3 text-sm leading-relaxed">{post.content}</div>
+        {/* Title (bold & prominent) */}
+        {post.title && (
+          <div className="font-bold text-[var(--text)] text-base mb-1.5 leading-snug group-hover:text-cyan-400 transition-colors">
+            {post.title}
+          </div>
+        )}
+
+        {/* Content preview — 2 lines max */}
+        <div className="text-[var(--text2)] text-sm leading-relaxed line-clamp-2 mb-3">
+          {post.content}
+        </div>
 
         {/* Tags */}
         {tags.length > 0 && (
@@ -100,119 +140,59 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
           </div>
         )}
 
-        {images.length > 0 && (
-          <div className={`grid gap-2 mb-3 ${
-            images.length === 1 
-              ? 'grid-cols-1' 
-              : images.length === 2 
-                ? 'grid-cols-2' 
-                : 'grid-cols-2 md:grid-cols-3'
-          }`}>
-            {images.map((img: string, i: number) => (
-              <div
-                key={i}
-                className="relative group cursor-zoom-in"
-                onClick={() => setLightboxIndex(i)}
-              >
-                <img
-                  src={img}
-                  alt="post"
-                  className="rounded-lg object-cover w-full h-48 border border-border transition-all duration-200 group-hover:brightness-90 group-hover:scale-[1.01]"
-                />
-                <div className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/10 transition-all duration-200 flex items-center justify-center">
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 text-white text-xs px-2 py-1 rounded-full font-mono">
-                    🔍 View
-                  </span>
-                </div>
+        {/* First image thumbnail */}
+        {firstImage && (
+          <div className="relative mb-3 rounded-xl overflow-hidden">
+            <img
+              src={firstImage}
+              alt="post"
+              className="w-full h-48 object-cover border border-[var(--border)] rounded-xl transition-all duration-200 group-hover:brightness-95"
+            />
+            {imageCount > 1 && (
+              <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg border border-white/10">
+                +{imageCount - 1} more
               </div>
-            ))}
+            )}
           </div>
         )}
 
+        {/* Action Bar */}
         <div className="post-actions-row flex items-center gap-4">
-          <div className="emoji-vote-group flex items-center bg-bg-3 rounded-full px-1 py-0.5">
+          {/* Votes */}
+          <div className="emoji-vote-group flex items-center bg-[var(--bg3)] rounded-full px-1 py-0.5">
             <button
-              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === 1 ? 'text-purple bg-purple/20' : 'text-muted-foreground/60 hover:bg-foreground/10'}`}
-              onClick={() => onVote(post.id, 1)}
+              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === 1 ? 'text-[var(--purple)] bg-[var(--purple)]/20' : 'text-[var(--text3)] hover:bg-[var(--text)]/10'}`}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVote(post.id, 1); }}
             >
-              <ChevronUp size={20} fill={post.myVote === 1 ? 'currentColor' : 'none'} />
+              <ChevronUp size={18} fill={post.myVote === 1 ? 'currentColor' : 'none'} />
             </button>
-            <span className={`text-xs font-bold px-1 ${post.score > 0 ? 'text-green' : post.score < 0 ? 'text-red' : 'text-muted-foreground/60'}`}>
+            <span className={`text-xs font-bold px-1 ${post.score > 0 ? 'text-[var(--green)]' : post.score < 0 ? 'text-[var(--red)]' : 'text-[var(--text3)]'}`}>
               {post.score !== 0 ? (post.score > 0 ? `+${post.score}` : post.score) : 'Vote'}
             </span>
             <button
-              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === -1 ? 'text-red bg-red/20' : 'text-muted-foreground/60 hover:bg-foreground/10'}`}
-              onClick={() => onVote(post.id, -1)}
+              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === -1 ? 'text-[var(--red)] bg-[var(--red)]/20' : 'text-[var(--text3)] hover:bg-[var(--text)]/10'}`}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVote(post.id, -1); }}
             >
-              <ChevronDown size={20} fill={post.myVote === -1 ? 'currentColor' : 'none'} />
+              <ChevronDown size={18} fill={post.myVote === -1 ? 'currentColor' : 'none'} />
             </button>
           </div>
 
-          <button
-            className={`post-action-btn flex items-center gap-1.5 transition-colors text-sm ${showComments ? 'text-purple' : 'text-muted-foreground/60 hover:text-foreground'}`}
-            onClick={() => setShowComments(!showComments)}
-          >
-            <MessageSquare size={16} />
-            Comments
-          </button>
+          {/* Comments indicator */}
+          <span className="flex items-center gap-1.5 text-[var(--text3)] text-sm">
+            <MessageSquare size={15} />
+            <span className="text-xs font-bold">Comments</span>
+          </span>
 
+          {/* Share */}
           <button
-            className="post-report-btn flex items-center gap-1.5 text-muted-foreground/60 hover:text-red transition-colors text-sm"
-            onClick={() => setShowReport(true)}
+            className="flex items-center gap-1.5 text-[var(--text3)] hover:text-cyan-400 transition-colors text-sm ml-auto"
+            onClick={handleShare}
           >
-            <Flag size={14} />
-            Report
+            <Share2 size={14} />
+            <span className="text-xs font-bold">Share</span>
           </button>
-
-          {canModerate && (
-            <div className="flex gap-2">
-              <button
-                className="post-mod-btn flex items-center gap-1.5 text-red-500 hover:text-red-400 transition-colors text-sm"
-                onClick={() => onDelete(post.id)}
-              >
-                <Trash2 size={14} />
-                Delete
-              </button>
-              {profile.id !== post.user_id && (
-                <button
-                  className={`post-mod-btn flex items-center gap-1.5 ${profile.muted_until ? 'text-green-500 hover:text-green-400' : 'text-purple-500 hover:text-purple-400'} transition-colors text-sm`}
-                  onClick={async () => {
-                    try {
-                      const mutedUntil = profile.muted_until ? null : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                      const { supabase } = await import('@/lib/supabase/client');
-                      const { error } = await supabase.from('profiles').update({ muted_until: mutedUntil }).eq('id', post.user_id);
-                      if (error) throw error;
-                      toast(profile.muted_until ? 'User unmuted' : 'User muted for 24h', 'success');
-                    } catch (e: any) {
-                      toast(e.message, 'error');
-                    }
-                  }}
-                >
-                  <Flag size={14} />
-                  {profile.muted_until ? 'Unmute' : 'Mute User'}
-                </button>
-              )}
-            </div>
-          )}
         </div>
-
-        {showComments && <CommentsSection postId={post.id} onShowUser={onShowUser} />}
       </div>
-
-      {lightboxIndex !== null && (
-        <ImageLightbox
-          images={images}
-          startIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-        />
-      )}
-
-      {showReport && (
-        <ReportModal
-          postId={post.id}
-          onClose={() => setShowReport(false)}
-        />
-      )}
-    </div>
+    </Link>
   );
 }
