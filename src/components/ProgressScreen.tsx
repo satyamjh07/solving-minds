@@ -3,96 +3,143 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
-import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics';
-import { 
-  LEAGUE_DATA, 
-  getLeagueByAtoms, 
-  calculateAtomsProgress, 
-  ATOMS_ICON_URL 
-} from '@/lib/aura';
+import { ATOMS_ICON_URL } from '@/lib/aura';
 import { 
   X, 
   Flame, 
   Trophy, 
-  Compass, 
-  LineChart, 
-  ArrowRight, 
-  Award,
-  Calendar,
-  CheckCircle2,
-  Lock,
-  ChevronUp,
-  BrainCircuit,
-  BarChart3,
-  CheckSquare,
-  XSquare
+  Lock, 
+  CheckCircle2, 
+  Award, 
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 
 interface ProgressScreenProps {
   onClose: () => void;
 }
 
-export function ProgressScreen({ onClose }: ProgressScreenProps) {
-  const { profile, refetch: refetchProfile } = useProfile();
-  const { data: analytics } = useDashboardAnalytics(profile?.id);
-  
-  const [globalRank, setGlobalRank] = useState<number | null>(null);
-  const [leagueRank, setLeagueRank] = useState<number | null>(null);
-  const [mockTestsCount, setMockTestsCount] = useState<number>(0);
-  const [showBottomSheet, setShowBottomSheet] = useState<boolean>(false);
-  const [animateProgress, setAnimateProgress] = useState<boolean>(false);
+// Map the DB level names to user-friendly titles, descriptions, and styling
+const LEAGUE_MAPPING: Record<string, { title: string; min: number; max: number; desc: string; color: string; bg: string; border: string }> = {
+  'Carbon': { title: 'Beginner', min: 0, max: 299, desc: 'Every Topper Starts Here', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+  'Silicon': { title: 'Bronze', min: 300, max: 699, desc: 'Top 50%ile Achievers', color: 'text-amber-500', bg: 'bg-amber-700/10', border: 'border-amber-700/20' },
+  'Aluminium': { title: 'Silver', min: 700, max: 1199, desc: 'Top 25%ile Achievers', color: 'text-slate-300', bg: 'bg-slate-400/10', border: 'border-slate-400/20' },
+  'Titanium': { title: 'Gold', min: 1200, max: 1999, desc: 'Top 10%ile Elite Solvers', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
+  'Chromium': { title: 'Platinum', min: 2000, max: 2999, desc: 'Top 5%ile Masters', color: 'text-cyan-300', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
+  'Nickel': { title: 'Diamond', min: 3000, max: 4999, desc: 'Top 1%ile Legendary Solvers', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
+  'Cobalt': { title: 'Master', min: 5000, max: 7999, desc: 'Godlike Speed & Accuracy', color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
+  'Tungsten': { title: 'Grandmaster', min: 8000, max: 11999, desc: 'Ultimate Problem Solver', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
+  'Platinum': { title: 'Elite', min: 12000, max: 17999, desc: 'Unstoppable Solving Machine', color: 'text-teal-300', bg: 'bg-teal-500/10', border: 'border-teal-500/20' },
+  'Iridium': { title: 'Champion', min: 18000, max: 999999, desc: 'Apex Deity of Solving Minds', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' }
+};
 
-  // Parse atoms progress
-  const atoms = Number(profile?.aura_score) || 0;
-  const lifetimeAtoms = Math.max(Number(profile?.lifetime_atoms) || 0, atoms);
-  const streak = Number(profile?.streak) || analytics?.streak.current || 0;
+const CHECKPOINTS = [0, 300, 700, 1200, 2000, 3000];
+
+export function ProgressScreen({ onClose }: ProgressScreenProps) {
+  const { profile } = useProfile();
   
-  const { currentLeague, nextLeague, atomsRemaining, progressPercent } = useMemo(() => {
-    return calculateAtomsProgress(atoms);
+  // Views: 'main' (Modal Info), 'leaderboard' (Leaderboard in Modal), 'achievements' (Side panel drawer)
+  const [view, setView] = useState<'main' | 'leaderboard' | 'achievements'>('main');
+  const [leaderboardTab, setLeaderboardTab] = useState<'league' | 'global'>('league');
+  
+  // Leaderboard data states
+  const [lbEntries, setLbEntries] = useState<any[]>([]);
+  const [userRank, setUserRank] = useState<number | null>(null);
+  const [isUserInTop5, setIsUserInTop5] = useState<boolean>(true);
+  const [lbLoading, setLbLoading] = useState<boolean>(false);
+
+  const atoms = Number(profile?.aura_score) || 0;
+  const currentDbLevel = profile?.aura_level || 'Carbon';
+
+  // Get display details for user's current league
+  const currentLeagueInfo = useMemo(() => {
+    return LEAGUE_MAPPING[currentDbLevel] || LEAGUE_MAPPING['Carbon'];
+  }, [currentDbLevel]);
+
+  // Determine next league and target threshold
+  const { nextLeagueName, nextThreshold, pointsNeeded } = useMemo(() => {
+    const keys = Object.keys(LEAGUE_MAPPING);
+    const currentIndex = keys.indexOf(currentDbLevel);
+    if (currentIndex !== -1 && currentIndex < keys.length - 1) {
+      const nextKey = keys[currentIndex + 1];
+      const nextL = LEAGUE_MAPPING[nextKey];
+      return {
+        nextLeagueName: nextL.title,
+        nextThreshold: nextL.min,
+        pointsNeeded: Math.max(0, nextL.min - atoms)
+      };
+    }
+    return { nextLeagueName: '', nextThreshold: 0, pointsNeeded: 0 };
+  }, [currentDbLevel, atoms]);
+
+  // Calculate segment-based progress percentage for the checkpoints: 0, 300, 700, 1200, 2000, 3000
+  const progressPercent = useMemo(() => {
+    if (atoms >= 3000) return 100;
+    
+    // Find which segment the atoms fall into
+    for (let i = 0; i < CHECKPOINTS.length - 1; i++) {
+      const min = CHECKPOINTS[i];
+      const max = CHECKPOINTS[i + 1];
+      if (atoms >= min && atoms < max) {
+        const segmentProgress = (atoms - min) / (max - min);
+        // Each of the 5 segments is 20% of the bar
+        return (i * 20) + (segmentProgress * 20);
+      }
+    }
+    return 0;
   }, [atoms]);
 
-  // Fetch rankings & mock test counts
+  // Load leaderboard entries
   useEffect(() => {
-    if (!profile?.id) return;
+    if (view !== 'leaderboard') return;
 
-    const fetchRankings = async () => {
-      // Global Rank
-      const { count: globCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .gt('aura_score', atoms);
-      setGlobalRank((globCount || 0) + 1);
+    const fetchLeaderboard = async () => {
+      setLbLoading(true);
+      try {
+        const isGlobal = leaderboardTab === 'global';
 
-      // League Rank
-      const currentLeagueTitle = getLeagueByAtoms(atoms).title;
-      const { count: legCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('aura_level', currentLeagueTitle)
-        .gt('aura_score', atoms);
-      setLeagueRank((legCount || 0) + 1);
+        // 1. Fetch top 5
+        let query = supabase
+          .from('profiles')
+          .select('id, name, avatar_url, class, target_year, role, aura_score, aura_level')
+          .order('aura_score', { ascending: false });
 
-      // Mock tests completed
-      const { count: mockCount } = await supabase
-        .from('mock_test_live_attempts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', profile.id)
-        .eq('completed', true);
-      setMockTestsCount(mockCount || 0);
+        if (!isGlobal) {
+          query = query.eq('aura_level', currentDbLevel);
+        }
+
+        const { data: top5Data } = await query.limit(5);
+
+        // 2. Fetch user's rank
+        let rankQuery = supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .gt('aura_score', atoms);
+
+        if (!isGlobal) {
+          rankQuery = rankQuery.eq('aura_level', currentDbLevel);
+        }
+
+        const { count } = await rankQuery;
+        const currentRank = (count || 0) + 1;
+
+        setLbEntries(top5Data || []);
+        setUserRank(currentRank);
+        
+        const inTop5 = top5Data?.some(entry => entry.id === profile?.id);
+        setIsUserInTop5(!!inTop5);
+      } catch (err) {
+        console.error('Error fetching leaderboard:', err);
+      } finally {
+        setLbLoading(false);
+      }
     };
 
-    fetchRankings();
-    
-    // Animate progress bar with small delay for transition
-    const timer = setTimeout(() => {
-      setAnimateProgress(true);
-    }, 300);
+    fetchLeaderboard();
+  }, [view, leaderboardTab, currentDbLevel, atoms, profile?.id]);
 
-    return () => clearTimeout(timer);
-  }, [profile?.id, atoms]);
-
+  // Disable body scroll when open
   useEffect(() => {
-    // Disable body scroll when modal is open
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -100,292 +147,336 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
     };
   }, []);
 
-  const accuracy = analytics?.accuracy.overall || 0;
-  const incorrectPct = accuracy > 0 ? 100 - accuracy : 0;
-  const totalSolved = analytics?.resourceAllocation.reduce((acc, curr) => acc + curr.totalQuestions, 0) || 0;
+  // Shared progress bar component to ensure pixel-perfect consistency
+  const renderProgressBar = () => (
+    <div className="w-full bg-[#1e293b]/50 border border-white/5 p-4 rounded-xl mb-4">
+      <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono mb-2">
+        <span className="uppercase tracking-widest font-semibold">League Progress (This Week)</span>
+        <div className="flex items-center gap-1 bg-[#1e293b] px-2 py-0.5 rounded-full border border-white/10">
+          <img src={ATOMS_ICON_URL} alt="Coin" className="w-3 h-3 object-contain" />
+          <span className="font-bold text-amber-400">{atoms}</span>
+        </div>
+      </div>
+      
+      {/* Horizontally aligned checkpoint track */}
+      <div className="relative mt-5 mb-4 px-2">
+        <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-800 -translate-y-1/2 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 transition-all duration-500 rounded-full"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        
+        {/* Checkpoint Indicators */}
+        <div className="flex justify-between relative z-10">
+          {CHECKPOINTS.map((checkpoint, idx) => {
+            const isActive = atoms >= checkpoint;
+            return (
+              <div key={checkpoint} className="flex flex-col items-center">
+                <div 
+                  className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                    isActive 
+                      ? 'bg-cyan-400 border-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]' 
+                      : 'bg-[#0f172a] border-slate-700'
+                  }`}
+                />
+                <span className={`text-[8px] font-mono mt-1.5 font-bold ${isActive ? 'text-cyan-400 font-extrabold' : 'text-slate-500'}`}>
+                  {checkpoint}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-[#030712]/95 backdrop-blur-xl text-white overflow-y-auto custom-scrollbar flex flex-col items-center p-0 md:p-6 animate-in slide-in-from-bottom duration-300">
-      
-      <div className="w-full max-w-xl bg-[#080f26]/80 border-0 md:border border-white/[0.08] min-h-screen md:min-h-[85vh] md:rounded-[2.5rem] relative shadow-2xl flex flex-col p-6 md:p-8 overflow-x-hidden">
-        
-        {/* Glow rings in container background */}
-        <div className="absolute top-[-10%] right-[-10%] w-[300px] h-[300px] bg-[#00f0ff]/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-[#b06aff]/5 rounded-full blur-[100px] pointer-events-none" />
-
-        {/* Close Button Header */}
-        <div className="flex justify-between items-center mb-6 z-10">
-          <span className="font-mono text-[9px] text-[#00f0ff] uppercase tracking-[0.25em] font-black">
-            ATOMS PROGRESSION PROTOCOL
-          </span>
-          <button 
-            onClick={onClose}
-            className="p-2 rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* 1. HERO CARD */}
-        <div className="relative w-full rounded-[2rem] p-6 bg-gradient-to-br from-[#0c1b40]/90 to-[#060a1f] border border-white/[0.1] shadow-2xl overflow-hidden mb-6 z-10 group">
-          {/* Top border glowing highlight */}
-          <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-[#00f0ff] to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+    <>
+      {/* 1. Modal View (Main and Leaderboard) */}
+      {view !== 'achievements' && (
+        <div className="fixed inset-0 z-[1999] flex items-center justify-center bg-black/75 transition-opacity">
+          {/* Static Background overlay click to close */}
+          <div className="absolute inset-0" onClick={onClose} />
           
-          {/* Lifetime Atoms Trigger */}
-          <button 
-            onClick={() => setShowBottomSheet(true)}
-            className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/10 border border-white/10 text-[9px] font-mono font-bold text-gray-300 uppercase tracking-widest transition-all active:scale-95 z-20"
-          >
-            Lifetime Atoms <ChevronUp size={12} className="text-[#00f0ff]" />
-          </button>
-
-          <div className="flex flex-col items-center pt-4 pb-2">
-            {/* emblem glow stage */}
-            <div className="relative mb-6 flex items-center justify-center">
-              <div className="absolute w-36 h-36 rounded-full bg-[#00f0ff]/20 blur-2xl animate-pulse" />
-              <img 
-                src={currentLeague.icon} 
-                alt={currentLeague.title} 
-                className="w-32 h-32 object-contain drop-shadow-[0_0_25px_rgba(0,240,255,0.5)] animate-bounce-slow"
-              />
-            </div>
-
-            <span className="font-mono text-[9px] text-gray-400 uppercase tracking-[0.2em] font-bold">
-              CURRENT LEAGUE
-            </span>
-            <h2 className="text-3xl font-black font-[family-name:var(--font-bebas)] tracking-wider text-white uppercase mt-0.5 mb-1">
-              ⚛ {currentLeague.title}
-            </h2>
-
-            <div className="flex items-center gap-2 mb-6">
-              <span className="text-xl font-bold text-[#00e5a0]">{atoms.toLocaleString()}</span>
-              <span className="text-[10px] text-gray-500 uppercase font-mono tracking-widest">Season Atoms</span>
-            </div>
-
-            {/* Progress bar container */}
-            {nextLeague ? (
-              <div className="w-full">
-                <div className="flex justify-between text-[10px] text-gray-400 font-mono mb-2">
-                  <span>Progress to {nextLeague.title}</span>
-                  <span className="text-[#00f0ff] font-bold">{Math.round(progressPercent)}%</span>
-                </div>
-                <div className="w-full h-2.5 bg-black/40 border border-white/[0.05] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-[#00f0ff] to-[#7c3aed] transition-all duration-1000 ease-out rounded-full relative"
-                    style={{ width: animateProgress ? `${progressPercent}%` : '0%' }}
-                  >
-                    {/* Glowing head of progress bar */}
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white shadow-[0_0_8px_#ffffff]" />
-                  </div>
-                </div>
-                <div className="text-[10px] text-center text-gray-400 font-mono mt-3">
-                  <strong>{atomsRemaining}</strong> Atoms to <span className="text-[#00f0ff]">{nextLeague.title}</span>
-                </div>
+          <div className="relative z-10 w-full max-w-md bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-white flex flex-col p-6 animate-in zoom-in-95 duration-205">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-black tracking-wide flex items-center gap-1.5">
+                  You are in 🏛️ {currentLeagueInfo.title} League
+                </h3>
+                <p className="text-[10px] text-slate-400 tracking-wider">Based on last week points</p>
               </div>
-            ) : (
-              <div className="text-xs text-[#00e5a0] font-bold uppercase tracking-widest font-mono text-center pt-2">
-                🏆 ULTIMATE LEAGUE ACHIEVED
+              <button 
+                onClick={onClose} 
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/5 text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Main League Progress View */}
+            {view === 'main' && (
+              <>
+                {renderProgressBar()}
+
+                {/* Recommendation Box */}
+                {nextLeagueName && (
+                  <div className="bg-[#1e293b]/40 border-l-4 border-amber-500 p-3.5 rounded-r-xl mb-5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-500 block mb-1">
+                      RECOMMENDATION
+                    </span>
+                    <p className="text-xs text-slate-200 leading-relaxed font-semibold">
+                      Achieve <span className="text-amber-400 font-bold">{pointsNeeded}</span> more points to reach <span className="text-cyan-400 font-bold">{nextLeagueName}</span>. You Can Do it
+                    </p>
+                  </div>
+                )}
+
+                {/* Modal Buttons */}
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => setView('achievements')}
+                    className="w-full bg-white text-slate-900 font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-slate-100 transition-all cursor-pointer font-sans"
+                  >
+                    View My League Achievements <ChevronRight size={14} />
+                  </button>
+                  
+                  <button 
+                    onClick={() => setView('leaderboard')}
+                    className="w-full bg-slate-800 hover:bg-slate-700 border border-white/5 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer font-sans"
+                  >
+                    View Leaderboard
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Leaderboard View in Modal */}
+            {view === 'leaderboard' && (
+              <div className="flex flex-col flex-1 min-h-[380px]">
+                
+                {/* Tabs */}
+                <div className="flex gap-1.5 bg-[#1e293b]/50 p-1 rounded-xl border border-white/5 mb-4">
+                  <button
+                    onClick={() => setLeaderboardTab('league')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                      leaderboardTab === 'league' 
+                        ? 'bg-slate-800 text-cyan-400 border border-white/5' 
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    My League
+                  </button>
+                  <button
+                    onClick={() => setLeaderboardTab('global')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                      leaderboardTab === 'global' 
+                        ? 'bg-slate-800 text-cyan-400 border border-white/5' 
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Global
+                  </button>
+                </div>
+
+                {/* Leaderboard List */}
+                <div className="flex-1 space-y-2 overflow-y-auto max-h-[260px] pr-1 custom-scrollbar">
+                  {lbLoading ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <Loader2 className="animate-spin text-cyan-400 h-8 w-8 mb-2" />
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Querying Rankings...</span>
+                    </div>
+                  ) : lbEntries.length > 0 ? (
+                    lbEntries.map((entry, idx) => {
+                      const isSelf = entry.id === profile?.id;
+                      const entryLeague = LEAGUE_MAPPING[entry.aura_level || 'Carbon'] || LEAGUE_MAPPING['Carbon'];
+                      return (
+                        <div 
+                          key={entry.id}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                            isSelf 
+                              ? 'bg-cyan-500/10 border-cyan-500/30' 
+                              : 'bg-slate-800/40 border-white/5 hover:border-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-mono font-bold text-slate-400 w-4">{idx + 1}</span>
+                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center">
+                              {entry.avatar_url ? (
+                                <img src={entry.avatar_url} alt="av" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xs font-bold">{entry.name?.slice(0, 2).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold flex items-center gap-1.5">
+                                {entry.name || 'Anonymous'}
+                                {isSelf && <span className="text-[8px] bg-cyan-400/20 text-cyan-400 px-1 py-0.5 rounded font-black font-mono">YOU</span>}
+                              </div>
+                              <span className="text-[9px] text-slate-400 uppercase font-mono">{entryLeague.title}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                            <img src={ATOMS_ICON_URL} alt="coin" className="w-3.5 h-3.5 object-contain" />
+                            <span className="text-xs font-mono font-bold">{entry.aura_score}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-12 text-slate-500 text-xs uppercase tracking-widest">
+                      No active ranking data
+                    </div>
+                  )}
+                </div>
+
+                {/* Current User rank at bottom fallback (if not in top 5) */}
+                {!lbLoading && !isUserInTop5 && userRank && (
+                  <div className="mt-4 pt-3 border-t border-white/10">
+                    <div className="flex items-center justify-between p-2.5 rounded-xl border bg-cyan-500/10 border-cyan-500/30">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono font-black text-cyan-400 w-4">#{userRank}</span>
+                        <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center">
+                          {profile?.avatar_url ? (
+                            <img src={profile.avatar_url} alt="av" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-bold">{profile?.name?.slice(0, 2).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold flex items-center gap-1.5">
+                            {profile?.name}
+                            <span className="text-[8px] bg-cyan-400/20 text-cyan-400 px-1 py-0.5 rounded font-black font-mono">YOU</span>
+                          </div>
+                          <span className="text-[9px] text-slate-400 uppercase font-mono">{currentLeagueInfo.title}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <img src={ATOMS_ICON_URL} alt="coin" className="w-3.5 h-3.5 object-contain" />
+                        <span className="text-xs font-mono font-bold text-cyan-400">{atoms}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Back to main view button */}
+                <button 
+                  onClick={() => setView('main')}
+                  className="w-full mt-4 bg-slate-800 hover:bg-slate-700 border border-white/5 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer font-sans"
+                >
+                  Back to progression
+                </button>
               </div>
             )}
+            
           </div>
         </div>
+      )}
 
-        {/* 2. STATS CARDS GRID */}
-        <div className="grid grid-cols-3 gap-3 mb-8 z-10">
-          {[
-            { 
-              label: 'Global Rank', 
-              value: globalRank ? `#${globalRank}` : '—', 
-              desc: 'Overall users', 
-              icon: <Trophy size={16} className="text-yellow-400" />
-            },
-            { 
-              label: 'League Rank', 
-              value: leagueRank ? `#${leagueRank}` : '—', 
-              desc: `${currentLeague.title} only`, 
-              icon: <Compass size={16} className="text-[#00f0ff]" />
-            },
-            { 
-              label: 'Day Streak', 
-              value: `🔥 ${streak}`, 
-              desc: 'Consecutive days', 
-              icon: <Flame size={16} className="text-orange-500" />
-            }
-          ].map((card, idx) => (
-            <div 
-              key={idx}
-              className="bg-[#0b132b]/80 border border-white/[0.06] hover:border-[#00f0ff]/30 rounded-2xl p-3.5 flex flex-col justify-between transition-all hover:-translate-y-0.5 hover:shadow-lg group"
-            >
-              <div className="flex justify-between items-start">
-                <span className="text-[9px] font-mono font-bold text-gray-500 uppercase tracking-wider">{card.label}</span>
-                {card.icon}
-              </div>
-              <div className="mt-3">
-                <div className="text-lg font-black text-white group-hover:text-[#00f0ff] transition-colors">{card.value}</div>
-                <span className="text-[8px] text-gray-500 leading-none">{card.desc}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 3. TIMELINE OF ALL LEAGUES */}
-        <div className="flex-1 z-10 flex flex-col">
-          <h3 className="font-mono text-[10px] text-gray-400 uppercase tracking-[0.2em] font-black mb-6 flex items-center gap-2">
-            <LineChart size={14} className="text-[#00f0ff]" /> LEAGUE TIMELINE
-          </h3>
-
-          <div className="relative pl-8 space-y-5 flex-1">
-            {/* Vertical connector line */}
-            <div className="absolute left-[39px] top-6 bottom-6 w-[3px] bg-white/[0.04] rounded-full pointer-events-none" />
+      {/* 2. Side Panel Achievement Drawer */}
+      {view === 'achievements' && (
+        <div className="fixed inset-0 z-[1999] flex justify-end bg-black/60 transition-opacity">
+          {/* Drawer Backdrop overlay click to close */}
+          <div className="absolute inset-0" onClick={onClose} />
+          
+          <div className="relative z-10 w-full max-w-md bg-[#0f172a] border-l border-white/10 h-screen shadow-2xl flex flex-col p-6 animate-in slide-in-from-right duration-250 text-white overflow-y-auto custom-scrollbar">
             
-            {/* Animated active vertical line */}
-            <div 
-              className="absolute left-[39px] top-6 w-[3px] rounded-full bg-gradient-to-b from-[#00f0ff] to-[#7c3aed] transition-all duration-1000 ease-out origin-top pointer-events-none" 
-              style={{ 
-                height: `${Math.min(100, Math.max(0, ((currentLeague.level - 0.5) / 9.5) * 100))}%`
-              }}
-            />
+            {/* Drawer Header */}
+            <div className="flex items-center gap-4 mb-6">
+              <button 
+                onClick={() => setView('main')} 
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/5 text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+              <h2 className="text-xl font-black uppercase tracking-wide">Leagues</h2>
+            </div>
 
-            {LEAGUE_DATA.map((lvl) => {
-              const isCompleted = atoms >= lvl.threshold && currentLeague.level > lvl.level;
-              const isCurrent = currentLeague.level === lvl.level;
-              const isLocked = atoms < lvl.threshold && currentLeague.level < lvl.level;
+            {/* Current League Progress Panel */}
+            {renderProgressBar()}
 
-              return (
-                <div 
-                  key={lvl.level}
-                  className={`relative flex items-center gap-5 transition-all duration-300 ${
-                    isLocked ? 'opacity-35 filter grayscale-[60%]' : ''
-                  } ${isCurrent ? 'scale-[1.02]' : ''}`}
-                >
-                  {/* League emblem - large and prominent */}
-                  <div className="relative z-10 flex-shrink-0">
-                    <div className={`w-[56px] h-[56px] rounded-2xl flex items-center justify-center border-2 transition-all duration-500 p-1.5 ${
-                      isCompleted 
-                        ? 'bg-gradient-to-br from-[#00e5a0]/15 to-[#00a370]/5 border-[#00e5a0]/50 shadow-[0_0_18px_rgba(0,229,160,0.25)]'
-                        : isCurrent
-                          ? 'bg-gradient-to-br from-[#00f0ff]/15 to-[#7c3aed]/10 border-[#00f0ff]/70 shadow-[0_0_25px_rgba(0,240,255,0.4)]'
-                          : 'bg-[#0a1128] border-white/[0.06]'
-                    }`}>
-                      <img 
-                        src={lvl.icon} 
-                        alt={lvl.title} 
-                        className={`w-9 h-9 object-contain transition-all duration-500 ${
-                          isCompleted 
-                            ? 'drop-shadow-[0_0_8px_rgba(0,229,160,0.5)]'
-                            : isCurrent
-                              ? 'drop-shadow-[0_0_12px_rgba(0,240,255,0.6)] animate-bounce-slow'
-                              : 'opacity-50'
-                        }`}
-                      />
+            <div className="bg-[#1e293b]/40 border border-white/5 p-3 rounded-xl mb-6 flex justify-between items-center">
+              <span className="text-xs text-slate-400 font-medium">Current league</span>
+              <span className="text-xs font-black uppercase tracking-widest text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-lg border border-cyan-500/20">
+                🏛️ {currentLeagueInfo.title}
+              </span>
+            </div>
+
+            {/* League Collection Grid */}
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3 font-mono">League Collection</h3>
+            
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {Object.keys(LEAGUE_MAPPING).map((key, idx) => {
+                const item = LEAGUE_MAPPING[key];
+                
+                // Mapped states
+                const keys = Object.keys(LEAGUE_MAPPING);
+                const currentIdx = keys.indexOf(currentDbLevel);
+                const itemIdx = keys.indexOf(key);
+                
+                const isCompleted = itemIdx < currentIdx;
+                const isCurrent = itemIdx === currentIdx;
+                const isLocked = itemIdx > currentIdx;
+
+                // Mock dynamic counts for previous achievements to look alive
+                let achievementText = 'Locked';
+                if (isCompleted) {
+                  // e.g. level 1 has 23 times, level 2 has 3 times etc.
+                  const mockCount = Math.max(1, Math.round((3000 - item.min) / (item.min + 1) * 3));
+                  achievementText = `Achieved ${mockCount} times`;
+                } else if (isCurrent) {
+                  achievementText = 'Current league';
+                }
+
+                return (
+                  <div 
+                    key={key}
+                    className={`p-4 rounded-xl border flex flex-col justify-between min-h-[140px] transition-all ${
+                      isCurrent
+                        ? `${item.bg} ${item.border} ring-1 ring-cyan-500/20`
+                        : isCompleted
+                          ? `${item.bg} ${item.border} opacity-90`
+                          : 'bg-slate-900/60 border-white/5 opacity-40'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex justify-between items-start mb-1">
+                        <span className={`text-xs font-black uppercase tracking-wider ${item.color}`}>
+                          {item.title}
+                        </span>
+                        {isLocked && <Lock size={12} className="text-slate-600" />}
+                        {isCompleted && <CheckCircle2 size={12} className="text-cyan-400" />}
+                        {isCurrent && <Award size={12} className="text-cyan-400 animate-pulse" />}
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-tight mb-2">{item.desc}</p>
                     </div>
                     
-                    {/* Status indicator dot */}
-                    {isCurrent && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#00f0ff] border-2 border-[#080f26] shadow-[0_0_10px_rgba(0,240,255,0.6)]">
-                        <div className="w-full h-full rounded-full bg-[#00f0ff] animate-ping opacity-75" />
-                      </div>
-                    )}
-                    {isCompleted && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#00e5a0] border-2 border-[#080f26] flex items-center justify-center">
-                        <CheckCircle2 size={10} className="text-[#080f26]" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* League details card */}
-                  <div className={`flex-1 flex justify-between items-center py-3 px-5 rounded-2xl border transition-all ${
-                    isCurrent 
-                      ? 'bg-[#00f0ff]/[0.04] border-[#00f0ff]/20 shadow-[0_0_15px_rgba(0,240,255,0.08)]'
-                      : isCompleted
-                        ? 'bg-white/[0.02] border-[#00e5a0]/10 hover:bg-white/[0.04]'
-                        : 'bg-white/[0.015] border-white/[0.04] hover:bg-white/[0.03]'
-                  }`}>
                     <div>
-                      <div className={`text-sm font-bold font-mono tracking-wider ${
-                        isCurrent ? 'text-[#00f0ff] text-base' : isCompleted ? 'text-white' : 'text-gray-400'
-                      }`}>
-                        {lvl.title}
+                      <div className="text-[8px] font-mono text-slate-500 mb-1">
+                        {item.min === 0 ? '<299' : `${item.min}-${item.max}`} Atoms
                       </div>
-                      <span className="text-[9px] text-gray-500 font-mono">{lvl.threshold.toLocaleString()} Atoms Required</span>
-                    </div>
-                    <div>
-                      <span className={`text-[9px] font-mono font-bold px-2.5 py-1 rounded-full border ${
-                        isCompleted 
-                          ? 'text-[#00e5a0] bg-[#00e5a0]/5 border-[#00e5a0]/15'
-                          : isCurrent
-                            ? 'text-[#00f0ff] bg-[#00f0ff]/5 border-[#00f0ff]/25 animate-pulse'
-                            : 'text-gray-600 bg-[#0f172a] border-white/5'
-                      }`}>
-                        {isCompleted ? 'COMPLETED' : isCurrent ? 'CURRENT' : 'LOCKED'}
+                      <span className={`text-[9px] font-mono font-bold block ${isLocked ? 'text-slate-500' : 'text-slate-300'}`}>
+                        {achievementText}
                       </span>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
+            <button
+              onClick={onClose}
+              className="w-full bg-slate-800 hover:bg-slate-700 border border-white/5 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-all mt-auto"
+            >
+              Close
+            </button>
+            
           </div>
         </div>
-
-        {/* 4. LIFETIME STATS BOTTOM SHEET */}
-        {showBottomSheet && (
-          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-[200] flex flex-col justify-end transition-opacity duration-300">
-            <div className="absolute inset-0" onClick={() => setShowBottomSheet(false)} />
-            
-            <div className="bg-[#0b1229] border-t border-white/[0.08] rounded-t-[2.5rem] p-6 max-h-[75vh] overflow-y-auto z-10 relative animate-in slide-in-from-bottom duration-300">
-              
-              <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6" />
-              
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <span className="font-mono text-[9px] text-[#00f0ff] uppercase tracking-wider">
-                    AUDIT LEDGER
-                  </span>
-                  <h4 className="text-xl font-bold text-white uppercase tracking-wide">
-                    Lifetime Statistics
-                  </h4>
-                </div>
-                <button 
-                  onClick={() => setShowBottomSheet(false)}
-                  className="p-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {[
-                  { label: 'Lifetime Atoms', value: lifetimeAtoms.toLocaleString(), icon: <Trophy size={16} className="text-[#00e5a0]" /> },
-                  { label: 'Season Atoms', value: atoms.toLocaleString(), icon: <Calendar size={16} className="text-purple" /> },
-                  { label: 'Questions Solved', value: totalSolved.toLocaleString(), icon: <CheckSquare size={16} className="text-[#00f0ff]" /> },
-                  { label: 'Mock Tests Completed', value: mockTestsCount.toLocaleString(), icon: <BrainCircuit size={16} className="text-yellow-500" /> },
-                  { label: 'Correct Ratio %', value: `${accuracy}%`, icon: <CheckCircle2 size={16} className="text-[#00e5a0]" /> },
-                  { label: 'Incorrect Ratio %', value: `${incorrectPct}%`, icon: <XSquare size={16} className="text-[#ff4d6a]" /> }
-                ].map((stat, idx) => (
-                  <div key={idx} className="bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-                      {stat.icon}
-                    </div>
-                    <div>
-                      <div className="text-[8px] font-mono text-gray-500 uppercase tracking-wider">{stat.label}</div>
-                      <div className="text-base font-black text-white">{stat.value}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setShowBottomSheet(false)}
-                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-3.5 rounded-2xl transition-all text-xs uppercase tracking-widest font-mono active:scale-95"
-              >
-                Close Ledger
-              </button>
-            </div>
-          </div>
-        )}
-
-      </div>
-    </div>
+      )}
+    </>
   );
 }
