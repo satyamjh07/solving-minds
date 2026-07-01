@@ -12,28 +12,127 @@ import {
   CheckCircle2, 
   Award, 
   ChevronRight,
-  Loader2
+  Loader2,
+  Compass
 } from 'lucide-react';
 
 interface ProgressScreenProps {
   onClose: () => void;
 }
 
-// Map the DB level names to user-friendly titles, descriptions, and styling
-const LEAGUE_MAPPING: Record<string, { title: string; min: number; max: number; desc: string; color: string; bg: string; border: string }> = {
-  'Carbon': { title: 'Beginner', min: 0, max: 299, desc: 'Every Topper Starts Here', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-  'Silicon': { title: 'Bronze', min: 300, max: 699, desc: 'Top 50%ile Achievers', color: 'text-amber-500', bg: 'bg-amber-700/10', border: 'border-amber-700/20' },
-  'Aluminium': { title: 'Silver', min: 700, max: 1199, desc: 'Top 25%ile Achievers', color: 'text-slate-300', bg: 'bg-slate-400/10', border: 'border-slate-400/20' },
-  'Titanium': { title: 'Gold', min: 1200, max: 1999, desc: 'Top 10%ile Elite Solvers', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
-  'Chromium': { title: 'Platinum', min: 2000, max: 2999, desc: 'Top 5%ile Masters', color: 'text-cyan-300', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
-  'Nickel': { title: 'Diamond', min: 3000, max: 4999, desc: 'Top 1%ile Legendary Solvers', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
-  'Cobalt': { title: 'Master', min: 5000, max: 7999, desc: 'Godlike Speed & Accuracy', color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
-  'Tungsten': { title: 'Grandmaster', min: 8000, max: 11999, desc: 'Ultimate Problem Solver', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
-  'Platinum': { title: 'Elite', min: 12000, max: 17999, desc: 'Unstoppable Solving Machine', color: 'text-teal-300', bg: 'bg-teal-500/10', border: 'border-teal-500/20' },
-  'Iridium': { title: 'Champion', min: 18000, max: 999999, desc: 'Apex Deity of Solving Minds', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' }
+// Map the DB level names to user-friendly titles, thresholds, descriptions, and styling
+const LEAGUE_MAPPING: Record<string, { title: string; min: number; max: number; desc: string; color: string; bg: string; border: string; icon: string }> = {
+  'Carbon': { 
+    title: 'Carbon', 
+    min: 0, 
+    max: 299, 
+    desc: 'Every Topper Starts Here', 
+    color: 'text-blue-400', 
+    bg: 'bg-blue-500/10', 
+    border: 'border-blue-500/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815269/solvingminds_level_1_nke3tg.png'
+  },
+  'Silicon': { 
+    title: 'Silicon', 
+    min: 300, 
+    max: 799, 
+    desc: 'Top 50%ile Achievers', 
+    color: 'text-amber-500', 
+    bg: 'bg-amber-700/10', 
+    border: 'border-amber-700/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815271/solvingminds_level_2_hqawat.png'
+  },
+  'Aluminium': { 
+    title: 'Aluminium', 
+    min: 800, 
+    max: 1599, 
+    desc: 'Top 25%ile Achievers', 
+    color: 'text-slate-300', 
+    bg: 'bg-slate-400/10', 
+    border: 'border-slate-400/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815262/solvingminds_level_3_rlawo7.png'
+  },
+  'Titanium': { 
+    title: 'Titanium', 
+    min: 1600, 
+    max: 2999, 
+    desc: 'Top 10%ile Elite Solvers', 
+    color: 'text-yellow-400', 
+    bg: 'bg-yellow-500/10', 
+    border: 'border-yellow-500/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815276/solvingminds_level_4_ocdhjf.png'
+  },
+  'Chromium': { 
+    title: 'Chromium', 
+    min: 3000, 
+    max: 4999, 
+    desc: 'Top 5%ile Masters', 
+    color: 'text-cyan-300', 
+    bg: 'bg-cyan-500/10', 
+    border: 'border-cyan-500/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815270/solvingminds_level_5_bl8qtr.png'
+  },
+  'Nickel': { 
+    title: 'Nickel', 
+    min: 5000, 
+    max: 7999, 
+    desc: 'Top 1%ile Legendary Solvers', 
+    color: 'text-purple-400', 
+    bg: 'bg-purple-500/10', 
+    border: 'border-purple-500/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815285/solvingminds_level_6_xb11bw.png'
+  },
+  'Cobalt': { 
+    title: 'Cobalt', 
+    min: 8000, 
+    max: 11999, 
+    desc: 'Godlike Speed & Accuracy', 
+    color: 'text-rose-400', 
+    bg: 'bg-rose-500/10', 
+    border: 'border-rose-500/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815270/solvingminds_level_7_ddgflj.png'
+  },
+  'Tungsten': { 
+    title: 'Tungsten', 
+    min: 12000, 
+    max: 17999, 
+    desc: 'Ultimate Problem Solver', 
+    color: 'text-orange-400', 
+    bg: 'bg-orange-500/10', 
+    border: 'border-orange-500/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815289/solvingminds_level_8_d3cwvu.png'
+  },
+  'Platinum': { 
+    title: 'Platinum', 
+    min: 18000, 
+    max: 25999, 
+    desc: 'Unstoppable Solving Machine', 
+    color: 'text-teal-300', 
+    bg: 'bg-teal-500/10', 
+    border: 'border-teal-500/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815284/solvingminds_level_9_ice52s.png'
+  },
+  'Iridium': { 
+    title: 'Iridium', 
+    min: 26000, 
+    max: 999999, 
+    desc: 'Apex Deity of Solving Minds', 
+    color: 'text-violet-400', 
+    bg: 'bg-violet-500/10', 
+    border: 'border-violet-500/20',
+    icon: 'https://res.cloudinary.com/dsflyu8vg/image/upload/v1782815285/solvingminds_level_10_ehn6fx.png'
+  }
 };
 
-const CHECKPOINTS = [0, 300, 700, 1200, 2000, 3000];
+// Checkpoints for weekly progress: 0, 300, 700, 1200, 2000, 3000
+const WEEKLY_CHECKPOINTS = [
+  { threshold: 0, key: 'Carbon' },
+  { threshold: 300, key: 'Silicon' },
+  { threshold: 700, key: 'Aluminium' },
+  { threshold: 1200, key: 'Titanium' },
+  { threshold: 2000, key: 'Chromium' },
+  { threshold: 3000, key: 'Nickel' }
+];
 
 export function ProgressScreen({ onClose }: ProgressScreenProps) {
   const { profile } = useProfile();
@@ -42,11 +141,14 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
   const [view, setView] = useState<'main' | 'leaderboard' | 'achievements'>('main');
   const [leaderboardTab, setLeaderboardTab] = useState<'league' | 'global'>('league');
   
-  // Leaderboard data states
+  // Rank and Leaderboard states
   const [lbEntries, setLbEntries] = useState<any[]>([]);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [isUserInTop5, setIsUserInTop5] = useState<boolean>(true);
   const [lbLoading, setLbLoading] = useState<boolean>(false);
+  
+  const [globalRank, setGlobalRank] = useState<number | null>(null);
+  const [leagueRank, setLeagueRank] = useState<number | null>(null);
 
   const atoms = Number(profile?.aura_score) || 0;
   const currentDbLevel = profile?.aura_level || 'Carbon';
@@ -77,9 +179,9 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
     if (atoms >= 3000) return 100;
     
     // Find which segment the atoms fall into
-    for (let i = 0; i < CHECKPOINTS.length - 1; i++) {
-      const min = CHECKPOINTS[i];
-      const max = CHECKPOINTS[i + 1];
+    for (let i = 0; i < WEEKLY_CHECKPOINTS.length - 1; i++) {
+      const min = WEEKLY_CHECKPOINTS[i].threshold;
+      const max = WEEKLY_CHECKPOINTS[i + 1].threshold;
       if (atoms >= min && atoms < max) {
         const segmentProgress = (atoms - min) / (max - min);
         // Each of the 5 segments is 20% of the bar
@@ -88,6 +190,34 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
     }
     return 0;
   }, [atoms]);
+
+  // Fetch ranks
+  useEffect(() => {
+    if (!profile?.id) return;
+    
+    const fetchRanks = async () => {
+      try {
+        // Global Rank
+        const { count: globCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .gt('aura_score', atoms);
+        setGlobalRank((globCount || 0) + 1);
+
+        // League Rank
+        const { count: legCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('aura_level', currentDbLevel)
+          .gt('aura_score', atoms);
+        setLeagueRank((legCount || 0) + 1);
+      } catch (err) {
+        console.error('Error fetching ranks:', err);
+      }
+    };
+
+    fetchRanks();
+  }, [profile?.id, atoms, currentDbLevel]);
 
   // Load leaderboard entries
   useEffect(() => {
@@ -153,13 +283,13 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
       <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono mb-2">
         <span className="uppercase tracking-widest font-semibold">League Progress (This Week)</span>
         <div className="flex items-center gap-1 bg-[#1e293b] px-2 py-0.5 rounded-full border border-white/10">
-          <img src={ATOMS_ICON_URL} alt="Coin" className="w-3 h-3 object-contain" />
+          <img src={ATOMS_ICON_URL} alt="Coin" className="w-3.5 h-3.5 object-contain" />
           <span className="font-bold text-amber-400">{atoms}</span>
         </div>
       </div>
       
       {/* Horizontally aligned checkpoint track */}
-      <div className="relative mt-5 mb-4 px-2">
+      <div className="relative mt-6 mb-4 px-2">
         <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-800 -translate-y-1/2 rounded-full overflow-hidden">
           <div 
             className="h-full bg-gradient-to-r from-cyan-400 to-indigo-500 transition-all duration-500 rounded-full"
@@ -167,21 +297,29 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
           />
         </div>
         
-        {/* Checkpoint Indicators */}
+        {/* Checkpoint Indicators with Actual League Logos */}
         <div className="flex justify-between relative z-10">
-          {CHECKPOINTS.map((checkpoint, idx) => {
-            const isActive = atoms >= checkpoint;
+          {WEEKLY_CHECKPOINTS.map((cp, idx) => {
+            const isActive = atoms >= cp.threshold;
+            const league = LEAGUE_MAPPING[cp.key];
             return (
-              <div key={checkpoint} className="flex flex-col items-center">
+              <div key={cp.threshold} className="flex flex-col items-center">
                 <div 
-                  className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                  className={`w-7.5 h-7.5 rounded-full flex items-center justify-center border transition-all duration-300 ${
                     isActive 
-                      ? 'bg-cyan-400 border-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]' 
+                      ? 'bg-cyan-400/20 border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.4)]' 
                       : 'bg-[#0f172a] border-slate-700'
                   }`}
-                />
+                  style={{ width: '30px', height: '30px' }}
+                >
+                  <img 
+                    src={league.icon} 
+                    alt={league.title} 
+                    className={`w-5 h-5 object-contain ${isActive ? '' : 'filter grayscale opacity-45'}`}
+                  />
+                </div>
                 <span className={`text-[8px] font-mono mt-1.5 font-bold ${isActive ? 'text-cyan-400 font-extrabold' : 'text-slate-500'}`}>
-                  {checkpoint}
+                  {cp.threshold}
                 </span>
               </div>
             );
@@ -199,13 +337,20 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
           {/* Static Background overlay click to close */}
           <div className="absolute inset-0" onClick={onClose} />
           
-          <div className="relative z-10 w-full max-w-md bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-white flex flex-col p-6 animate-in zoom-in-95 duration-205">
+          <div className="relative z-10 w-full max-w-md bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-white flex flex-col p-6 animate-in zoom-in-95 duration-200">
             
-            {/* Modal Header */}
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-black tracking-wide flex items-center gap-1.5">
-                  You are in 🏛️ {currentLeagueInfo.title} League
+            {/* Modal Header showing League Logo and Name */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 bg-slate-800/40 border border-white/5 rounded-2xl p-1 flex items-center justify-center">
+                <img 
+                  src={currentLeagueInfo.icon} 
+                  alt={currentLeagueInfo.title} 
+                  className="w-12 h-12 object-contain" 
+                />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-black tracking-wide">
+                  You are in {currentLeagueInfo.title} League
                 </h3>
                 <p className="text-[10px] text-slate-400 tracking-wider">Based on last week points</p>
               </div>
@@ -220,6 +365,28 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
             {/* Main League Progress View */}
             {view === 'main' && (
               <>
+                {/* Global Rank and League Rank info */}
+                <div className="grid grid-cols-2 gap-2.5 mb-4">
+                  <div className="bg-slate-800/50 border border-white/5 rounded-xl p-3 flex items-center gap-2.5">
+                    <Trophy size={16} className="text-yellow-400" />
+                    <div>
+                      <div className="text-[8px] font-mono text-slate-400 uppercase tracking-widest">Global Rank</div>
+                      <div className="text-sm font-black text-white">
+                        {globalRank !== null ? `#${globalRank}` : <Loader2 size={10} className="animate-spin" />}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-800/50 border border-white/5 rounded-xl p-3 flex items-center gap-2.5">
+                    <Compass size={16} className="text-cyan-400" />
+                    <div>
+                      <div className="text-[8px] font-mono text-slate-400 uppercase tracking-widest">League Rank</div>
+                      <div className="text-sm font-black text-white">
+                        {leagueRank !== null ? `#${leagueRank}` : <Loader2 size={10} className="animate-spin" />}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {renderProgressBar()}
 
                 {/* Recommendation Box */}
@@ -315,7 +482,10 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
                                 {entry.name || 'Anonymous'}
                                 {isSelf && <span className="text-[8px] bg-cyan-400/20 text-cyan-400 px-1 py-0.5 rounded font-black font-mono">YOU</span>}
                               </div>
-                              <span className="text-[9px] text-slate-400 uppercase font-mono">{entryLeague.title}</span>
+                              <span className="text-[9px] text-slate-400 uppercase font-mono flex items-center gap-1">
+                                <img src={entryLeague.icon} alt="icon" className="w-3 h-3 object-contain" />
+                                {entryLeague.title}
+                              </span>
                             </div>
                           </div>
                           
@@ -351,7 +521,10 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
                             {profile?.name}
                             <span className="text-[8px] bg-cyan-400/20 text-cyan-400 px-1 py-0.5 rounded font-black font-mono">YOU</span>
                           </div>
-                          <span className="text-[9px] text-slate-400 uppercase font-mono">{currentLeagueInfo.title}</span>
+                          <span className="text-[9px] text-slate-400 uppercase font-mono flex items-center gap-1">
+                            <img src={currentLeagueInfo.icon} alt="icon" className="w-3 h-3 object-contain" />
+                            {currentLeagueInfo.title}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
@@ -376,7 +549,7 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
         </div>
       )}
 
-      {/* 2. Side Panel Achievement Drawer */}
+      {/* 2. Side Panel Achievement Drawer showing all 10 leagues with emblems */}
       {view === 'achievements' && (
         <div className="fixed inset-0 z-[1999] flex justify-end bg-black/60 transition-opacity">
           {/* Drawer Backdrop overlay click to close */}
@@ -400,9 +573,12 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
 
             <div className="bg-[#1e293b]/40 border border-white/5 p-3 rounded-xl mb-6 flex justify-between items-center">
               <span className="text-xs text-slate-400 font-medium">Current league</span>
-              <span className="text-xs font-black uppercase tracking-widest text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-lg border border-cyan-500/20">
-                🏛️ {currentLeagueInfo.title}
-              </span>
+              <div className="flex items-center gap-2 bg-cyan-500/10 px-3 py-1.5 rounded-lg border border-cyan-500/20">
+                <img src={currentLeagueInfo.icon} alt="icon" className="w-4 h-4 object-contain" />
+                <span className="text-xs font-black uppercase tracking-widest text-cyan-400">
+                  {currentLeagueInfo.title}
+                </span>
+              </div>
             </div>
 
             {/* League Collection Grid */}
@@ -424,8 +600,7 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
                 // Mock dynamic counts for previous achievements to look alive
                 let achievementText = 'Locked';
                 if (isCompleted) {
-                  // e.g. level 1 has 23 times, level 2 has 3 times etc.
-                  const mockCount = Math.max(1, Math.round((3000 - item.min) / (item.min + 1) * 3));
+                  const mockCount = Math.max(1, Math.round((30000 - item.min) / (item.min + 1) * 3));
                   achievementText = `Achieved ${mockCount} times`;
                 } else if (isCurrent) {
                   achievementText = 'Current league';
@@ -434,7 +609,7 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
                 return (
                   <div 
                     key={key}
-                    className={`p-4 rounded-xl border flex flex-col justify-between min-h-[140px] transition-all ${
+                    className={`p-4 rounded-xl border flex flex-col justify-between min-h-[160px] transition-all ${
                       isCurrent
                         ? `${item.bg} ${item.border} ring-1 ring-cyan-500/20`
                         : isCompleted
@@ -443,7 +618,7 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
                     }`}
                   >
                     <div>
-                      <div className="flex justify-between items-start mb-1">
+                      <div className="flex justify-between items-start mb-2">
                         <span className={`text-xs font-black uppercase tracking-wider ${item.color}`}>
                           {item.title}
                         </span>
@@ -451,12 +626,22 @@ export function ProgressScreen({ onClose }: ProgressScreenProps) {
                         {isCompleted && <CheckCircle2 size={12} className="text-cyan-400" />}
                         {isCurrent && <Award size={12} className="text-cyan-400 animate-pulse" />}
                       </div>
+
+                      {/* Actual League emblem logo */}
+                      <div className="flex items-center justify-center my-3">
+                        <img 
+                          src={item.icon} 
+                          alt={item.title} 
+                          className={`w-12 h-12 object-contain ${isLocked ? 'filter grayscale opacity-35' : ''}`}
+                        />
+                      </div>
+                      
                       <p className="text-[10px] text-slate-400 leading-tight mb-2">{item.desc}</p>
                     </div>
                     
                     <div>
                       <div className="text-[8px] font-mono text-slate-500 mb-1">
-                        {item.min === 0 ? '<299' : `${item.min}-${item.max}`} Atoms
+                        {item.min}+ Atoms Required
                       </div>
                       <span className={`text-[9px] font-mono font-bold block ${isLocked ? 'text-slate-500' : 'text-slate-300'}`}>
                         {achievementText}
