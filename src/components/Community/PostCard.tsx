@@ -1,9 +1,9 @@
 'use client';
 
 import { Post } from '@/hooks/usePosts';
-import { ChevronUp, ChevronDown, MessageSquare, Share2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, MessageSquare, Share2, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 const TAG_COLORS: Record<string, string> = {
   physics: '#00c3ff', chemistry: '#b26bff', maths: '#00e5a0', jee: '#f59e0b',
@@ -17,10 +17,12 @@ interface PostCardProps {
   onVote: (postId: string, value: number) => void;
   canModerate: boolean;
   onDelete: (postId: string) => void;
+  onEdit: (post: Post) => void;
   onShowUser: (userId: string) => void;
+  currentUserId?: string;
 }
 
-export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: PostCardProps) {
+export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUser, currentUserId }: PostCardProps) {
   const isAnonymous = post.is_anonymous;
   const profile = isAnonymous ? {
     name: 'Anonymous',
@@ -30,7 +32,11 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
     role: '',
     muted_until: null
   } : (post.profiles || {} as any);
-  const router = useRouter();
+
+  const [showMenu, setShowMenu] = useState(false);
+
+  const isOwner = !!currentUserId && currentUserId === post.user_id;
+  const showActions = isOwner || canModerate;
 
   const tags = Array.isArray(post.tags) ? post.tags : [];
 
@@ -136,6 +142,47 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
               )}
             </div>
           </div>
+
+          {/* Owner/Mod Actions Menu */}
+          {showActions && (
+            <div className="relative ml-auto" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+              <button
+                onClick={() => setShowMenu(v => !v)}
+                className="p-1.5 rounded-full text-gray-500 hover:text-white hover:bg-white/10 transition-all"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+              {showMenu && (
+                <>
+                  {/* Click outside to close */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowMenu(false)}
+                  />
+                  <div className="absolute right-0 top-8 z-20 min-w-[130px] bg-[#0f0f1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+                    {isOwner && (
+                      <button
+                        onClick={() => { setShowMenu(false); onEdit(post); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-400 hover:bg-amber-400/10 transition-colors font-bold"
+                      >
+                        <Pencil size={14} />
+                        Edit Post
+                      </button>
+                    )}
+                    {(isOwner || canModerate) && (
+                      <button
+                        onClick={() => { setShowMenu(false); onDelete(post.id); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-red-400/10 transition-colors font-bold"
+                      >
+                        <Trash2 size={14} />
+                        Delete Post
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Title (bold & prominent) */}
@@ -221,6 +268,11 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
           </button>
         </div>
       </div>
+
+      <style>{`
+        @keyframes fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.15s ease-out; }
+      `}</style>
     </Link>
   );
 }

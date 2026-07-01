@@ -7,10 +7,11 @@ import { useProfile } from '@/hooks/useProfile';
 import { CommentsSection } from '@/components/Community/CommentsSection';
 import { ImageLightbox } from '@/components/Community/ImageLightbox';
 import { ReportModal } from '@/components/Community/ReportModal';
+import { EditPostModal } from '@/components/Community/EditPostModal';
 import { UserProfileModal } from '@/components/Community/UserProfileModal';
 import { useDialog } from '@/components/DialogProvider';
 import { 
-  ChevronUp, ChevronDown, MessageSquare, Flag, Trash2, 
+  ChevronUp, ChevronDown, MessageSquare, Flag, Trash2, Pencil,
   ArrowLeft, Share2, Loader2, Link as LinkIcon, Clock,
   LogIn
 } from 'lucide-react';
@@ -65,10 +66,12 @@ export default function PostDetailPage() {
   const [error, setError] = useState('');
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showReport, setShowReport] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const isLoggedIn = !!profile;
+  const isOwner = !!profile && !!post && profile.id === post.user_id;
   const canModerate = profile?.role === 'admin' || profile?.role === 'mod';
 
   useEffect(() => {
@@ -195,6 +198,10 @@ export default function PostDetailPage() {
       toast('Post deleted', 'success');
       router.push('/community');
     }
+  };
+
+  const handleEdit = () => {
+    setShowEdit(true);
   };
 
   const handleShare = async () => {
@@ -431,15 +438,26 @@ export default function PostDetailPage() {
               </button>
             )}
 
-            {/* Mod actions */}
-            {canModerate && (
-              <button
-                className="flex items-center gap-1.5 text-red-500 hover:text-red-400 transition-colors text-sm ml-auto"
-                onClick={handleDelete}
-              >
-                <Trash2 size={14} />
-                <span className="text-xs font-bold">Delete</span>
-              </button>
+            {/* Mod/owner actions */}
+            {(isOwner || canModerate) && (
+              <div className="flex items-center gap-2 ml-auto">
+                {isOwner && (
+                  <button
+                    className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 transition-colors text-sm"
+                    onClick={handleEdit}
+                  >
+                    <Pencil size={14} />
+                    <span className="text-xs font-bold">Edit</span>
+                  </button>
+                )}
+                <button
+                  className="flex items-center gap-1.5 text-red-500 hover:text-red-400 transition-colors text-sm"
+                  onClick={handleDelete}
+                >
+                  <Trash2 size={14} />
+                  <span className="text-xs font-bold">Delete</span>
+                </button>
+              </div>
             )}
           </div>
         </article>
@@ -478,6 +496,15 @@ export default function PostDetailPage() {
         <ReportModal
           postId={post.id}
           onClose={() => setShowReport(false)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {showEdit && post && (
+        <EditPostModal
+          post={post}
+          onClose={() => setShowEdit(false)}
+          onSuccess={() => { setShowEdit(false); fetchPost(); }}
         />
       )}
 

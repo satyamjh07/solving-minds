@@ -1,9 +1,10 @@
 'use client';
 
-import { usePosts } from '@/hooks/usePosts';
+import { usePosts, Post } from '@/hooks/usePosts';
 import { useProfile } from '@/hooks/useProfile';
 import { PostCard } from '@/components/Community/PostCard';
 import { CreatePostModal } from '@/components/Community/CreatePostModal';
+import { EditPostModal } from '@/components/Community/EditPostModal';
 import { supabase } from '@/lib/supabase/client';
 import { useState } from 'react';
 import { Loader2, Plus, PenLine, Filter, RotateCcw, Tag as TagIcon, Calendar, GraduationCap, Target as TargetIcon } from 'lucide-react';
@@ -30,6 +31,7 @@ export default function CommunityPage() {
   const [timeFilter, setTimeFilter] = useState('ALL');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
 
   const { posts, setPosts, loading, refetch } = usePosts({
     type: filter,
@@ -170,7 +172,9 @@ export default function CommunityPage() {
                   post={post} 
                   onVote={handleVote} 
                   canModerate={profile?.role === 'admin' || profile?.role === 'mod'} 
-                  onDelete={handleDelete} 
+                  onDelete={handleDelete}
+                  onEdit={setEditingPost}
+                  currentUserId={profile?.id}
                   onShowUser={setSelectedUserId}
                 />
               ))
@@ -327,6 +331,14 @@ export default function CommunityPage() {
       </div>
 
       {showCreateModal && <CreatePostModal onClose={() => setShowCreateModal(false)} onSuccess={() => refetch()} />}
+
+      {editingPost && (
+        <EditPostModal
+          post={editingPost}
+          onClose={() => setEditingPost(null)}
+          onSuccess={() => { setEditingPost(null); refetch(); }}
+        />
+      )}
 
       {selectedUserId && <UserProfileModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />}
 
