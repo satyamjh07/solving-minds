@@ -11,6 +11,8 @@ export interface Post {
   image_url?: string;
   image_urls: string[] | string;
   created_at: string;
+  is_anonymous: boolean;
+  is_blocked: boolean;
   profiles: {
     id: string;
     name: string;
@@ -43,7 +45,9 @@ export function usePosts(filters: PostFilters = {}) {
 
     let query = supabase
       .from('posts')
-      .select('id, user_id, title, content, image_urls, tags, created_at, profiles!inner(id, name, avatar_url, class, target_year, role, muted_until)');
+      .select('id, user_id, title, content, image_urls, tags, created_at, is_anonymous, is_blocked, profiles!inner(id, name, avatar_url, class, target_year, role, muted_until)')
+      .eq('is_blocked', false);
+
 
     // Apply Filters Server-side
     if (filters.type === 'my' && user) {

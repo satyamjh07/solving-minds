@@ -3,7 +3,7 @@ const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 const envPath = path.join(__dirname, '..', '.env.local');
-const envContent = fs.readFileSync(envPath, 'utf8');
+let envContent = fs.readFileSync(envPath, 'utf8');
 const env = {};
 envContent.split('\n').forEach(line => {
   const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
@@ -20,34 +20,21 @@ const url = env.NEXT_PUBLIC_SUPABASE_URL;
 const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(url, key);
 
-async function checkDb() {
-  console.log('Testing Supabase Client Connection...');
-  // Test profiles table structure
-  const { data: profile, error: pErr } = await supabase
-    .from('profiles')
-    .select('*')
-    .limit(1);
+async function checkSchema() {
+  console.log('Fetching single row from posts...');
+  const { data: posts, error: pError } = await supabase.from('posts').select('*').limit(1);
+  if (pError) console.error('posts error:', pError);
+  else console.log('posts columns:', posts.length > 0 ? Object.keys(posts[0]) : 'empty table');
 
-  if (pErr) {
-    console.error('Error fetching profiles:', pErr);
-  } else {
-    console.log('Successfully fetched profile sample:', profile);
-    if (profile && profile.length > 0) {
-      console.log('Columns in profiles:', Object.keys(profile[0]));
-    }
-  }
+  console.log('Fetching single row from profiles...');
+  const { data: profiles, error: prError } = await supabase.from('profiles').select('*').limit(1);
+  if (prError) console.error('profiles error:', prError);
+  else console.log('profiles columns:', profiles.length > 0 ? Object.keys(profiles[0]) : 'empty table');
 
-  // Test if atom_transactions table exists
-  const { data: tx, error: txErr } = await supabase
-    .from('atom_transactions')
-    .select('*')
-    .limit(1);
-
-  if (txErr) {
-    console.error('atom_transactions table test failed (likely does not exist):', txErr.message);
-  } else {
-    console.log('atom_transactions table exists! Sample:', tx);
-  }
+  console.log('Fetching single row from reports...');
+  const { data: reports, error: rError } = await supabase.from('reports').select('*').limit(1);
+  if (rError) console.error('reports error:', rError);
+  else console.log('reports columns:', reports.length > 0 ? Object.keys(reports[0]) : 'empty table');
 }
 
-checkDb();
+checkSchema();

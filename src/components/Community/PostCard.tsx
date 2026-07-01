@@ -21,7 +21,15 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: PostCardProps) {
-  const profile = post.profiles || {} as any;
+  const isAnonymous = post.is_anonymous;
+  const profile = isAnonymous ? {
+    name: 'Anonymous',
+    avatar_url: '',
+    class: '',
+    target_year: '',
+    role: '',
+    muted_until: null
+  } : (post.profiles || {} as any);
   const router = useRouter();
 
   const tags = Array.isArray(post.tags) ? post.tags : [];
@@ -80,32 +88,52 @@ export function PostCard({ post, onVote, canModerate, onDelete, onShowUser }: Po
       <div className="post-body">
         {/* Author Row */}
         <div className="post-header">
-          <button 
-            className="post-avatar-btn" 
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowUser(post.user_id); }}
-          >
-            <div className="post-avatar">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile.name} />
-              ) : (
-                <span className="flex items-center justify-center w-full h-full text-gray-500">👤</span>
-              )}
+          {isAnonymous ? (
+            <div className="post-avatar-btn cursor-default" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+              <div className="post-avatar bg-[#ffffff08] border border-white/5 flex items-center justify-center">
+                <span className="text-gray-400 text-sm">👤</span>
+              </div>
             </div>
-          </button>
-          <div className="post-header-info">
+          ) : (
             <button 
-              className="post-author-link"
+              className="post-avatar-btn" 
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowUser(post.user_id); }}
             >
-              {profile.name || 'Anonymous'}
-              {profile.role === 'admin' && <span className="role-badge badge-admin ml-1">ADMIN</span>}
-              {profile.role === 'mod' && <span className="role-badge badge-mod ml-1">MOD</span>}
+              <div className="post-avatar">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={profile.name} />
+                ) : (
+                  <span className="flex items-center justify-center w-full h-full text-gray-500">👤</span>
+                )}
+              </div>
             </button>
+          )}
+          <div className="post-header-info">
+            {isAnonymous ? (
+              <span className="font-bold text-sm text-gray-400 cursor-default" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                Anonymous
+              </span>
+            ) : (
+              <button 
+                className="post-author-link"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowUser(post.user_id); }}
+              >
+                {profile.name || 'Anonymous'}
+                {profile.role === 'admin' && <span className="role-badge badge-admin ml-1">ADMIN</span>}
+                {profile.role === 'mod' && <span className="role-badge badge-mod ml-1">MOD</span>}
+              </button>
+            )}
             <div className="post-time">
-              {profile.class || ''}
-              {profile.class && profile.target_year ? ' · ' : ''}
-              {profile.target_year ? `Target ${profile.target_year}` : ''}
-              {' · '}{timeAgo(post.created_at)}
+              {isAnonymous ? (
+                <>Incognito · {timeAgo(post.created_at)}</>
+              ) : (
+                <>
+                  {profile.class || ''}
+                  {profile.class && profile.target_year ? ' · ' : ''}
+                  {profile.target_year ? `Target ${profile.target_year}` : ''}
+                  {' · '}{timeAgo(post.created_at)}
+                </>
+              )}
             </div>
           </div>
         </div>

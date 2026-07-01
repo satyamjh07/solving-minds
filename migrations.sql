@@ -38,3 +38,8 @@ CREATE INDEX IF NOT EXISTS idx_reports_question_id ON public.reports(question_id
 -- 5. Update check constraint to allow either post_id or question_id to be populated
 ALTER TABLE public.reports DROP CONSTRAINT IF EXISTS report_target;
 ALTER TABLE public.reports ADD CONSTRAINT report_target CHECK (post_id IS NOT NULL OR question_id IS NOT NULL);
+
+-- 6. Add columns for anonymous posting and word filtering
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE;
+

@@ -39,6 +39,7 @@ interface PostDetail {
   image_urls: string[] | string;
   tags: string[] | null;
   created_at: string;
+  is_anonymous: boolean;
   profiles: {
     id: string;
     name: string;
@@ -80,7 +81,7 @@ export default function PostDetailPage() {
     try {
       const { data: postData, error: postErr } = await supabase
         .from('posts')
-        .select('id, user_id, title, content, image_urls, tags, created_at, profiles!inner(id, name, avatar_url, class, target_year, role, muted_until)')
+        .select('id, user_id, title, content, image_urls, tags, created_at, is_anonymous, profiles!inner(id, name, avatar_url, class, target_year, role, muted_until)')
         .eq('id', postId)
         .single();
 
@@ -134,7 +135,15 @@ export default function PostDetailPage() {
 
   const images = useMemo(() => getImages(), [post]);
   const tags = post ? (Array.isArray(post.tags) ? post.tags : []) : [];
-  const authorProfile = post?.profiles || {} as any;
+  const isAnonymous = post?.is_anonymous;
+  const authorProfile = isAnonymous ? {
+    name: 'Anonymous',
+    avatar_url: '',
+    class: '',
+    target_year: '',
+    role: '',
+    muted_until: null
+  } : (post?.profiles || {} as any);
 
   const handleVote = async (value: number) => {
     if (!profile || !post) return;
@@ -255,34 +264,59 @@ export default function PostDetailPage() {
           
           {/* Author Header */}
           <div className="px-6 pt-6 pb-4 flex items-center gap-3">
-            <button 
-              className="flex-shrink-0"
-              onClick={() => isLoggedIn && setSelectedUserId(post.user_id)}
-            >
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/10">
-                {authorProfile.avatar_url ? (
-                  <img src={authorProfile.avatar_url} alt={authorProfile.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="flex items-center justify-center w-full h-full text-gray-500">👤</span>
-                )}
+            {isAnonymous ? (
+              <div className="flex-shrink-0 cursor-default" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                  <span className="text-gray-400">👤</span>
+                </div>
               </div>
-            </button>
-            <div className="flex-1 min-w-0">
+            ) : (
               <button 
-                className="text-sm font-bold text-white hover:text-cyan-400 transition-colors flex items-center gap-1.5"
+                className="flex-shrink-0"
                 onClick={() => isLoggedIn && setSelectedUserId(post.user_id)}
               >
-                {authorProfile.name || 'Anonymous'}
-                {authorProfile.role === 'admin' && <span className="role-badge badge-admin text-[8px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-mono uppercase">ADMIN</span>}
-                {authorProfile.role === 'mod' && <span className="role-badge badge-mod text-[8px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-mono uppercase">MOD</span>}
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/10">
+                  {authorProfile.avatar_url ? (
+                    <img src={authorProfile.avatar_url} alt={authorProfile.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="flex items-center justify-center w-full h-full text-gray-500">👤</span>
+                  )}
+                </div>
               </button>
-              <div className="text-[10px] text-gray-500 font-mono flex items-center gap-1.5">
-                {authorProfile.class || ''}
-                {authorProfile.class && authorProfile.target_year ? ' · ' : ''}
-                {authorProfile.target_year ? `Target ${authorProfile.target_year}` : ''}
-                <span className="flex items-center gap-1">
-                  <Clock size={10} /> {timeAgo(post.created_at)}
+            )}
+            <div className="flex-1 min-w-0">
+              {isAnonymous ? (
+                <span className="text-sm font-bold text-gray-400 cursor-default" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                  Anonymous
                 </span>
+              ) : (
+                <button 
+                  className="text-sm font-bold text-white hover:text-cyan-400 transition-colors flex items-center gap-1.5"
+                  onClick={() => isLoggedIn && setSelectedUserId(post.user_id)}
+                >
+                  {authorProfile.name || 'Anonymous'}
+                  {authorProfile.role === 'admin' && <span className="role-badge badge-admin text-[8px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-mono uppercase">ADMIN</span>}
+                  {authorProfile.role === 'mod' && <span className="role-badge badge-mod text-[8px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-mono uppercase">MOD</span>}
+                </button>
+              )}
+              <div className="text-[10px] text-gray-500 font-mono flex items-center gap-1.5">
+                {isAnonymous ? (
+                  <>
+                    Incognito · 
+                    <span className="flex items-center gap-1">
+                      <Clock size={10} /> {timeAgo(post.created_at)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {authorProfile.class || ''}
+                    {authorProfile.class && authorProfile.target_year ? ' · ' : ''}
+                    {authorProfile.target_year ? `Target ${authorProfile.target_year}` : ''}
+                    <span className="flex items-center gap-1">
+                      <Clock size={10} /> {timeAgo(post.created_at)}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>

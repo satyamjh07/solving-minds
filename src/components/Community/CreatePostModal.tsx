@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
 import { useDialog } from '@/components/DialogProvider';
 import { uploadToCloudinary } from '@/lib/cloudinary';
+import { hasExplicitContent } from '@/lib/wordFilter';
 
 const PRESET_TAGS = [
   'doubts', 'physics', 'chemistry', 'maths', 'help',
@@ -46,6 +47,7 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isPosting, setIsPosting] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
@@ -76,6 +78,14 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
   };
 
   const handlePost = async () => {
+    if (profile?.muted_until && new Date(profile.muted_until) > new Date()) {
+      const remainingTime = Math.ceil((new Date(profile.muted_until).getTime() - Date.now()) / 1000);
+      const minutes = Math.floor(remainingTime / 60);
+      const seconds = remainingTime % 60;
+      toast(`You are currently timed out. Please wait ${minutes}m ${seconds}s.`, 'error');
+      return;
+    }
+
     if (!title.trim()) {
       toast('Please add a post title!', 'warning');
       return;
@@ -96,15 +106,44 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
         imageUrls = await Promise.all(selectedImages.map(img => uploadToCloudinary(img)));
       }
 
-      const { error } = await supabase.from('posts').insert({
+      const containsExplicit = hasExplicitContent(title.trim(), content.trim());
+
+      const { data: postData, error } = await supabase.from('posts').insert({
         user_id: profile?.id,
         title: title.trim() || null,
         content: content.trim(),
         image_urls: imageUrls,
         tags: selectedTags,
-      });
+        is_anonymous: isAnonymous,
+        is_blocked: containsExplicit
+      }).select('id').single();
 
       if (error) throw error;
+
+      if (containsExplicit && postData) {
+        const mutedUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+        
+        // Timeout the user
+        await supabase
+          .from('profiles')
+          .update({ muted_until: mutedUntil })
+          .eq('id', profile?.id);
+
+        // Report to admins
+        await supabase
+          .from('reports')
+          .insert({
+            reporter_id: profile?.id,
+            post_id: postData.id,
+            reason: 'Automated Filter: Explicit/abusive language detected in title or content.',
+            status: 'pending'
+          });
+
+        sessionStorage.removeItem('user_profile');
+        toast('Post blocked due to inappropriate words. You have received a 10 minutes timeout.', 'error');
+      } else {
+        toast('Post created successfully!', 'success');
+      }
 
       onSuccess();
       onClose();
@@ -131,16 +170,18 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#ffffff08]">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full overflow-hidden bg-[#ffffff08]">
-                {profile?.avatar_url ? (
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-[#ffffff08] border border-white/5 flex items-center justify-center">
+                {isAnonymous ? (
+                  <span className="text-gray-400 text-sm bg-purple-500/10 w-full h-full flex items-center justify-center">👤</span>
+                ) : profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="flex items-center justify-center h-full text-gray-500 text-sm">👤</span>
+                  <span className="text-gray-500 text-sm w-full h-full flex items-center justify-center">👤</span>
                 )}
               </div>
               <div>
-                <div className="text-sm font-bold text-white">{profile?.name || 'You'}</div>
-                <div className="text-[10px] text-gray-500 font-mono uppercase">{profile?.class || ''}</div>
+                <div className="text-sm font-bold text-white">{isAnonymous ? 'Anonymous' : (profile?.name || 'You')}</div>
+                <div className="text-[10px] text-gray-500 font-mono uppercase">{isAnonymous ? 'Incognito' : (profile?.class || '')}</div>
               </div>
             </div>
             <button
@@ -224,11 +265,26 @@ export function CreatePostModal({ onClose, onSuccess }: CreatePostModalProps) {
 
           {/* Footer */}
           <div className="flex items-center justify-between px-5 py-4 border-t border-[#ffffff08] bg-[#0a0a14]">
-            <label className="cursor-pointer flex items-center gap-2 text-gray-400 hover:text-[#7c3aed] transition-colors text-sm font-medium">
-              <ImageIcon size={18} />
-              <span className="hidden sm:inline">Media</span>
-              <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageSelect} />
-            </label>
+            <div className="flex items-center gap-4">
+              <label className="cursor-pointer flex items-center gap-2 text-gray-400 hover:text-[#7c3aed] transition-colors text-sm font-medium">
+                <ImageIcon size={18} />
+                <span className="hidden sm:inline">Media</span>
+                <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageSelect} />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setIsAnonymous(!isAnonymous)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all text-xs font-bold ${
+                  isAnonymous
+                    ? 'bg-purple-500/10 border-purple-500/30 text-purple-400 shadow-md shadow-purple-500/5'
+                    : 'bg-transparent border-white/10 text-gray-400 hover:border-white/20 hover:text-white'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                Anonymous
+              </button>
+            </div>
 
             <div className="flex items-center gap-3">
               {selectedTags.length > 0 && (
