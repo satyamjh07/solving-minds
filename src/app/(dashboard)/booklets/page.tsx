@@ -116,22 +116,54 @@ function DiffBadge({ diff }: { diff: string | null }) {
   );
 }
 
-// ─── Single question card ─────────────────────────────────────────────────────
+// ─── Single question card (interactive practice mode) ────────────────────────
 const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuestion; index: number }) {
-  const [showExplanation, setShowExplanation] = useState(false);
-  const [showAnswer, setShowAnswer] = useState(false);
-
   const isMCQ = q.type !== 'integer';
   const optionLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
-
   const correctIdx = isMCQ ? parseInt(q.correct_answer, 10) : null;
-  const selectedIdx = isMCQ ? parseInt(q.selected_answer, 10) : null;
+
+  // Practice mode state
+  const [pickedIdx, setPickedIdx] = useState<number | null>(null); // what user picks NOW
+  const [integerInput, setIntegerInput] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+
+  const isCorrectAttempt = submitted && (
+    isMCQ
+      ? pickedIdx === correctIdx
+      : integerInput.trim() === q.correct_answer.trim()
+  );
+
+  const handleSubmit = () => {
+    if (isMCQ && pickedIdx === null) return;
+    if (!isMCQ && !integerInput.trim()) return;
+    setSubmitted(true);
+  };
+
+  const handleRetry = () => {
+    setPickedIdx(null);
+    setIntegerInput('');
+    setSubmitted(false);
+    setShowExplanation(false);
+  };
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-sm hover:border-red-500/30 hover:shadow-red-500/5 transition-all duration-200">
+    <div className={`bg-[var(--card)] border rounded-2xl overflow-hidden shadow-sm transition-all duration-200 ${
+      submitted
+        ? isCorrectAttempt
+          ? 'border-emerald-500/40 shadow-emerald-500/5'
+          : 'border-red-500/40 shadow-red-500/5'
+        : 'border-[var(--border)] hover:border-[var(--accent)]/30'
+    }`}>
       {/* Question header */}
       <div className="flex items-start gap-3 p-4 pb-3">
-        <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 font-black text-xs font-mono">
+        <div className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs font-mono transition-all ${
+          submitted
+            ? isCorrectAttempt
+              ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-500'
+              : 'bg-red-500/15 border border-red-500/30 text-red-500'
+            : 'bg-[var(--bg2)] border border-[var(--border)] text-[var(--text3)]'
+        }`}>
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
@@ -149,6 +181,17 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
             }`}>
               {q.source === 'mock' ? 'Mock Test' : 'Solver'}
             </span>
+            {/* Outcome pill after submission */}
+            {submitted && (
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
+                isCorrectAttempt
+                  ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/25'
+                  : 'bg-red-500/10 text-red-500 border-red-500/25'
+              }`}>
+                {isCorrectAttempt ? <CheckCircle2 size={9} /> : <XCircle size={9} />}
+                {isCorrectAttempt ? 'Correct!' : 'Wrong again'}
+              </span>
+            )}
           </div>
           <MathText text={q.question_text} className="text-sm text-[var(--text)] leading-relaxed" />
           {q.question_image_url && (
@@ -161,26 +204,42 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
       {isMCQ && q.options && q.options.length > 0 && (
         <div className="px-4 pb-3 space-y-1.5">
           {q.options.map((opt, i) => {
-            const isCorrect = i === correctIdx;
-            const isSelected = i === selectedIdx;
-            const isWrong = isSelected && !isCorrect;
+            const isCorrectOpt = i === correctIdx;
+            const isPicked = i === pickedIdx;
+
+            // Before submit: highlight only the user's current pick
+            // After submit: reveal correct (green) and wrong pick (red)
+            let rowCls = 'bg-[var(--bg2)] border-[var(--border)] text-[var(--text2)]';
+            let dotCls = 'bg-[var(--bg3)] text-[var(--text3)]';
+            let icon: React.ReactNode = null;
+
+            if (!submitted) {
+              if (isPicked) {
+                rowCls = 'bg-[var(--accent)]/10 border-[var(--accent)]/40 text-[var(--accent)]';
+                dotCls = 'bg-[var(--accent)] text-white';
+              }
+            } else {
+              if (isCorrectOpt) {
+                rowCls = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600';
+                dotCls = 'bg-emerald-500 text-white';
+                icon = <CheckCircle2 size={12} className="flex-shrink-0 mt-0.5 text-emerald-500" />;
+              } else if (isPicked && !isCorrectOpt) {
+                rowCls = 'bg-red-500/10 border-red-500/30 text-red-500';
+                dotCls = 'bg-red-500 text-white';
+                icon = <XCircle size={12} className="flex-shrink-0 mt-0.5 text-red-500" />;
+              }
+            }
 
             return (
-              <div
+              <button
                 key={i}
-                className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-xs transition-all ${
-                  isCorrect
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                    : isWrong
-                    ? 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400'
-                    : 'bg-[var(--bg2)] border-[var(--border)] text-[var(--text2)]'
+                disabled={submitted}
+                onClick={() => setPickedIdx(i)}
+                className={`w-full flex items-start gap-2 px-3 py-2 rounded-xl border text-xs transition-all text-left ${rowCls} ${
+                  !submitted ? 'cursor-pointer hover:border-[var(--accent)]/40 active:scale-[0.99]' : 'cursor-default'
                 }`}
               >
-                <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center font-black text-[9px] ${
-                  isCorrect ? 'bg-emerald-500 text-white' :
-                  isWrong   ? 'bg-red-500 text-white' :
-                              'bg-[var(--bg3)] text-[var(--text3)]'
-                }`}>
+                <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center font-black text-[9px] transition-colors ${dotCls}`}>
                   {optionLabels[i]}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -188,50 +247,93 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
                   {opt.image && <img src={opt.image} alt={`option ${i}`} className="mt-1 max-h-20 object-contain rounded" />}
                   {!opt.text && !opt.image && <span className="text-[var(--text3)]">Option {optionLabels[i]}</span>}
                 </div>
-                {isCorrect && <CheckCircle2 size={12} className="flex-shrink-0 mt-0.5 text-emerald-500" />}
-                {isWrong   && <XCircle     size={12} className="flex-shrink-0 mt-0.5 text-red-500" />}
-              </div>
+                {icon}
+              </button>
             );
           })}
         </div>
       )}
 
-      {/* Integer type — show answer */}
+      {/* Integer input */}
       {!isMCQ && (
         <div className="px-4 pb-3">
-          <div className="flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <XCircle size={12} className="text-red-500" />
-              <span className="text-[var(--text2)]">Your answer:</span>
-              <span className="font-black text-red-500 font-mono">{q.selected_answer || '—'}</span>
+          {!submitted ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={integerInput}
+                onChange={e => setIntegerInput(e.target.value)}
+                placeholder="Enter your answer..."
+                className="flex-1 px-4 py-2.5 text-sm bg-[var(--bg2)] border border-[var(--border)] focus:border-[var(--accent)] rounded-xl text-[var(--text)] outline-none transition-colors font-mono"
+              />
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-              <CheckCircle2 size={12} className="text-emerald-500" />
-              <span className="text-[var(--text2)]">Correct:</span>
-              <span className="font-black text-emerald-500 font-mono">{q.correct_answer}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Explanation toggle */}
-      {q.explanation && (
-        <div className="border-t border-[var(--border)] px-4 py-2">
-          <button
-            onClick={() => setShowExplanation(v => !v)}
-            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] hover:opacity-80 transition-opacity"
-          >
-            {showExplanation ? <EyeOff size={12} /> : <Eye size={12} />}
-            {showExplanation ? 'Hide' : 'Show'} Explanation
-          </button>
-          {showExplanation && (
-            <div className="mt-2 p-3 bg-[var(--bg2)] rounded-xl border border-[var(--border)]">
-              <MathText text={q.explanation} className="text-xs text-[var(--text2)] leading-relaxed" />
-              {q.explanation_image_url && (
-                <img src={q.explanation_image_url} alt="explanation" className="mt-2 max-h-48 rounded-lg object-contain" />
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${
+                isCorrectAttempt
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                  : 'bg-red-500/10 border-red-500/20 text-red-500'
+              }`}>
+                {isCorrectAttempt ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                <span className="text-[var(--text2)]">Your answer:</span>
+                <span className="font-black font-mono">{integerInput || '—'}</span>
+              </div>
+              {!isCorrectAttempt && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500">
+                  <CheckCircle2 size={12} />
+                  <span className="text-[var(--text2)]">Correct:</span>
+                  <span className="font-black text-emerald-500 font-mono">{q.correct_answer}</span>
+                </div>
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Action bar: Submit / Retry */}
+      <div className="border-t border-[var(--border)] px-4 py-2.5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {!submitted ? (
+            <button
+              onClick={handleSubmit}
+              disabled={isMCQ ? pickedIdx === null : !integerInput.trim()}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-[var(--accent)] text-white hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono"
+            >
+              <CheckCircle2 size={11} />
+              Check Answer
+            </button>
+          ) : (
+            <button
+              onClick={handleRetry}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-[var(--bg2)] border border-[var(--border)] text-[var(--text2)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)] transition-all font-mono"
+            >
+              <RefreshCw size={11} />
+              Try Again
+            </button>
+          )}
+        </div>
+
+        {/* Explanation toggle — only after submitting */}
+        {submitted && q.explanation && (
+          <button
+            onClick={() => setShowExplanation(v => !v)}
+            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] hover:opacity-80 transition-opacity font-mono"
+          >
+            {showExplanation ? <EyeOff size={11} /> : <Eye size={11} />}
+            {showExplanation ? 'Hide' : 'Show'} Explanation
+          </button>
+        )}
+      </div>
+
+      {/* Explanation body */}
+      {submitted && showExplanation && q.explanation && (
+        <div className="px-4 pb-4">
+          <div className="p-3 bg-[var(--bg2)] rounded-xl border border-[var(--border)]">
+            <MathText text={q.explanation} className="text-xs text-[var(--text2)] leading-relaxed" />
+            {q.explanation_image_url && (
+              <img src={q.explanation_image_url} alt="explanation" className="mt-2 max-h-48 rounded-lg object-contain" />
+            )}
+          </div>
         </div>
       )}
     </div>
