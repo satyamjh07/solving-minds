@@ -17,7 +17,8 @@ import {
   Loader2,
   AlertTriangle,
   ShieldCheck,
-  ClipboardList
+  ClipboardList,
+  BookMarked
 } from 'lucide-react';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -114,6 +115,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     '/dashboard':  { title: 'Command Center',     sub: 'Your daily performance hub' },
     '/tests':      { title: 'Test_Center',        sub: 'Attempt Mock Tests and Previous Year Papers' },
     '/solving':    { title: 'Solver_Protocol',    sub: 'Sharpen your problem-solving edge' },
+    '/booklets':   { title: 'Booklets',           sub: 'My Mistakes Library — Revise what you got wrong' },
     '/community':  { title: 'Social_Feed',        sub: 'Share, discuss, and grow together' },
     '/settings':   { title: 'Settings',           sub: 'Personalize your profile and preferences' },
     '/admin':      { title: 'Admin_Panel',        sub: 'Manage users, posts, and reports' },
@@ -126,6 +128,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: 'Home', href: '/dashboard', icon: <LayoutDashboard size={18} />, page: 'dashboard' },
     { name: 'Tests', href: '/tests', icon: <ClipboardList size={18} />, page: 'tests', badge: 'NEW' },
     { name: 'Solver', href: '/solving', icon: <Target size={18} />, page: 'solving' },
+    { name: 'Booklets', href: '/booklets', icon: <BookMarked size={18} />, page: 'booklets' },
     { name: 'Social', href: '/community', icon: <Users size={18} />, page: 'community' },
     { name: 'Settings', href: '/settings', icon: <Settings size={18} />, page: 'settings' },
   ];
