@@ -1,0 +1,352 @@
+================================================================================
+                    SOLVING MINDS - SECURITY AUDIT & VULNERABILITY REPORT
+================================================================================
+Document: probleum.text
+Generated: 2026-11-22
+Target: Solving Minds Platform (Next.js 16 + Supabase + Firebase + Cloudinary)
+Total Issues Identified: 13 Vulnerabilities
+Severity Summary:
+  - CRITICAL: 4
+  - HIGH:     5
+  - MEDIUM:   3
+  - LOW:      1
+================================================================================
+
+--------------------------------------------------------------------------------
+[VULN-01] CRITICAL: Hardcoded Firebase Admin SDK Private Key in Repository
+--------------------------------------------------------------------------------
+- Category: Insecure Credential Storage / Secret Leakage (CWE-798, OWASP A02:2021)
+- Affected File: .env.local (Lines 19-22)
+- Vulnerability Mechanics:
+    The .env.local file located in the project root contains a live Firebase Admin
+    SDK Private RSA Key (FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvg..."),
+    the Service Account client email (firebase-adminsdk-fbsvc@solving-minds.iam.gserviceaccount.com),
+    and the Firebase project ID. 
+- Threat Scenario & Impact:
+    If this repository is committed to version control (GitHub/GitLab) or shared
+    with developers/contributors, an attacker gains unrestricted administrative access
+    to the entire Firebase and Google Cloud project. This allows complete takeover of
+    Firebase Authentication, arbitrary database read/writes, spamming push notifications
+    to all devices, and financial abuse of GCP quotas.
+- Defensive Remediation:
+    1. Immediately rotate and revoke the leaked Service Account key in the Google Cloud
+       Console (IAM & Admin > Service Accounts > Keys).
+    2. Move all sensitive environment variables out of the local source tree into a
+       production secrets manager (such as Vercel Environment Variables, AWS Secrets
+       Manager, or Doppler).
+    3. Ensure .env.local, .env.*, and any service account JSON files are strictly
+       included in .gitignore and never checked into source control.
+
+--------------------------------------------------------------------------------
+[VULN-02] CRITICAL: Unauthenticated Push Notification & In-App Broadcast Endpoint
+--------------------------------------------------------------------------------
+- Category: Broken Authentication & Authorization (CWE-306, OWASP A01:2021)
+- Affected File: src/app/api/notifications/send/route.ts (Lines 22-101)
+- Vulnerability Mechanics:
+    The POST handler at /api/notifications/send accepts JSON payloads containing
+    { title, body, audience, targetId } and executes broadcast push notifications
+    via Firebase Admin SDK and writes notification records to the database.
+    Crucially, the endpoint performs ZERO authentication checks, session token
+    validation, or user role verification.
+- Threat Scenario & Impact:
+    Any unauthenticated external actor can issue POST requests to /api/notifications/send
+    with audience="everyone" to send arbitrary spam or phishing push notifications
+    to every student and device registered in the application, exhaust Firebase Admin
+    quotas, and flood the notifications table.
+- Defensive Remediation:
+    1. Authenticate the request using Supabase SSR createClient(cookies):
+       const supabase = await createClient();
+       const { data: { user } } = await supabase.auth.getUser();
+       if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    2. Verify that the authenticated user possesses the 'admin' role:
+       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+       if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    3. Implement rate-limiting middleware (e.g. Upstash Ratelimit) on all broadcast routes.
+
+--------------------------------------------------------------------------------
+[VULN-03] CRITICAL: Pre-Exam Question & Correct Answer Leakage (Client-Side Cheating)
+--------------------------------------------------------------------------------
+- Category: Sensitive Data Exposure / Insecure Exam Workflow (CWE-200, OWASP A04:2021)
+- Affected Files: 
+    - src/app/exam/[id]/attempt/page.tsx (Line 342)
+    - src/hooks/useQuestions.ts (Line 41)
+- Vulnerability Mechanics:
+    During an active mock test or practice solving session, questions are retrieved
+    using Supabase client queries that select all columns:
+        supabase.from('questions').select('*')
+    This payload transfers `correct_answer`, `explanation`, and `explanation_image_url`
+    directly into client-side browser memory before the student submits their answers.
+- Threat Scenario & Impact:
+    Any student taking a mock test or PYQ exam can open the browser Developer Tools
+    (Network tab, React State inspector, or console script `currentQ.correct_answer`)
+    to read the correct answer for every question in real time. This completely
+    undermines the integrity of the testing system, competitive percentiles, and mock scores.
+- Defensive Remediation:
+    1. During active test attempts, questions must be served through a dedicated API
+       route or Postgres RPC function that explicitly excludes `correct_answer`,
+       `explanation`, and `explanation_image_url`:
+       .select('id, subject, chapter, topic, type, question_text, question_image_url, options, marks')
+    2. Student answers must be submitted to a secure backend endpoint for server-side
+       grading. Explanations and correct answers should only be returned after the test
+       attempt status is marked `completed = true`.
+
+--------------------------------------------------------------------------------
+[VULN-04] CRITICAL: Client-Side Score Evaluation & Atom/Leaderboard Forgery
+--------------------------------------------------------------------------------
+- Category: Client-Side Business Logic Tampering (CWE-602, OWASP A04:2021)
+- Affected Files:
+    - src/app/exam/[id]/attempt/page.tsx (Lines 577-582)
+    - src/app/(dashboard)/solving/page.tsx (Lines 466-560)
+    - src/lib/atoms.ts (Lines 33-108)
+    - migrations.sql (Lines 18-24)
+- Vulnerability Mechanics:
+    Test scores and question attempts are calculated entirely in client JavaScript.
+    Upon submission, the client directly writes attempt rows (`is_correct: isCorrect`),
+    inserts atom transactions (`awardAtoms(...)`), and updates `profiles.aura_score`
+    using the public Supabase browser client. The RLS policy in migrations.sql allows:
+        CREATE POLICY "Users can insert their own atom transactions" 
+        ON public.atom_transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+- Threat Scenario & Impact:
+    A user can bypass the entire solving workflow and execute:
+        supabase.from('atom_transactions').insert({ user_id: myId, atoms: 1000000, type: 'MANUAL', season: '2026-11' })
+        supabase.from('profiles').update({ aura_score: 1000000, lifetime_atoms: 1000000, aura_level: 'Iridium' })
+    This instantly puts the attacker at rank #1 on the global leaderboard, counterfeiting
+    all league progression badges and rewards.
+- Defensive Remediation:
+    1. Revoke INSERT permissions on `atom_transactions` from authenticated users.
+       Atoms transactions must ONLY be created via trusted database stored procedures
+       or backend API routes using the Supabase Service Role key.
+    2. Move exam scoring and PYQ evaluation to a backend API endpoint
+       (`/api/exam/submit` and `/api/solving/submit`). The server should compare the
+       candidate's answers with the database answers and award points securely.
+
+--------------------------------------------------------------------------------
+[VULN-05] CRITICAL: Direct Role Escalation on Profiles Table
+--------------------------------------------------------------------------------
+- Category: Broken Object Level Authorization & Privilege Escalation (CWE-269, OWASP A01:2021)
+- Affected Files:
+    - src/app/admin/page.tsx (Lines 186-190)
+    - src/app/(dashboard)/settings/page.tsx (Lines 68-74)
+- Vulnerability Mechanics:
+    Role updates are carried out via standard client Supabase calls:
+        supabase.from('profiles').update({ role: newRole }).eq('id', userId)
+    If the `profiles` table Row Level Security policy grants `auth.uid() = id` for UPDATE
+    without restricting updatable columns, any logged-in user can submit:
+        supabase.from('profiles').update({ role: 'admin' }).eq('id', auth.uid())
+- Threat Scenario & Impact:
+    A normal student can escalate their privileges to 'admin', granting them access to
+    delete community posts, mute users, modify questions, add booklets, view all support
+    tickets, and broadcast push notifications.
+- Defensive Remediation:
+    1. In PostgreSQL, enforce Column Level Privileges or implement a trigger:
+       CREATE OR REPLACE FUNCTION protect_profile_role() RETURNS trigger AS $$
+       BEGIN
+         IF NEW.role <> OLD.role AND auth.jwt() ->> 'role' <> 'service_role' THEN
+           RAISE EXCEPTION 'Only administrative service role can update user role';
+         END IF;
+         RETURN NEW;
+       END;
+       $$ LANGUAGE plpgsql;
+       CREATE TRIGGER trg_protect_profile_role BEFORE UPDATE ON public.profiles
+       FOR EACH ROW EXECUTE FUNCTION protect_profile_role();
+    2. Role alterations must be isolated to a dedicated backend admin endpoint.
+
+--------------------------------------------------------------------------------
+[VULN-06] HIGH: Route Authorization Bypass in Middleware (Client-Only Admin Guards)
+--------------------------------------------------------------------------------
+- Category: Insufficient Server-Side Access Control (CWE-285, OWASP A01:2021)
+- Affected Files:
+    - src/middleware.ts (Lines 56-70)
+    - src/app/admin/page.tsx (Lines 25-29)
+    - src/app/(dashboard)/moderation/page.tsx (Lines 17-21)
+- Vulnerability Mechanics:
+    Next.js `middleware.ts` only validates whether an active session exists
+    (`if (isProtectedRoute && !user) redirect('/auth/login')`). It does not verify
+    the user's role for `/admin` or `/moderation` routes. The authorization guard is
+    performed purely client-side inside React `useEffect` hooks.
+- Threat Scenario & Impact:
+    If a user intercepts or blocks client JavaScript execution, the client redirect
+    fails, and the user can render admin tabs and inspect UI components or initiate
+    unauthorized client-side database calls.
+- Defensive Remediation:
+    1. Enhance `middleware.ts` to decode user role or check custom claims in the Supabase
+       session JWT.
+    2. Convert administrative page layouts (`src/app/admin/layout.tsx` and moderation)
+       into Server Components that check `user.role === 'admin'` before rendering children:
+       const supabase = await createClient();
+       const { data: profile } = await supabase.from('profiles').select('role').single();
+       if (profile?.role !== 'admin') redirect('/dashboard');
+
+--------------------------------------------------------------------------------
+[VULN-07] HIGH: De-anonymization / Pseudonymity Leakage in Community Posts
+--------------------------------------------------------------------------------
+- Category: Privacy Violation & Information Disclosure (CWE-200, OWASP A04:2021)
+- Affected Files:
+    - src/app/(dashboard)/community/[id]/page.tsx (Lines 87-89)
+    - src/hooks/usePosts.ts (Lines 48-49)
+    - src/components/Community/PostCard.tsx (Lines 26-34)
+- Vulnerability Mechanics:
+    When querying community posts, the Supabase client always joins and selects:
+        profiles!inner(id, name, avatar_url, class, target_year, role, muted_until)
+    Even when `is_anonymous` is `true`, the real author's user ID, name, avatar, class,
+    and profile data are returned in the JSON payload sent across the network. The
+    anonymity is only applied cosmetically in the React component by displaying "Anonymous".
+- Threat Scenario & Impact:
+    Any student or third party inspecting the Network response or React state can
+    deanonymize any "anonymous" post author, revealing their identity, academic class,
+    and profile ID.
+- Defensive Remediation:
+    1. Create a secure PostgreSQL View or Stored Procedure that masks user details when
+       `is_anonymous = true`:
+       CREATE VIEW public.posts_feed AS
+       SELECT 
+         p.id, p.title, p.content, p.image_urls, p.tags, p.created_at, p.is_anonymous,
+         CASE WHEN p.is_anonymous THEN NULL ELSE p.user_id END AS user_id,
+         CASE WHEN p.is_anonymous THEN 'Anonymous' ELSE pr.name END AS author_name,
+         CASE WHEN p.is_anonymous THEN NULL ELSE pr.avatar_url END AS author_avatar
+       FROM public.posts p
+       LEFT JOIN public.profiles pr ON p.user_id = pr.id;
+    2. Never select the author's profile on anonymous posts in client queries.
+
+--------------------------------------------------------------------------------
+[VULN-08] HIGH: Insecure Direct Object Reference (IDOR) on Exam Analysis & Print
+--------------------------------------------------------------------------------
+- Category: Broken Object Level Authorization (CWE-639, OWASP A01:2021)
+- Affected Files:
+    - src/app/analysis/[attemptId]/page.tsx (Lines 20-33)
+    - src/app/analysis/[attemptId]/print/page.tsx (Lines 19-31)
+- Vulnerability Mechanics:
+    Both `AnalysisPage` and `PrintPage` receive `attemptId` from the route params and
+    query `mock_test_live_attempts` using `supabase.from('mock_test_live_attempts').select('*').eq('id', attemptId)`.
+    Neither page validates whether `attempt.user_id` matches the current logged-in user.
+- Threat Scenario & Impact:
+    Any student can view, inspect, and print the test results, scores, timing analytics,
+    and detailed diagnostic data of any other student simply by modifying the UUID in
+    the URL (/analysis/[attemptId]).
+- Defensive Remediation:
+    1. In `src/app/analysis/[attemptId]/page.tsx` and `print/page.tsx`, obtain the current
+       session user and verify ownership:
+       const { data: { user } } = await supabase.auth.getUser();
+       if (!user || (attempt.user_id !== user.id && currentUserProfile?.role !== 'admin')) {
+         return renderError('Forbidden', 'You are not authorized to view this attempt analysis.');
+       }
+    2. Enforce Row Level Security on `mock_test_live_attempts` so that users can only
+       SELECT records where `auth.uid() = user_id`.
+
+--------------------------------------------------------------------------------
+[VULN-09] HIGH: Stored Cross-Site Scripting (XSS) via Math/Markdown Formatting
+--------------------------------------------------------------------------------
+- Category: Cross-Site Scripting (CWE-79, OWASP A03:2021)
+- Affected Files:
+    - src/app/exam/[id]/attempt/page.tsx (Lines 14-82)
+    - src/app/(dashboard)/solving/page.tsx (Lines 47-91)
+    - src/app/admin/QuestionsTab.tsx (Lines 23-62)
+    - src/app/admin/BookletsTab.tsx (Lines 22-50)
+    - src/app/exam/[id]/solution/page.tsx (Lines 14-82)
+- Vulnerability Mechanics:
+    The `formatText` helper converts Markdown syntax into HTML strings (e.g. `<strong>`,
+    `<em>`, `<img>`, `<br/>`) and directly mounts the resulting string into the DOM
+    using `dangerouslySetInnerHTML={{ __html: formatText(text) }}` without passing it
+    through an HTML sanitizer (such as DOMPurify).
+- Threat Scenario & Impact:
+    If an attacker or malicious administrator injects payload vectors (e.g.
+    `<img src=x onerror=alert(document.cookie)>` or `<svg onload=...>` into question
+    text, explanations, booklet descriptions, or image URLs, the script executes
+    directly in the context of any user viewing the question, leading to session hijacking.
+- Defensive Remediation:
+    1. Install `dompurify` and `@types/dompurify` (or `isomorphic-dompurify`).
+    2. Sanitize the formatted HTML prior to rendering:
+       import DOMPurify from 'isomorphic-dompurify';
+       <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formatText(text)) }} />
+    3. Whitelist only safe tags (`strong`, `em`, `b`, `i`, `br`, `img`) and restrict attributes.
+
+--------------------------------------------------------------------------------
+[VULN-10] MEDIUM: Open Redirect Vulnerability in Authentication Handlers
+--------------------------------------------------------------------------------
+- Category: URL Redirection to Untrusted Site (CWE-601, OWASP A01:2021)
+- Affected Files:
+    - src/app/api/auth/callback/route.ts (Lines 50-52)
+    - src/app/auth/confirm/route.ts (Lines 48-49)
+- Vulnerability Mechanics:
+    The redirection logic validates the `next` parameter using:
+        const safeNext = next.startsWith('/') ? next : '/dashboard';
+        return NextResponse.redirect(`${origin}${safeNext}`);
+    If `next` is passed as `//evil.com` or `/\evil.com`, `next.startsWith('/')` is true.
+    In many browsers or reverse proxy URL parsers, protocol-relative URLs (`//evil.com`)
+    or paths with leading backslashes can redirect to an external attacker-controlled domain.
+- Threat Scenario & Impact:
+    Attackers can craft phishing links (`https://solvingminds.com/auth/confirm?token_hash=...&next=//attacker.com`)
+    that redirect the student to a spoofed credential-harvesting page immediately after login.
+- Defensive Remediation:
+    Validate that `next` is strictly a local path:
+    const isSafe = next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\');
+    const safeNext = isSafe ? next : '/dashboard';
+
+--------------------------------------------------------------------------------
+[VULN-11] MEDIUM: Exposed Unsigned Cloudinary Upload Preset
+--------------------------------------------------------------------------------
+- Category: Insecure Cloud Storage / Resource Exhaustion (CWE-732, OWASP A05:2021)
+- Affected Files:
+    - src/lib/cloudinary.ts (Lines 6-8)
+    - .env.local (Lines 7-8)
+- Vulnerability Mechanics:
+    The application utilizes an unsigned upload preset (`study_aura_unsigned`) exposed
+    in client environment variables (`NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`).
+    File validation (`file.type.startsWith('image/')` and file size limit) is performed
+    strictly in client-side JavaScript.
+- Threat Scenario & Impact:
+    Anyone can extract the cloud name and preset from public JS and upload arbitrary
+    files (PDFs, HTML, binaries, or huge files) directly to the Cloudinary account,
+    depleting storage quotas, causing denial of service, and inflating infrastructure costs.
+- Defensive Remediation:
+    1. Switch from unsigned uploads to authenticated, signed uploads.
+    2. Create a backend API endpoint (`/api/upload/sign`) that verifies user authentication
+       and generates a signed upload signature with restricted folder and transformation options.
+    3. Configure Cloudinary upload preset settings to restrict incoming formats to WebP,
+       JPEG, and PNG only, and cap upload limits in the Cloudinary dashboard.
+
+--------------------------------------------------------------------------------
+[VULN-12] MEDIUM: Client-Controlled Moderation Actions (Muting & Deletion)
+--------------------------------------------------------------------------------
+- Category: Broken Access Control in Moderation (CWE-284, OWASP A01:2021)
+- Affected Files:
+    - src/components/Community/CommentsSection.tsx (Lines 224-239)
+    - src/components/Community/PostCard.tsx
+- Vulnerability Mechanics:
+    User muting is executed directly by calling `supabase.from('profiles').update({ muted_until })`
+    from the browser. If RLS on `profiles` is not restricted, an attacker can mute
+    competing students or immediately unmute themselves when penalized.
+- Threat Scenario & Impact:
+    Malicious users can disrupt community moderation, silence other community members,
+    or bypass timeouts imposed by administrators.
+- Defensive Remediation:
+    1. Ensure Row Level Security explicitly disallows general users from altering `muted_until`:
+       ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+    2. Route moderation actions (mute, ban, un-ban, post deletion) through an authenticated
+       moderation API route (`/api/moderation/action`) that verifies caller permissions.
+
+--------------------------------------------------------------------------------
+[VULN-13] LOW: Lack of Server-Side Rate Limiting on Reports and Content Submissions
+--------------------------------------------------------------------------------
+- Category: Uncontrolled Resource Consumption / Spam (CWE-770, OWASP A04:2021)
+- Affected Files:
+    - src/components/Community/ReportModal.tsx (Lines 38-43)
+    - src/components/Solving/ReportQuestionModal.tsx (Lines 37-42)
+    - src/components/Community/CommentsSection.tsx (Lines 160-185)
+- Vulnerability Mechanics:
+    In `CommentsSection.tsx`, rate limiting is evaluated client-side by querying recent
+    comments (`recentComments.length >= 5`). This client-side check is easily bypassed
+    by sending HTTP requests directly to the Supabase endpoint. Post and question
+    reporting have no rate-limiting checks at all.
+- Threat Scenario & Impact:
+    A student or script can flood the `reports` table with thousands of fake reports,
+    blinding administrators, or spam posts and comments to degrade site performance.
+- Defensive Remediation:
+    1. Implement database-level rate limiting using a PostgreSQL trigger:
+       e.g., raise an exception if a user submits more than 3 reports in 10 minutes.
+    2. Implement IP- and user-based rate limiting on all API routes using Redis or Upstash.
+
+================================================================================
+                                END OF REPORT
+================================================================================
+

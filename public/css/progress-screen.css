@@ -1,0 +1,97 @@
+/* ═══════════════════════════════════════════════════════
+   ATOMS PROGRESSION SYSTEM CSS - OPTIMIZED FOR LOW-END GPUs
+   ═══════════════════════════════════════════════════════ */
+
+/* Floating $+N$ and $-N$ Atom animations */
+@keyframes floatAtom {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.85);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -25px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -80px) scale(0.9);
+  }
+}
+
+.animate-float-atom {
+  animation: floatAtom 0.8s ease-out forwards;
+}
+
+/* Header Atoms Chip pulse animation - simplified */
+@keyframes chipGlowPulse {
+  0% {
+    border-color: rgba(0, 229, 160, 0.4);
+    background: rgba(0, 229, 160, 0.1);
+  }
+  50% {
+    border-color: rgba(0, 229, 160, 0.8);
+    background: rgba(0, 229, 160, 0.2);
+    transform: scale(1.05);
+  }
+  100% {
+    border-color: var(--border);
+    background: rgba(255, 255, 255, 0.03);
+  }
+}
+
+.pulse-active {
+  animation: chipGlowPulse 0.5s ease-out forwards;
+}
+
+/* Simple transition animations */
+.animate-bounce-slow {
+  animation: none; /* Removed bouncing to avoid layout reflows and constant rendering */
+}
+
+/* Custom scrollbars inside modal */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.15);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.3);
+}
+
+/* Optimized Atoms Chip - Removed backdrop-filter blur for CPU/GPU efficiency */
+.atoms-chip-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 1rem;
+  background: #0f172a; /* Solid color fallback */
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #00e5a0;
+  letter-spacing: 0.04em;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.atoms-chip-pill:hover {
+  border-color: #00e5a0;
+  box-shadow: 0 0 10px rgba(0, 229, 160, 0.2);
+  transform: translateY(-1px);
+}
+
+.atoms-chip-pill img {
+  width: 1.35rem;
+  height: 1.35rem;
+  object-fit: contain;
+}
+
