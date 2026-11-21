@@ -224,7 +224,7 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
                 dotCls = 'bg-emerald-500 text-white';
                 icon = <CheckCircle2 size={12} className="flex-shrink-0 mt-0.5 text-emerald-500" />;
               } else if (isPicked && !isCorrectOpt) {
-                rowCls = 'bg-red-500/10 border-red-500/30 text-red-500';
+                rowCls = 'bg-red-500/20 border-red-500/60 text-red-600';
                 dotCls = 'bg-red-500 text-white';
                 icon = <XCircle size={12} className="flex-shrink-0 mt-0.5 text-red-500" />;
               }
