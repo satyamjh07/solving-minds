@@ -1,16 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
 import {
-  BookMarked, Loader2, ChevronDown, ChevronRight, XCircle,
-  Eye, EyeOff, Search, AlertTriangle, RefreshCw,
-  CheckCircle2, BookOpen, Layers, Zap, FlaskConical,
-  Atom, Trophy, Filter, ChevronUp
+  BookMarked, Loader2, ChevronRight, XCircle, Eye, EyeOff,
+  CheckCircle2, RefreshCw, ArrowLeft, ArrowUpDown, ChevronDown,
+  Atom, FlaskConical, Zap, BookOpen, Layers, Trophy, AlertTriangle,
+  ClipboardList, BarChart2, ChevronLeft, ChevronUp
 } from 'lucide-react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend
+} from 'recharts';
 
-// ─── KaTeX helpers (same pattern as BookletsTab / solving page) ─────────────
+// ─── KaTeX ────────────────────────────────────────────────────────────────────
 const renderMath = (el: HTMLElement | null) => {
   if (!el || !(window as any).renderMathInElement) return;
   (window as any).renderMathInElement(el, {
@@ -23,11 +27,9 @@ const renderMath = (el: HTMLElement | null) => {
     throwOnError: false,
   });
 };
-
 const formatText = (text: string) => {
   if (!text) return '';
-  let clean = text;
-  clean = clean.replace(/\\+text(?=\{)/g, '\\text');
+  let clean = text.replace(/\\+text(?=\{)/g, '\\text');
   const mathRegex = /(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g;
   const parts = clean.split(mathRegex);
   for (let i = 0; i < parts.length; i++) {
@@ -44,17 +46,13 @@ const formatText = (text: string) => {
   }
   return parts.join('');
 };
-
 const MathText = memo(function MathText({ text, className }: { text: string; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { if (ref.current) renderMath(ref.current); }, [text]);
-  return (
-    <div ref={ref} className={className}
-      dangerouslySetInnerHTML={{ __html: formatText(text) }} />
-  );
+  return <div ref={ref} className={className} dangerouslySetInnerHTML={{ __html: formatText(text) }} />;
 });
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface MistakeQuestion {
   id: string;
   subject: string;
@@ -68,135 +66,137 @@ interface MistakeQuestion {
   correct_answer: string;
   explanation: string | null;
   explanation_image_url: string | null;
-  // From user_attempts
   selected_answer: string;
   attempted_at: string;
-  source: 'solver' | 'mock'; // which table the mistake came from
+  source: 'solver' | 'mock';
 }
 
-interface ChapterGroup {
-  name: string;
+interface TestRow {
+  testId: string;
+  testTitle: string;
+  date: string;
+  wrong: number;
+  notAttempted: number;
+  correct: number;
+  total: number;
   questions: MistakeQuestion[];
 }
 
-interface SubjectGroup {
-  name: string;
-  icon: React.ReactNode;
-  color: string;
-  chapters: ChapterGroup[];
+interface ChapterRow {
+  subject: string;
+  chapter: string;
+  wrong: number;
+  notAttempted: number;
+  correct: number;
   total: number;
+  questions: MistakeQuestion[];
 }
 
-// ─── Subject icon/color mapping ───────────────────────────────────────────────
-const SUBJECT_META: Record<string, { icon: React.ReactNode; color: string }> = {
-  physics:   { icon: <Atom size={16} />,        color: '#3b82f6' },
-  chemistry: { icon: <FlaskConical size={16} />, color: '#10b981' },
-  maths:     { icon: <Zap size={16} />,          color: '#f59e0b' },
-  math:      { icon: <Zap size={16} />,          color: '#f59e0b' },
-  biology:   { icon: <BookOpen size={16} />,     color: '#a855f7' },
+// ─── Subject metadata ─────────────────────────────────────────────────────────
+const SUBJECT_META: Record<string, { icon: React.ReactNode; color: string; tabColor: string }> = {
+  physics:   { icon: <Atom size={14} />,        color: '#3b82f6', tabColor: '#3b82f6' },
+  chemistry: { icon: <FlaskConical size={14} />, color: '#10b981', tabColor: '#10b981' },
+  maths:     { icon: <Zap size={14} />,          color: '#f59e0b', tabColor: '#f59e0b' },
+  math:      { icon: <Zap size={14} />,          color: '#f59e0b', tabColor: '#f59e0b' },
+  biology:   { icon: <BookOpen size={14} />,     color: '#a855f7', tabColor: '#a855f7' },
 };
-function getSubjectMeta(subject: string) {
-  return SUBJECT_META[subject.toLowerCase()] ?? { icon: <Layers size={16} />, color: '#94a3b8' };
+function getSubjectMeta(s: string) {
+  return SUBJECT_META[s.toLowerCase()] ?? { icon: <Layers size={14} />, color: '#94a3b8', tabColor: '#94a3b8' };
+}
+
+// ─── Accuracy Donut SVG ───────────────────────────────────────────────────────
+function AccuracyDonut({ wrong, correct, total }: { wrong: number; correct: number; total: number }) {
+  const r = 14;
+  const circ = 2 * Math.PI * r;
+  const wrongPct = total > 0 ? wrong / total : 0;
+  const correctPct = total > 0 ? correct / total : 0;
+  const wrongLen = wrongPct * circ;
+  const correctLen = correctPct * circ;
+  const wrongOffset = 0;
+  const correctOffset = -wrongLen;
+
+  return (
+    <svg width={36} height={36} viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={18} cy={18} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={3.5} />
+      {wrongLen > 0 && (
+        <circle cx={18} cy={18} r={r} fill="none" stroke="#f87171" strokeWidth={3.5}
+          strokeDasharray={`${wrongLen} ${circ - wrongLen}`}
+          strokeDashoffset={wrongOffset}
+          strokeLinecap="butt" />
+      )}
+      {correctLen > 0 && (
+        <circle cx={18} cy={18} r={r} fill="none" stroke="#34d399" strokeWidth={3.5}
+          strokeDasharray={`${correctLen} ${circ - correctLen}`}
+          strokeDashoffset={correctOffset}
+          strokeLinecap="butt" />
+      )}
+    </svg>
+  );
 }
 
 // ─── Difficulty badge ─────────────────────────────────────────────────────────
 function DiffBadge({ diff }: { diff: string | null }) {
   if (!diff) return null;
   const map: Record<string, string> = {
-    easy:     'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    medium:   'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-    moderate: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-    hard:     'bg-red-500/10 text-red-500 border-red-500/20',
+    easy: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+    medium: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
+    moderate: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
+    hard: 'bg-red-500/15 text-red-400 border-red-500/25',
   };
-  const cls = map[diff.toLowerCase()] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20';
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${cls}`}>
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${map[diff.toLowerCase()] ?? 'bg-slate-500/15 text-slate-400 border-slate-500/25'}`}>
       {diff}
     </span>
   );
 }
 
-// ─── Single question card (interactive practice mode) ────────────────────────
+// ─── Question Card (interactive practice) ─────────────────────────────────────
 const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuestion; index: number }) {
   const isMCQ = q.type !== 'integer';
   const optionLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
   const correctIdx = isMCQ ? parseInt(q.correct_answer, 10) : null;
-
-  // Practice mode state
-  const [pickedIdx, setPickedIdx] = useState<number | null>(null); // what user picks NOW
+  const [pickedIdx, setPickedIdx] = useState<number | null>(null);
   const [integerInput, setIntegerInput] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
 
   const isCorrectAttempt = submitted && (
-    isMCQ
-      ? pickedIdx === correctIdx
-      : integerInput.trim() === q.correct_answer.trim()
+    isMCQ ? pickedIdx === correctIdx : integerInput.trim() === q.correct_answer.trim()
   );
 
-  const handleSubmit = () => {
-    if (isMCQ && pickedIdx === null) return;
-    if (!isMCQ && !integerInput.trim()) return;
-    setSubmitted(true);
-  };
-
-  const handleRetry = () => {
-    setPickedIdx(null);
-    setIntegerInput('');
-    setSubmitted(false);
-    setShowExplanation(false);
-  };
+  const handleRetry = () => { setPickedIdx(null); setIntegerInput(''); setSubmitted(false); setShowExplanation(false); };
 
   return (
-    <div className={`bg-[var(--card)] border rounded-2xl overflow-hidden shadow-sm transition-all duration-200 ${
+    <div className={`rounded-xl border overflow-hidden transition-all duration-200 ${
       submitted
-        ? isCorrectAttempt
-          ? 'border-emerald-500/40 shadow-emerald-500/5'
-          : 'border-red-500/40 shadow-red-500/5'
-        : 'border-[var(--border)] hover:border-[var(--accent)]/30'
+        ? isCorrectAttempt ? 'border-emerald-500/30 bg-[rgba(52,211,153,0.03)]' : 'border-red-500/30 bg-[rgba(248,113,113,0.03)]'
+        : 'border-white/[0.08] bg-[rgba(255,255,255,0.03)] hover:border-white/[0.14]'
     }`}>
-      {/* Question header */}
+      {/* Header */}
       <div className="flex items-start gap-3 p-4 pb-3">
-        <div className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs font-mono transition-all ${
+        <div className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs font-mono border ${
           submitted
-            ? isCorrectAttempt
-              ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-500'
-              : 'bg-red-500/15 border border-red-500/30 text-red-500'
-            : 'bg-[var(--bg2)] border border-[var(--border)] text-[var(--text3)]'
-        }`}>
-          {index + 1}
-        </div>
+            ? isCorrectAttempt ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-red-500/15 border-red-500/30 text-red-400'
+            : 'bg-white/[0.06] border-white/[0.1] text-white/40'
+        }`}>{index + 1}</div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 mb-2">
             <DiffBadge diff={q.difficulty} />
-            {q.topic && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium text-[var(--text3)] bg-[var(--bg2)] border border-[var(--border)]">
-                {q.topic}
-              </span>
-            )}
+            {q.topic && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium text-white/40 bg-white/[0.05] border border-white/[0.08]">{q.topic}</span>}
             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
-              q.source === 'mock'
-                ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
-            }`}>
-              {q.source === 'mock' ? 'Mock Test' : 'Solver'}
-            </span>
-            {/* Outcome pill after submission */}
+              q.source === 'mock' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+            }`}>{q.source === 'mock' ? 'Mock Test' : 'Solver'}</span>
             {submitted && (
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
-                isCorrectAttempt
-                  ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/25'
-                  : 'bg-red-500/10 text-red-500 border-red-500/25'
+                isCorrectAttempt ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-red-500/10 text-red-400 border-red-500/25'
               }`}>
                 {isCorrectAttempt ? <CheckCircle2 size={9} /> : <XCircle size={9} />}
                 {isCorrectAttempt ? 'Correct!' : 'Wrong again'}
               </span>
             )}
           </div>
-          <MathText text={q.question_text} className="text-sm text-[var(--text)] leading-relaxed" />
-          {q.question_image_url && (
-            <img src={q.question_image_url} alt="question" className="mt-2 max-h-48 rounded-lg border border-[var(--border)] object-contain" />
-          )}
+          <MathText text={q.question_text} className="text-sm text-white/80 leading-relaxed" />
+          {q.question_image_url && <img src={q.question_image_url} alt="q" className="mt-2 max-h-48 rounded-lg border border-white/10 object-contain" />}
         </div>
       </div>
 
@@ -206,46 +206,23 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
           {q.options.map((opt, i) => {
             const isCorrectOpt = i === correctIdx;
             const isPicked = i === pickedIdx;
-
-            // Before submit: highlight only the user's current pick
-            // After submit: reveal correct (green) and wrong pick (red)
-            let rowCls = 'bg-[var(--bg2)] border-[var(--border)] text-[var(--text2)]';
-            let dotCls = 'bg-[var(--bg3)] text-[var(--text3)]';
+            let rowCls = 'bg-white/[0.04] border-white/[0.08] text-white/60 hover:border-white/20 cursor-pointer';
+            let dotCls = 'bg-white/10 text-white/40';
             let icon: React.ReactNode = null;
-
-            if (!submitted) {
-              if (isPicked) {
-                rowCls = 'bg-[var(--accent)]/10 border-[var(--accent)]/40 text-[var(--accent)]';
-                dotCls = 'bg-[var(--accent)] text-white';
-              }
-            } else {
-              if (isCorrectOpt) {
-                rowCls = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600';
-                dotCls = 'bg-emerald-500 text-white';
-                icon = <CheckCircle2 size={12} className="flex-shrink-0 mt-0.5 text-emerald-500" />;
-              } else if (isPicked && !isCorrectOpt) {
-                rowCls = 'bg-red-500/20 border-red-500/60 text-red-600';
-                dotCls = 'bg-red-500 text-white';
-                icon = <XCircle size={12} className="flex-shrink-0 mt-0.5 text-red-500" />;
-              }
+            if (!submitted && isPicked) { rowCls = 'bg-[var(--accent)]/10 border-[var(--accent)]/40 text-[var(--accent)] cursor-pointer'; dotCls = 'bg-[var(--accent)] text-white'; }
+            if (submitted) {
+              if (isCorrectOpt) { rowCls = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 cursor-default'; dotCls = 'bg-emerald-500 text-white'; icon = <CheckCircle2 size={12} className="flex-shrink-0 mt-0.5 text-emerald-400" />; }
+              else if (isPicked) { rowCls = 'bg-red-500/20 border-red-500/50 text-red-400 cursor-default'; dotCls = 'bg-red-500 text-white'; icon = <XCircle size={12} className="flex-shrink-0 mt-0.5 text-red-400" />; }
+              else { rowCls = 'bg-white/[0.03] border-white/[0.06] text-white/30 cursor-default'; }
             }
-
             return (
-              <button
-                key={i}
-                disabled={submitted}
-                onClick={() => setPickedIdx(i)}
-                className={`w-full flex items-start gap-2 px-3 py-2 rounded-xl border text-xs transition-all text-left ${rowCls} ${
-                  !submitted ? 'cursor-pointer hover:border-[var(--accent)]/40 active:scale-[0.99]' : 'cursor-default'
-                }`}
-              >
-                <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center font-black text-[9px] transition-colors ${dotCls}`}>
-                  {optionLabels[i]}
-                </span>
+              <button key={i} disabled={submitted} onClick={() => setPickedIdx(i)}
+                className={`w-full flex items-start gap-2 px-3 py-2 rounded-xl border text-xs transition-all text-left ${rowCls}`}>
+                <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center font-black text-[9px] transition-colors ${dotCls}`}>{optionLabels[i]}</span>
                 <div className="flex-1 min-w-0">
                   {opt.text && <MathText text={opt.text} />}
-                  {opt.image && <img src={opt.image} alt={`option ${i}`} className="mt-1 max-h-20 object-contain rounded" />}
-                  {!opt.text && !opt.image && <span className="text-[var(--text3)]">Option {optionLabels[i]}</span>}
+                  {opt.image && <img src={opt.image} alt="" className="mt-1 max-h-20 object-contain rounded" />}
+                  {!opt.text && !opt.image && <span className="text-white/30">Option {optionLabels[i]}</span>}
                 </div>
                 {icon}
               </button>
@@ -258,31 +235,20 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
       {!isMCQ && (
         <div className="px-4 pb-3">
           {!submitted ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={integerInput}
-                onChange={e => setIntegerInput(e.target.value)}
-                placeholder="Enter your answer..."
-                className="flex-1 px-4 py-2.5 text-sm bg-[var(--bg2)] border border-[var(--border)] focus:border-[var(--accent)] rounded-xl text-[var(--text)] outline-none transition-colors font-mono"
-              />
-            </div>
+            <input type="number" value={integerInput} onChange={e => setIntegerInput(e.target.value)}
+              placeholder="Enter your answer..." className="w-full px-4 py-2.5 text-sm bg-white/[0.05] border border-white/10 focus:border-[var(--accent)] rounded-xl text-white outline-none transition-colors font-mono" />
           ) : (
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${
-                isCorrectAttempt
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
-                  : 'bg-red-500/10 border-red-500/20 text-red-500'
-              }`}>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isCorrectAttempt ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
                 {isCorrectAttempt ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                <span className="text-[var(--text2)]">Your answer:</span>
+                <span className="text-white/50">Your answer:</span>
                 <span className="font-black font-mono">{integerInput || '—'}</span>
               </div>
               {!isCorrectAttempt && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400">
                   <CheckCircle2 size={12} />
-                  <span className="text-[var(--text2)]">Correct:</span>
-                  <span className="font-black text-emerald-500 font-mono">{q.correct_answer}</span>
+                  <span className="text-white/50">Correct:</span>
+                  <span className="font-black font-mono">{q.correct_answer}</span>
                 </div>
               )}
             </div>
@@ -290,49 +256,34 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
         </div>
       )}
 
-      {/* Action bar: Submit / Retry */}
-      <div className="border-t border-[var(--border)] px-4 py-2.5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      {/* Action bar */}
+      <div className="border-t border-white/[0.06] px-4 py-2.5 flex items-center justify-between gap-3">
+        <div>
           {!submitted ? (
-            <button
-              onClick={handleSubmit}
-              disabled={isMCQ ? pickedIdx === null : !integerInput.trim()}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-[var(--accent)] text-white hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono"
-            >
-              <CheckCircle2 size={11} />
-              Check Answer
+            <button onClick={() => setSubmitted(true)} disabled={isMCQ ? pickedIdx === null : !integerInput.trim()}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-[var(--accent)] text-white hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono">
+              <CheckCircle2 size={11} /> Check Answer
             </button>
           ) : (
-            <button
-              onClick={handleRetry}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-[var(--bg2)] border border-[var(--border)] text-[var(--text2)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)] transition-all font-mono"
-            >
-              <RefreshCw size={11} />
-              Try Again
+            <button onClick={handleRetry}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/[0.06] border border-white/[0.1] text-white/60 hover:text-white hover:border-white/20 transition-all font-mono">
+              <RefreshCw size={11} /> Try Again
             </button>
           )}
         </div>
-
-        {/* Explanation toggle — only after submitting */}
         {submitted && q.explanation && (
-          <button
-            onClick={() => setShowExplanation(v => !v)}
-            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] hover:opacity-80 transition-opacity font-mono"
-          >
+          <button onClick={() => setShowExplanation(v => !v)}
+            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] hover:opacity-80 transition-opacity font-mono">
             {showExplanation ? <EyeOff size={11} /> : <Eye size={11} />}
             {showExplanation ? 'Hide' : 'Show'} Explanation
           </button>
         )}
       </div>
-
-      {/* Explanation body */}
       {submitted && showExplanation && q.explanation && (
         <div className="px-4 pb-4">
-          <div className="p-3 bg-[var(--bg2)] rounded-xl border border-[var(--border)]">
-            <MathText text={q.explanation} className="text-xs text-[var(--text2)] leading-relaxed" />
-            {q.explanation_image_url && (
-              <img src={q.explanation_image_url} alt="explanation" className="mt-2 max-h-48 rounded-lg object-contain" />
-            )}
+          <div className="p-3 bg-white/[0.04] rounded-xl border border-white/[0.07]">
+            <MathText text={q.explanation} className="text-xs text-white/60 leading-relaxed" />
+            {q.explanation_image_url && <img src={q.explanation_image_url} alt="exp" className="mt-2 max-h-48 rounded-lg object-contain" />}
           </div>
         </div>
       )}
@@ -340,459 +291,498 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
   );
 });
 
+// ─── Custom Tooltip for chart ─────────────────────────────────────────────────
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-[#1e2535] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-xl">
+      <div className="text-white/50 mb-1 font-mono text-[10px]">{label}</div>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+          <span className="text-white/70">{p.name}:</span>
+          <span className="font-bold text-white">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
+type ViewMode = 'test-wise' | 'chapter-wise';
+type DrillTarget = { type: 'test' | 'chapter'; row: TestRow | ChapterRow } | null;
+
 export default function BookletsPage() {
   const { profile, loading: profileLoading } = useProfile();
   const [loading, setLoading] = useState(true);
-  const [subjects, setSubjects] = useState<SubjectGroup[]>([]);
-  const [totalMistakes, setTotalMistakes] = useState(0);
-  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
-  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState('');
-  const [subjectFilter, setSubjectFilter] = useState<string>('all');
-  const [diffFilter, setDiffFilter] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>('chapter-wise');
 
-  // ── Fetch all mistakes ──────────────────────────────────────────────────────
-  const fetchMistakes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Raw data
+  const [testRows, setTestRows] = useState<TestRow[]>([]);
+  const [chapterRows, setChapterRows] = useState<ChapterRow[]>([]);
+  const [allMistakes, setAllMistakes] = useState<MistakeQuestion[]>([]);
+
+  // UI state
+  const [showChart, setShowChart] = useState(true);
+  const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const [testFilter, setTestFilter] = useState<string>('all'); // 'all' | 'last3' | 'last5' | 'last30'
+  const [sortField, setSortField] = useState<string>('wrong');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [drill, setDrill] = useState<DrillTarget>(null);
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const fetchData = useCallback(async () => {
+    setLoading(true); setError(null); setDrill(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      // 1. Mistakes from solver (user_attempts table, is_correct = false)
-      const { data: solverMistakes, error: e1 } = await supabase
-        .from('user_attempts')
-        .select(`
-          id,
-          question_id,
-          selected_answer,
-          created_at,
-          questions!inner (
-            id, subject, chapter, topic, difficulty, type,
-            question_text, question_image_url, options,
-            correct_answer, explanation, explanation_image_url
-          )
-        `)
+      // 1. All completed mock test attempts
+      const { data: mockAttempts } = await supabase
+        .from('mock_test_live_attempts')
+        .select('id, test_id, answers, completed, updated_at')
         .eq('user_id', user.id)
-        .eq('is_correct', false)
+        .eq('completed', true)
+        .order('updated_at', { ascending: false });
+
+      // 2. All mock_tests metadata
+      const testIds = [...new Set((mockAttempts || []).map(a => a.test_id))];
+      let testMeta: Record<string, { title: string; total_questions: number }> = {};
+      if (testIds.length > 0) {
+        const { data: tests } = await supabase.from('mock_tests').select('id, title, total_questions').in('id', testIds);
+        (tests || []).forEach(t => { testMeta[t.id] = { title: t.title, total_questions: t.total_questions }; });
+      }
+
+      // 3. Collect all question IDs from mock attempts
+      const allMockAnswers: Record<string, Record<string, string | null>> = {}; // testId → { qId: answer }
+      for (const a of (mockAttempts || [])) {
+        allMockAnswers[a.test_id] = { ...(allMockAnswers[a.test_id] || {}), ...(a.answers || {}) };
+      }
+      const allMockQIds = [...new Set(Object.values(allMockAnswers).flatMap(m => Object.keys(m)))];
+
+      // 4. Fetch those questions
+      let mockQMap: Record<string, any> = {};
+      for (let i = 0; i < allMockQIds.length; i += 100) {
+        const batch = allMockQIds.slice(i, i + 100);
+        const { data: qData } = await supabase
+          .from('questions')
+          .select('id, subject, chapter, topic, difficulty, type, question_text, question_image_url, options, correct_answer, explanation, explanation_image_url')
+          .in('id', batch);
+        (qData || []).forEach(q => { mockQMap[q.id] = q; });
+      }
+
+      // 5. Build test rows
+      const builtTestRows: TestRow[] = [];
+      for (const [testId, answers] of Object.entries(allMockAnswers)) {
+        const meta = testMeta[testId];
+        if (!meta) continue;
+        let wrong = 0, correct = 0, notAttempted = 0;
+        const wrongQs: MistakeQuestion[] = [];
+        for (const [qId, ans] of Object.entries(answers)) {
+          const q = mockQMap[qId];
+          if (!q) continue;
+          if (ans === null || ans === undefined || ans === '') { notAttempted++; }
+          else if (ans === q.correct_answer) { correct++; }
+          else { wrong++; wrongQs.push({ ...q, selected_answer: ans, attempted_at: '', source: 'mock' }); }
+        }
+        const attemptDate = (mockAttempts || []).find(a => a.test_id === testId)?.updated_at || '';
+        builtTestRows.push({ testId, testTitle: meta.title, date: attemptDate, wrong, correct, notAttempted, total: meta.total_questions, questions: wrongQs });
+      }
+      builtTestRows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setTestRows(builtTestRows);
+
+      // 6. Solver mistakes
+      const { data: solverMistakes } = await supabase
+        .from('user_attempts')
+        .select(`id, question_id, selected_answer, is_correct, created_at, questions!inner(id, subject, chapter, topic, difficulty, type, question_text, question_image_url, options, correct_answer, explanation, explanation_image_url)`)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (e1) throw e1;
-
-      // 2. Mistakes from mock tests (mock_test_live_attempts, completed = true)
-      //    We get answers vs correct_answer from joined questions
-      const { data: mockAttempts, error: e2 } = await supabase
-        .from('mock_test_live_attempts')
-        .select('id, test_id, answers, completed')
-        .eq('user_id', user.id)
-        .eq('completed', true);
-
-      if (e2) throw e2;
-
-      // Collect question IDs answered incorrectly in mock tests
-      const mockWrongMap: Record<string, string> = {}; // questionId → selectedAnswer
-      for (const attempt of (mockAttempts || [])) {
-        const answers: Record<string, string | null> = attempt.answers || {};
-        for (const [qId, ans] of Object.entries(answers)) {
-          if (ans !== null && ans !== undefined && !(qId in mockWrongMap)) {
-            mockWrongMap[qId] = ans; // placeholder — filter by correctness below
-          }
-        }
-      }
-
-      let mockMistakes: MistakeQuestion[] = [];
-      if (Object.keys(mockWrongMap).length > 0) {
-        const mockQIds = Object.keys(mockWrongMap);
-        // Fetch in batches of 100 to stay within URL limits
-        const batches: string[][] = [];
-        for (let i = 0; i < mockQIds.length; i += 100) {
-          batches.push(mockQIds.slice(i, i + 100));
-        }
-        for (const batch of batches) {
-          const { data: qData } = await supabase
-            .from('questions')
-            .select('id, subject, chapter, topic, difficulty, type, question_text, question_image_url, options, correct_answer, explanation, explanation_image_url')
-            .in('id', batch);
-
-          for (const q of (qData || [])) {
-            const selected = mockWrongMap[q.id];
-            if (selected !== null && selected !== q.correct_answer) {
-              mockMistakes.push({
-                ...q,
-                selected_answer: selected,
-                attempted_at: '',
-                source: 'mock',
-              });
-            }
-          }
-        }
-      }
-
-      // 3. Merge solver + mock, deduplicate by question_id (prefer solver entry if both exist)
+      // 7. Build all mistakes list (dedup by question id, prefer most recent)
       const seen = new Set<string>();
-      const allMistakes: MistakeQuestion[] = [];
+      const mistakes: MistakeQuestion[] = [];
 
-      for (const row of (solverMistakes || [])) {
-        const q = (row as any).questions as MistakeQuestion;
-        if (!q || seen.has(q.id)) continue;
-        seen.add(q.id);
-        allMistakes.push({
-          ...q,
-          selected_answer: row.selected_answer,
-          attempted_at: row.created_at,
-          source: 'solver',
-        });
-      }
-
-      for (const q of mockMistakes) {
-        if (seen.has(q.id)) continue;
-        seen.add(q.id);
-        allMistakes.push(q);
-      }
-
-      setTotalMistakes(allMistakes.length);
-
-      // 4. Group: subject → chapter
-      const subjectMap = new Map<string, Map<string, MistakeQuestion[]>>();
-      for (const q of allMistakes) {
-        const subj = (q.subject || 'Unknown').toLowerCase();
-        const chap = q.chapter || 'Uncategorized';
-        if (!subjectMap.has(subj)) subjectMap.set(subj, new Map());
-        const cm = subjectMap.get(subj)!;
-        if (!cm.has(chap)) cm.set(chap, []);
-        cm.get(chap)!.push(q);
-      }
-
-      const grouped: SubjectGroup[] = [];
-      for (const [subjName, chapMap] of subjectMap) {
-        const meta = getSubjectMeta(subjName);
-        const chapters: ChapterGroup[] = [];
-        let total = 0;
-        for (const [chapName, qs] of chapMap) {
-          chapters.push({ name: chapName, questions: qs });
-          total += qs.length;
+      // Add wrong mock test questions
+      for (const row of builtTestRows) {
+        for (const q of row.questions) {
+          if (!seen.has(q.id)) { seen.add(q.id); mistakes.push(q); }
         }
-        // Sort chapters alphabetically
-        chapters.sort((a, b) => a.name.localeCompare(b.name));
-        grouped.push({ name: subjName, chapters, total, ...meta });
       }
-
-      // Sort subjects by name
-      grouped.sort((a, b) => a.name.localeCompare(b.name));
-      setSubjects(grouped);
-
-      // Auto-expand first subject if only one
-      if (grouped.length === 1) {
-        setExpandedSubjects(new Set([grouped[0].name]));
+      // Add solver mistakes
+      for (const row of (solverMistakes || [])) {
+        const q = (row as any).questions as any;
+        if (!q || seen.has(q.id)) continue;
+        if (!row.is_correct) {
+          seen.add(q.id);
+          mistakes.push({ ...q, selected_answer: row.selected_answer, attempted_at: row.created_at, source: 'solver' });
+        }
       }
+      setAllMistakes(mistakes);
+
+      // 8. Build chapter rows from all mistakes
+      const chapMap = new Map<string, { subject: string; qs: MistakeQuestion[] }>();
+      for (const q of mistakes) {
+        const key = `${q.subject?.toLowerCase()}::${q.chapter}`;
+        if (!chapMap.has(key)) chapMap.set(key, { subject: q.subject?.toLowerCase() || '', qs: [] });
+        chapMap.get(key)!.qs.push(q);
+      }
+      // For correct counts in chapter-wise, use solver correct attempts
+      const solverCorrect: Record<string, number> = {};
+      for (const row of (solverMistakes || [])) {
+        const q = (row as any).questions as any;
+        if (!q) continue;
+        const key = `${q.subject?.toLowerCase()}::${q.chapter}`;
+        if (row.is_correct) solverCorrect[key] = (solverCorrect[key] || 0) + 1;
+      }
+      const builtChapterRows: ChapterRow[] = [];
+      for (const [key, { subject, qs }] of chapMap) {
+        const chapter = qs[0].chapter;
+        const correct = solverCorrect[key] || 0;
+        builtChapterRows.push({ subject, chapter, wrong: qs.length, notAttempted: 0, correct, total: qs.length + correct, questions: qs });
+      }
+      builtChapterRows.sort((a, b) => a.subject.localeCompare(b.subject) || a.chapter.localeCompare(b.chapter));
+      setChapterRows(builtChapterRows);
     } catch (err: any) {
-      console.error('BookletsPage error:', err);
-      setError(err?.message || 'Failed to load mistakes. Please try again.');
+      setError(err?.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    if (!profileLoading) fetchMistakes();
-  }, [profileLoading, fetchMistakes]);
+  useEffect(() => { if (!profileLoading) fetchData(); }, [profileLoading, fetchData]);
 
-  // ── Toggle helpers ──────────────────────────────────────────────────────────
-  const toggleSubject = (name: string) => {
-    setExpandedSubjects(prev => {
-      const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
+  // ── Derived data ───────────────────────────────────────────────────────────
+  const subjects = useMemo(() => [...new Set(chapterRows.map(r => r.subject))].sort(), [chapterRows]);
+
+  const filteredTestRows = useMemo(() => {
+    let rows = [...testRows];
+    if (testFilter === 'last3') rows = rows.slice(0, 3);
+    if (testFilter === 'last5') rows = rows.slice(0, 5);
+    if (testFilter === 'last30') {
+      const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+      rows = rows.filter(r => new Date(r.date) >= cutoff);
+    }
+    return rows.sort((a, b) => {
+      const v = sortField as keyof TestRow;
+      const av = (a[v] as number) ?? 0;
+      const bv = (b[v] as number) ?? 0;
+      return sortDir === 'desc' ? bv - av : av - bv;
     });
-  };
+  }, [testRows, testFilter, sortField, sortDir]);
 
-  const toggleChapter = (key: string) => {
-    setExpandedChapters(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
+  const filteredChapterRows = useMemo(() => {
+    let rows = subjectFilter !== 'all' ? chapterRows.filter(r => r.subject === subjectFilter) : [...chapterRows];
+    return rows.sort((a, b) => {
+      const v = sortField as keyof ChapterRow;
+      const av = (a[v] as number) ?? 0;
+      const bv = (b[v] as number) ?? 0;
+      return sortDir === 'desc' ? bv - av : av - bv;
     });
-  };
+  }, [chapterRows, subjectFilter, sortField, sortDir]);
 
-  // ── Filtered data ───────────────────────────────────────────────────────────
-  const filteredSubjects = subjects
-    .filter(s => subjectFilter === 'all' || s.name === subjectFilter)
-    .map(s => ({
-      ...s,
-      chapters: s.chapters
-        .map(c => ({
-          ...c,
-          questions: c.questions.filter(q => {
-            const matchSearch = !search ||
-              q.question_text.toLowerCase().includes(search.toLowerCase()) ||
-              q.chapter.toLowerCase().includes(search.toLowerCase()) ||
-              (q.topic || '').toLowerCase().includes(search.toLowerCase());
-            const matchDiff = diffFilter === 'all' ||
-              (q.difficulty || '').toLowerCase() === diffFilter;
-            return matchSearch && matchDiff;
-          }),
-        }))
-        .filter(c => c.questions.length > 0),
-    }))
-    .filter(s => s.chapters.length > 0);
+  // Chart data
+  const testChartData = useMemo(() => filteredTestRows.slice().reverse().map(r => ({
+    name: r.testTitle.length > 15 ? r.testTitle.slice(0, 14) + '…' : r.testTitle,
+    'Incorrect Qs': r.wrong,
+    'Correct Qs': r.correct,
+    'Not attempted': r.notAttempted,
+  })), [filteredTestRows]);
 
-  const allSubjectNames = subjects.map(s => s.name);
-  const filteredTotal = filteredSubjects.reduce((sum, s) => sum + s.chapters.reduce((cs, c) => cs + c.questions.length, 0), 0);
+  const chapChartData = useMemo(() => filteredChapterRows.map(r => ({
+    name: r.chapter.length > 14 ? r.chapter.slice(0, 13) + '…' : r.chapter,
+    'Incorrect Qs': r.wrong,
+    'Correct Qs': r.correct,
+    'Not attempted': r.notAttempted,
+  })), [filteredChapterRows]);
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const totalWrong = view === 'test-wise'
+    ? filteredTestRows.reduce((s, r) => s + r.wrong, 0)
+    : filteredChapterRows.reduce((s, r) => s + r.wrong, 0);
+
+  function sortToggle(field: string) {
+    if (sortField === field) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setSortField(field); setSortDir('desc'); }
+  }
+
+  // ── Loading / Error ────────────────────────────────────────────────────────
   if (profileLoading || loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: '#0d1117' }}>
         <Loader2 className="animate-spin text-[var(--accent)]" size={32} />
-        <p className="text-xs text-[var(--text3)] uppercase tracking-widest font-mono animate-pulse">
-          Loading Mistakes Library...
-        </p>
+        <p className="text-xs text-white/30 uppercase tracking-widest font-mono animate-pulse">Loading Mistakes Library...</p>
       </div>
     );
   }
 
+  // ── Drill-down view ────────────────────────────────────────────────────────
+  if (drill) {
+    const drillTitle = drill.type === 'test' ? (drill.row as TestRow).testTitle : (drill.row as ChapterRow).chapter;
+    const drillQs = drill.row.questions;
+    return (
+      <div className="min-h-screen pb-28" style={{ background: '#0d1117' }}>
+        <div className="max-w-3xl mx-auto px-4 py-8">
+          <button onClick={() => setDrill(null)} className="flex items-center gap-2 text-xs text-white/50 hover:text-white transition-colors mb-6 font-mono uppercase tracking-wider">
+            <ArrowLeft size={14} /> Back to Mistakes Library
+          </button>
+          <h2 className="text-xl font-black text-white mb-1">{drillTitle}</h2>
+          <p className="text-xs text-white/40 mb-6">{drillQs.length} mistake{drillQs.length !== 1 ? 's' : ''} — practice each question below</p>
+          {drillQs.length === 0 ? (
+            <div className="text-center py-16 text-white/30 text-sm">No questions to show.</div>
+          ) : (
+            <div className="space-y-4">
+              {drillQs.map((q, i) => <QuestionCard key={q.id} q={q} index={i} />)}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main view ──────────────────────────────────────────────────────────────
+  const activeRows = view === 'test-wise' ? filteredTestRows : filteredChapterRows;
+  const chartData = view === 'test-wise' ? testChartData : chapChartData;
+  const nameCol = view === 'test-wise' ? 'Test Name' : 'Chapter Name';
+
   return (
-    <div className="an-content max-w-5xl mx-auto py-8 px-4 sm:px-6 pb-28">
+    <div className="min-h-screen flex" style={{ background: '#0d1117', color: '#f1f5f9' }}>
 
-      {/* ── Page Header ─────────────────────────────────────────────────────── */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 text-red-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-2 font-mono">
-          <BookMarked size={14} />
-          Study Toolkit · Booklets
+      {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────── */}
+      <aside className="hidden md:flex flex-col w-56 flex-shrink-0 border-r border-white/[0.07] p-4 pt-8 gap-2 sticky top-0 h-screen">
+        <div className="mb-4">
+          <div className="text-[10px] text-white/30 uppercase tracking-widest font-mono mb-1">Study Toolkit</div>
+          <h2 className="text-lg font-black text-white">My Mistakes</h2>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-black font-[family-name:var(--font-bebas)] tracking-wider text-[var(--text)] mb-1">
-              📕 My Mistakes Library
-            </h1>
-            <p className="text-xs text-[var(--text2)] max-w-xl leading-relaxed">
-              Every question you've got wrong — from Solver practice sessions and Mock Tests — compiled, categorized, and ready for revision.
-            </p>
+
+        <button
+          onClick={() => { setView('test-wise'); setSortField('wrong'); setSortDir('desc'); }}
+          className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            view === 'test-wise'
+              ? 'bg-white/[0.1] text-white border border-white/[0.14]'
+              : 'text-white/50 hover:text-white hover:bg-white/[0.05] border border-transparent'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <ClipboardList size={15} />
+            Test-wise
           </div>
-          <button
-            onClick={fetchMistakes}
-            className="flex-shrink-0 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-xl bg-[var(--bg2)] border border-[var(--border)] hover:border-[var(--accent)]/40 text-[var(--text2)] hover:text-[var(--accent)] transition-all font-mono"
-          >
-            <RefreshCw size={12} />
-            Refresh
+          <ChevronRight size={13} className="text-white/30" />
+        </button>
+
+        <button
+          onClick={() => { setView('chapter-wise'); setSortField('wrong'); setSortDir('desc'); }}
+          className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            view === 'chapter-wise'
+              ? 'bg-white/[0.1] text-white border border-white/[0.14]'
+              : 'text-white/50 hover:text-white hover:bg-white/[0.05] border border-transparent'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <BookMarked size={15} />
+            Chapter-wise
+          </div>
+          <ChevronRight size={13} className="text-white/30" />
+        </button>
+
+        <div className="mt-auto pt-4 border-t border-white/[0.06]">
+          <button onClick={fetchData} className="flex items-center gap-2 text-[11px] text-white/30 hover:text-white/70 transition-colors font-mono">
+            <RefreshCw size={12} /> Refresh data
           </button>
         </div>
+      </aside>
 
-        {/* Stats row */}
-        <div className="mt-5 flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-2xl">
-            <XCircle size={14} className="text-red-500" />
-            <div>
-              <div className="text-[9px] font-bold uppercase tracking-wider text-red-400 font-mono">Total Mistakes</div>
-              <div className="text-lg font-black text-red-500 leading-none">{totalMistakes}</div>
-            </div>
+      {/* ── MAIN CONTENT ──────────────────────────────────────────────────── */}
+      <main className="flex-1 min-w-0 px-4 md:px-8 py-8 pb-28 max-w-5xl">
+
+        {/* Mobile nav pills */}
+        <div className="flex md:hidden gap-2 mb-6">
+          {(['test-wise', 'chapter-wise'] as ViewMode[]).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all ${
+                view === v ? 'bg-white/[0.1] text-white border-white/20' : 'text-white/40 border-white/[0.07] hover:border-white/15'
+              }`}>{v.replace('-', ' ')}</button>
+          ))}
+        </div>
+
+        {/* Page header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-black text-white mb-1">
+            {view === 'test-wise' ? 'Test-wise Mistakes' : 'Chapter-wise Mistakes'}
+          </h1>
+          <p className="text-sm text-white/40">Revisit questions which you either attempted incorrectly or didn't attempt.</p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl mb-6 text-sm text-red-400">
+            <AlertTriangle size={16} /> {error}
           </div>
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg2)] border border-[var(--border)] rounded-2xl">
-            <Layers size={14} className="text-[var(--accent)]" />
-            <div>
-              <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--text3)] font-mono">Subjects</div>
-              <div className="text-lg font-black text-[var(--text)] leading-none">{subjects.length}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg2)] border border-[var(--border)] rounded-2xl">
-            <BookOpen size={14} className="text-[var(--accent)]" />
-            <div>
-              <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--text3)] font-mono">Chapters</div>
-              <div className="text-lg font-black text-[var(--text)] leading-none">
-                {subjects.reduce((s, sub) => s + sub.chapters.length, 0)}
-              </div>
-            </div>
-          </div>
-          {totalMistakes === 0 && !loading && (
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
-              <Trophy size={14} className="text-emerald-500" />
-              <div className="text-xs font-bold text-emerald-500">No mistakes yet — perfect record! 🎉</div>
-            </div>
-          )}
-        </div>
-      </div>
+        )}
 
-      {/* ── Filters ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text3)]" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search questions, chapters, topics..."
-            className="w-full pl-9 pr-4 py-2.5 text-sm bg-[var(--card)] border border-[var(--border)] hover:border-[var(--accent)]/30 focus:border-[var(--accent)] rounded-2xl text-[var(--text)] outline-none transition-colors"
-          />
-        </div>
-        {/* Subject filter */}
-        <div className="relative">
-          <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text3)]" />
-          <select
-            value={subjectFilter}
-            onChange={e => setSubjectFilter(e.target.value)}
-            className="pl-8 pr-8 py-2.5 text-xs font-bold uppercase tracking-wider bg-[var(--card)] border border-[var(--border)] hover:border-[var(--accent)]/30 rounded-2xl text-[var(--text)] outline-none transition-colors appearance-none cursor-pointer font-mono"
-          >
-            <option value="all">All Subjects</option>
-            {allSubjectNames.map(s => (
-              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-            ))}
-          </select>
-          <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text3)] pointer-events-none" />
-        </div>
-        {/* Difficulty filter */}
-        <div className="relative">
-          <select
-            value={diffFilter}
-            onChange={e => setDiffFilter(e.target.value)}
-            className="pl-4 pr-8 py-2.5 text-xs font-bold uppercase tracking-wider bg-[var(--card)] border border-[var(--border)] hover:border-[var(--accent)]/30 rounded-2xl text-[var(--text)] outline-none transition-colors appearance-none cursor-pointer font-mono"
-          >
-            <option value="all">All Difficulties</option>
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-          <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text3)] pointer-events-none" />
-        </div>
-      </div>
-
-      {/* ── Error state ──────────────────────────────────────────────────────── */}
-      {error && (
-        <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl mb-6 text-sm text-red-500">
-          <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-          {error}
-        </div>
-      )}
-
-      {/* ── Empty state ──────────────────────────────────────────────────────── */}
-      {!loading && !error && totalMistakes === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
-            <Trophy size={28} className="text-emerald-500" />
-          </div>
-          <h3 className="text-lg font-black text-[var(--text)] mb-2 font-[family-name:var(--font-bebas)] tracking-wider">
-            NO MISTAKES YET!
-          </h3>
-          <p className="text-sm text-[var(--text3)] max-w-xs leading-relaxed">
-            Your Mistakes Library is empty. Keep solving questions and attempting mock tests — any incorrect answers will appear here for revision.
-          </p>
-        </div>
-      )}
-
-      {/* ── No results after filter ───────────────────────────────────────────── */}
-      {!loading && !error && totalMistakes > 0 && filteredSubjects.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Search size={32} className="text-[var(--text3)] mb-3" />
-          <p className="text-sm font-bold text-[var(--text2)]">No questions match your filters</p>
-          <button onClick={() => { setSearch(''); setSubjectFilter('all'); setDiffFilter('all'); }}
-            className="mt-3 text-xs text-[var(--accent)] hover:underline font-mono uppercase tracking-wider">
-            Clear Filters
-          </button>
-        </div>
-      )}
-
-      {/* ── Subject → Chapter → Questions tree ───────────────────────────────── */}
-      {filteredSubjects.length > 0 && (
-        <div className="space-y-4">
-          {/* Results count when filtering */}
-          {(search || subjectFilter !== 'all' || diffFilter !== 'all') && (
-            <div className="text-[10px] text-[var(--text3)] font-mono uppercase tracking-wider">
-              Showing {filteredTotal} of {totalMistakes} mistakes
-            </div>
-          )}
-
-          {filteredSubjects.map(subj => {
-            const isSubjExpanded = expandedSubjects.has(subj.name);
-            const displayName = subj.name.charAt(0).toUpperCase() + subj.name.slice(1);
-
-            return (
-              <div key={subj.name} className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-sm">
-                {/* Subject header */}
-                <button
-                  onClick={() => toggleSubject(subj.name)}
-                  className="w-full flex items-center gap-3 px-5 py-4 hover:bg-[var(--bg2)] transition-colors text-left"
+        {/* Chapter-wise: subject tabs */}
+        {view === 'chapter-wise' && subjects.length > 0 && (
+          <div className="flex gap-1 border-b border-white/[0.07] mb-6 overflow-x-auto">
+            <button
+              onClick={() => setSubjectFilter('all')}
+              className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
+                subjectFilter === 'all' ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-white/40 hover:text-white/70'
+              }`}
+            >All Subjects</button>
+            {subjects.map(s => {
+              const meta = getSubjectMeta(s);
+              return (
+                <button key={s} onClick={() => setSubjectFilter(s)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
+                    subjectFilter === s ? 'text-white' : 'text-white/40 hover:text-white/70'
+                  }`}
+                  style={{ borderBottomColor: subjectFilter === s ? meta.color : 'transparent', color: subjectFilter === s ? meta.color : undefined }}
                 >
-                  <div
-                    className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: `${subj.color}18`, color: subj.color, border: `1px solid ${subj.color}30` }}
-                  >
-                    {subj.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-black text-[var(--text)] uppercase tracking-wider font-mono">{displayName}</div>
-                    <div className="text-[10px] text-[var(--text3)] font-mono">
-                      {subj.chapters.length} chapter{subj.chapters.length !== 1 ? 's' : ''} · {subj.total} mistake{subj.total !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                  {/* Chapter count pills */}
-                  <div className="flex gap-1 mr-2">
-                    {subj.chapters.slice(0, 3).map(c => (
-                      <span key={c.name} className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg2)] text-[var(--text3)] border border-[var(--border)] whitespace-nowrap font-mono">
-                        {c.questions.length}
-                      </span>
-                    ))}
-                    {subj.chapters.length > 3 && (
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[var(--bg2)] text-[var(--text3)] border border-[var(--border)] font-mono">
-                        +{subj.chapters.length - 3}
-                      </span>
-                    )}
-                  </div>
-                  {isSubjExpanded
-                    ? <ChevronUp size={16} className="flex-shrink-0 text-[var(--text3)]" />
-                    : <ChevronRight size={16} className="flex-shrink-0 text-[var(--text3)]" />}
+                  {meta.icon} {s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
+              );
+            })}
+          </div>
+        )}
 
-                {/* Chapters list */}
-                {isSubjExpanded && (
-                  <div className="border-t border-[var(--border)]">
-                    {subj.chapters.map(chap => {
-                      const chapKey = `${subj.name}::${chap.name}`;
-                      const isChapExpanded = expandedChapters.has(chapKey);
+        {/* Test-wise: filter tabs */}
+        {view === 'test-wise' && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'last3', label: 'Last 3 Tests' },
+              { key: 'last5', label: 'Last 5 Tests' },
+              { key: 'last30', label: 'Last 30 days' },
+            ].map(opt => (
+              <button key={opt.key} onClick={() => setTestFilter(opt.key)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide border transition-all ${
+                  testFilter === opt.key
+                    ? 'bg-[var(--accent)] text-white border-transparent'
+                    : 'text-white/50 border-white/[0.1] hover:border-white/25 hover:text-white'
+                }`}>{opt.label}</button>
+            ))}
+          </div>
+        )}
 
-                      return (
-                        <div key={chap.name} className="border-b border-[var(--border)] last:border-b-0">
-                          {/* Chapter header */}
-                          <button
-                            onClick={() => toggleChapter(chapKey)}
-                            className="w-full flex items-center gap-3 px-5 py-3 pl-14 hover:bg-[var(--bg2)] transition-colors text-left"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-bold text-[var(--text)] truncate">{chap.name}</div>
-                              <div className="text-[9px] text-[var(--text3)] font-mono">
-                                {chap.questions.length} wrong question{chap.questions.length !== 1 ? 's' : ''}
-                              </div>
-                            </div>
-                            <div
-                              className="flex-shrink-0 text-[10px] font-black px-2.5 py-1 rounded-lg font-mono"
-                              style={{ background: `${subj.color}15`, color: subj.color }}
-                            >
-                              {chap.questions.length}
-                            </div>
-                            {isChapExpanded
-                              ? <ChevronUp size={14} className="flex-shrink-0 text-[var(--text3)]" />
-                              : <ChevronRight size={14} className="flex-shrink-0 text-[var(--text3)]" />}
-                          </button>
-
-                          {/* Questions list */}
-                          {isChapExpanded && (
-                            <div className="px-4 pb-4 pl-14 space-y-3 bg-[var(--bg2)]/30">
-                              {chap.questions.map((q, i) => (
-                                <QuestionCard key={q.id} q={q} index={i} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+        {/* ── Overview Chart Card ─────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] mb-5 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4">
+            <div>
+              <div className="font-bold text-white text-sm">Your Mistakes Overview</div>
+              <div className="text-[11px] text-white/40 mt-0.5">
+                This graph shows how you performed {view === 'test-wise' ? 'through different tests' : 'across different chapters'} you attempted
               </div>
-            );
-          })}
+            </div>
+            <button onClick={() => setShowChart(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white/50 hover:text-white border border-white/[0.1] hover:border-white/25 transition-all font-mono">
+              {showChart ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {showChart ? 'Hide' : 'Show'}
+            </button>
+          </div>
+
+          {showChart && (
+            <div className="px-2 pb-4">
+              {/* Legend */}
+              <div className="flex gap-4 px-4 mb-3">
+                {[['#f87171', 'Incorrect Qs'], ['#34d399', 'Correct Qs'], ['rgba(255,255,255,0.4)', 'Not attempted Qs']].map(([color, label]) => (
+                  <div key={label as string} className="flex items-center gap-1.5 text-[10px] text-white/50">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: color as string }} />
+                    {label}
+                  </div>
+                ))}
+              </div>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={chartData} margin={{ left: -10, right: 10, top: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Line type="monotone" dataKey="Incorrect Qs" stroke="#f87171" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Correct Qs" stroke="#34d399" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Not attempted" stroke="rgba(255,255,255,0.35)" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[180px] flex items-center justify-center text-white/20 text-sm">No data to display</div>
+              )}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* ── Table Card ───────────────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+            <div className="font-bold text-white text-sm">
+              {view === 'test-wise' ? 'Test-wise Mistakes' : 'Chapter-wise Mistakes'}
+            </div>
+            <button onClick={() => sortToggle(sortField)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white/50 hover:text-white border border-white/[0.1] hover:border-white/25 transition-all font-mono">
+              <ArrowUpDown size={11} /> Sort By
+            </button>
+          </div>
+
+          {/* Table header */}
+          <div className="grid gap-2 px-5 py-3 border-b border-white/[0.05]" style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}>
+            <div className="text-[11px] font-semibold text-white/40">{nameCol}</div>
+            {[
+              { key: 'accuracy', label: 'Accuracy Trend' },
+              { key: 'wrong', label: 'Attempted Wrong', cls: 'text-red-400' },
+              { key: 'notAttempted', label: 'Not Attempted' },
+              { key: 'correct', label: 'Attempted Correct', cls: 'text-emerald-400' },
+              { key: 'total', label: 'Total Questions' },
+            ].map(col => (
+              <button key={col.key} onClick={() => col.key !== 'accuracy' && sortToggle(col.key)}
+                className={`text-[11px] font-semibold text-center transition-colors ${col.cls || 'text-white/40'} ${col.key !== 'accuracy' ? 'hover:text-white cursor-pointer' : 'cursor-default'}`}>
+                {col.label}
+                {sortField === col.key && <span className="ml-0.5">{sortDir === 'desc' ? '↓' : '↑'}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Rows */}
+          {activeRows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Trophy size={28} className="text-emerald-400 mb-3" />
+              <div className="text-sm font-bold text-white/60 mb-1">No mistakes found!</div>
+              <div className="text-xs text-white/30">Keep solving — mistakes will appear here for revision.</div>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/[0.04]">
+              {activeRows.map((row, idx) => {
+                const title = view === 'test-wise' ? (row as TestRow).testTitle : (row as ChapterRow).chapter;
+                const subtitle = view === 'test-wise'
+                  ? new Date((row as TestRow).date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : (row as ChapterRow).subject.charAt(0).toUpperCase() + (row as ChapterRow).subject.slice(1);
+                const subjectColor = view === 'chapter-wise' ? getSubjectMeta((row as ChapterRow).subject).color : undefined;
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setDrill({ type: view === 'test-wise' ? 'test' : 'chapter', row })}
+                    className="w-full grid gap-2 px-5 py-4 hover:bg-white/[0.03] transition-colors text-left group"
+                    style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ChevronRight size={13} className="flex-shrink-0 text-white/20 group-hover:text-white/60 transition-colors" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-white truncate group-hover:text-[var(--accent)] transition-colors">{title}</div>
+                        <div className="text-[10px] mt-0.5 font-mono" style={{ color: subjectColor || 'rgba(255,255,255,0.35)' }}>{subtitle}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-center items-center">
+                      <AccuracyDonut wrong={row.wrong} correct={row.correct} total={row.total} />
+                    </div>
+                    <div className="flex justify-center items-center text-sm font-black text-red-400">{row.wrong}</div>
+                    <div className="flex justify-center items-center text-sm font-semibold text-white/50">{row.notAttempted}</div>
+                    <div className="flex justify-center items-center text-sm font-black text-emerald-400">{row.correct}</div>
+                    <div className="flex justify-center items-center text-sm font-bold text-white">{row.total}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
