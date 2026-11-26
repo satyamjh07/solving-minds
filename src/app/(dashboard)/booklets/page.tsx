@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
+import { useTheme } from '@/components/ThemeProvider';
 import {
   BookMarked, Loader2, ChevronRight, XCircle, Eye, EyeOff,
   CheckCircle2, RefreshCw, ArrowLeft, ArrowUpDown, ChevronDown,
@@ -112,22 +113,20 @@ function AccuracyDonut({ wrong, correct, total }: { wrong: number; correct: numb
   const correctPct = total > 0 ? correct / total : 0;
   const wrongLen = wrongPct * circ;
   const correctLen = correctPct * circ;
-  const wrongOffset = 0;
-  const correctOffset = -wrongLen;
 
   return (
     <svg width={36} height={36} viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={18} cy={18} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={3.5} />
+      <circle cx={18} cy={18} r={r} fill="none" stroke="var(--border)" strokeWidth={3.5} />
       {wrongLen > 0 && (
         <circle cx={18} cy={18} r={r} fill="none" stroke="#f87171" strokeWidth={3.5}
           strokeDasharray={`${wrongLen} ${circ - wrongLen}`}
-          strokeDashoffset={wrongOffset}
+          strokeDashoffset={0}
           strokeLinecap="butt" />
       )}
       {correctLen > 0 && (
         <circle cx={18} cy={18} r={r} fill="none" stroke="#34d399" strokeWidth={3.5}
           strokeDasharray={`${correctLen} ${circ - correctLen}`}
-          strokeDashoffset={correctOffset}
+          strokeDashoffset={-wrongLen}
           strokeLinecap="butt" />
       )}
     </svg>
@@ -169,34 +168,34 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
   return (
     <div className={`rounded-xl border overflow-hidden transition-all duration-200 ${
       submitted
-        ? isCorrectAttempt ? 'border-emerald-500/30 bg-[rgba(52,211,153,0.03)]' : 'border-red-500/30 bg-[rgba(248,113,113,0.03)]'
-        : 'border-white/[0.08] bg-[rgba(255,255,255,0.03)] hover:border-white/[0.14]'
+        ? isCorrectAttempt ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'
+        : 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--border-hover)]'
     }`}>
       {/* Header */}
       <div className="flex items-start gap-3 p-4 pb-3">
         <div className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs font-mono border ${
           submitted
-            ? isCorrectAttempt ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-red-500/15 border-red-500/30 text-red-400'
-            : 'bg-white/[0.06] border-white/[0.1] text-white/40'
+            ? isCorrectAttempt ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500' : 'bg-red-500/15 border-red-500/30 text-red-500'
+            : 'bg-[var(--bg2)] border-[var(--border)] text-[var(--text3)]'
         }`}>{index + 1}</div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 mb-2">
             <DiffBadge diff={q.difficulty} />
-            {q.topic && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium text-white/40 bg-white/[0.05] border border-white/[0.08]">{q.topic}</span>}
+            {q.topic && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium text-[var(--text3)] bg-[var(--bg2)] border border-[var(--border)]">{q.topic}</span>}
             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
-              q.source === 'mock' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+              q.source === 'mock' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20' : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'
             }`}>{q.source === 'mock' ? 'Mock Test' : 'Solver'}</span>
             {submitted && (
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
-                isCorrectAttempt ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-red-500/10 text-red-400 border-red-500/25'
+                isCorrectAttempt ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25' : 'bg-red-500/10 text-red-500 border-red-500/25'
               }`}>
                 {isCorrectAttempt ? <CheckCircle2 size={9} /> : <XCircle size={9} />}
                 {isCorrectAttempt ? 'Correct!' : 'Wrong again'}
               </span>
             )}
           </div>
-          <MathText text={q.question_text} className="text-sm text-white/80 leading-relaxed" />
-          {q.question_image_url && <img src={q.question_image_url} alt="q" className="mt-2 max-h-48 rounded-lg border border-white/10 object-contain" />}
+          <MathText text={q.question_text} className="text-sm text-[var(--text)] leading-relaxed" />
+          {q.question_image_url && <img src={q.question_image_url} alt="q" className="mt-2 max-h-48 rounded-lg border border-[var(--border)] object-contain" />}
         </div>
       </div>
 
@@ -206,14 +205,14 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
           {q.options.map((opt, i) => {
             const isCorrectOpt = i === correctIdx;
             const isPicked = i === pickedIdx;
-            let rowCls = 'bg-white/[0.04] border-white/[0.08] text-white/60 hover:border-white/20 cursor-pointer';
-            let dotCls = 'bg-white/10 text-white/40';
+            let rowCls = 'bg-[var(--bg2)] border-[var(--border)] text-[var(--text2)] hover:border-[var(--accent)]/40 cursor-pointer';
+            let dotCls = 'bg-[var(--bg3)] text-[var(--text3)]';
             let icon: React.ReactNode = null;
             if (!submitted && isPicked) { rowCls = 'bg-[var(--accent)]/10 border-[var(--accent)]/40 text-[var(--accent)] cursor-pointer'; dotCls = 'bg-[var(--accent)] text-white'; }
             if (submitted) {
-              if (isCorrectOpt) { rowCls = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 cursor-default'; dotCls = 'bg-emerald-500 text-white'; icon = <CheckCircle2 size={12} className="flex-shrink-0 mt-0.5 text-emerald-400" />; }
-              else if (isPicked) { rowCls = 'bg-red-500/20 border-red-500/50 text-red-400 cursor-default'; dotCls = 'bg-red-500 text-white'; icon = <XCircle size={12} className="flex-shrink-0 mt-0.5 text-red-400" />; }
-              else { rowCls = 'bg-white/[0.03] border-white/[0.06] text-white/30 cursor-default'; }
+              if (isCorrectOpt) { rowCls = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 cursor-default'; dotCls = 'bg-emerald-500 text-white'; icon = <CheckCircle2 size={12} className="flex-shrink-0 mt-0.5 text-emerald-500" />; }
+              else if (isPicked) { rowCls = 'bg-red-500/20 border-red-500/50 text-red-600 cursor-default'; dotCls = 'bg-red-500 text-white'; icon = <XCircle size={12} className="flex-shrink-0 mt-0.5 text-red-500" />; }
+              else { rowCls = 'bg-[var(--bg2)] border-[var(--border)] text-[var(--text3)] cursor-default opacity-60'; }
             }
             return (
               <button key={i} disabled={submitted} onClick={() => setPickedIdx(i)}
@@ -222,7 +221,7 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
                 <div className="flex-1 min-w-0">
                   {opt.text && <MathText text={opt.text} />}
                   {opt.image && <img src={opt.image} alt="" className="mt-1 max-h-20 object-contain rounded" />}
-                  {!opt.text && !opt.image && <span className="text-white/30">Option {optionLabels[i]}</span>}
+                  {!opt.text && !opt.image && <span className="text-[var(--text3)]">Option {optionLabels[i]}</span>}
                 </div>
                 {icon}
               </button>
@@ -236,18 +235,18 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
         <div className="px-4 pb-3">
           {!submitted ? (
             <input type="number" value={integerInput} onChange={e => setIntegerInput(e.target.value)}
-              placeholder="Enter your answer..." className="w-full px-4 py-2.5 text-sm bg-white/[0.05] border border-white/10 focus:border-[var(--accent)] rounded-xl text-white outline-none transition-colors font-mono" />
+              placeholder="Enter your answer..." className="w-full px-4 py-2.5 text-sm bg-[var(--bg2)] border border-[var(--border)] focus:border-[var(--accent)] rounded-xl text-[var(--text)] outline-none transition-colors font-mono" />
           ) : (
             <div className="flex flex-wrap gap-3 text-xs">
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isCorrectAttempt ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${isCorrectAttempt ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
                 {isCorrectAttempt ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                <span className="text-white/50">Your answer:</span>
+                <span className="text-[var(--text2)]">Your answer:</span>
                 <span className="font-black font-mono">{integerInput || '—'}</span>
               </div>
               {!isCorrectAttempt && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-600">
                   <CheckCircle2 size={12} />
-                  <span className="text-white/50">Correct:</span>
+                  <span className="text-[var(--text2)]">Correct:</span>
                   <span className="font-black font-mono">{q.correct_answer}</span>
                 </div>
               )}
@@ -257,7 +256,7 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
       )}
 
       {/* Action bar */}
-      <div className="border-t border-white/[0.06] px-4 py-2.5 flex items-center justify-between gap-3">
+      <div className="border-t border-[var(--border)] px-4 py-2.5 flex items-center justify-between gap-3">
         <div>
           {!submitted ? (
             <button onClick={() => setSubmitted(true)} disabled={isMCQ ? pickedIdx === null : !integerInput.trim()}
@@ -266,7 +265,7 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
             </button>
           ) : (
             <button onClick={handleRetry}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/[0.06] border border-white/[0.1] text-white/60 hover:text-white hover:border-white/20 transition-all font-mono">
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-[var(--bg2)] border border-[var(--border)] text-[var(--text2)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)] transition-all font-mono">
               <RefreshCw size={11} /> Try Again
             </button>
           )}
@@ -281,8 +280,8 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
       </div>
       {submitted && showExplanation && q.explanation && (
         <div className="px-4 pb-4">
-          <div className="p-3 bg-white/[0.04] rounded-xl border border-white/[0.07]">
-            <MathText text={q.explanation} className="text-xs text-white/60 leading-relaxed" />
+          <div className="p-3 bg-[var(--bg2)] rounded-xl border border-[var(--border)]">
+            <MathText text={q.explanation} className="text-xs text-[var(--text2)] leading-relaxed" />
             {q.explanation_image_url && <img src={q.explanation_image_url} alt="exp" className="mt-2 max-h-48 rounded-lg object-contain" />}
           </div>
         </div>
@@ -295,13 +294,13 @@ const QuestionCard = memo(function QuestionCard({ q, index }: { q: MistakeQuesti
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1e2535] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-xl">
-      <div className="text-white/50 mb-1 font-mono text-[10px]">{label}</div>
+    <div className="bg-[var(--card2)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs shadow-xl">
+      <div className="text-[var(--text3)] mb-1 font-mono text-[10px]">{label}</div>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-          <span className="text-white/70">{p.name}:</span>
-          <span className="font-bold text-white">{p.value}</span>
+          <span className="text-[var(--text2)]">{p.name}:</span>
+          <span className="font-bold text-[var(--text)]">{p.value}</span>
         </div>
       ))}
     </div>
@@ -314,6 +313,11 @@ type DrillTarget = { type: 'test' | 'chapter'; row: TestRow | ChapterRow } | nul
 
 export default function BookletsPage() {
   const { profile, loading: profileLoading } = useProfile();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark' || theme === 'neon' || theme === 'aurora' || theme === 'sunset';
+  const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.07)';
+  const axisColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)';
+  const notAttemptedLineColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>('chapter-wise');
@@ -508,9 +512,9 @@ export default function BookletsPage() {
   // ── Loading / Error ────────────────────────────────────────────────────────
   if (profileLoading || loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: '#0d1117' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--bg)]">
         <Loader2 className="animate-spin text-[var(--accent)]" size={32} />
-        <p className="text-xs text-white/30 uppercase tracking-widest font-mono animate-pulse">Loading Mistakes Library...</p>
+        <p className="text-xs text-[var(--text3)] uppercase tracking-widest font-mono animate-pulse">Loading Mistakes Library...</p>
       </div>
     );
   }
@@ -520,15 +524,15 @@ export default function BookletsPage() {
     const drillTitle = drill.type === 'test' ? (drill.row as TestRow).testTitle : (drill.row as ChapterRow).chapter;
     const drillQs = drill.row.questions;
     return (
-      <div className="min-h-screen pb-28" style={{ background: '#0d1117' }}>
+      <div className="min-h-screen pb-28 bg-[var(--bg)]">
         <div className="max-w-3xl mx-auto px-4 py-8">
-          <button onClick={() => setDrill(null)} className="flex items-center gap-2 text-xs text-white/50 hover:text-white transition-colors mb-6 font-mono uppercase tracking-wider">
+          <button onClick={() => setDrill(null)} className="flex items-center gap-2 text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors mb-6 font-mono uppercase tracking-wider">
             <ArrowLeft size={14} /> Back to Mistakes Library
           </button>
-          <h2 className="text-xl font-black text-white mb-1">{drillTitle}</h2>
-          <p className="text-xs text-white/40 mb-6">{drillQs.length} mistake{drillQs.length !== 1 ? 's' : ''} — practice each question below</p>
+          <h2 className="text-xl font-black text-[var(--text)] mb-1">{drillTitle}</h2>
+          <p className="text-xs text-[var(--text3)] mb-6">{drillQs.length} mistake{drillQs.length !== 1 ? 's' : ''} — practice each question below</p>
           {drillQs.length === 0 ? (
-            <div className="text-center py-16 text-white/30 text-sm">No questions to show.</div>
+            <div className="text-center py-16 text-[var(--text3)] text-sm">No questions to show.</div>
           ) : (
             <div className="space-y-4">
               {drillQs.map((q, i) => <QuestionCard key={q.id} q={q} index={i} />)}
@@ -545,47 +549,47 @@ export default function BookletsPage() {
   const nameCol = view === 'test-wise' ? 'Test Name' : 'Chapter Name';
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#0d1117', color: '#f1f5f9' }}>
+    <div className="min-h-screen flex bg-[var(--bg)] text-[var(--text)]">
 
       {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────── */}
-      <aside className="hidden md:flex flex-col w-56 flex-shrink-0 border-r border-white/[0.07] p-4 pt-8 gap-2 sticky top-0 h-screen">
+      <aside className="hidden md:flex flex-col w-56 flex-shrink-0 border-r border-[var(--border)] p-4 pt-8 gap-2 sticky top-0 h-screen">
         <div className="mb-4">
-          <div className="text-[10px] text-white/30 uppercase tracking-widest font-mono mb-1">Study Toolkit</div>
-          <h2 className="text-lg font-black text-white">My Mistakes</h2>
+          <div className="text-[10px] text-[var(--text3)] uppercase tracking-widest font-mono mb-1">Study Toolkit</div>
+          <h2 className="text-lg font-black text-[var(--text)]">My Mistakes</h2>
         </div>
 
         <button
           onClick={() => { setView('test-wise'); setSortField('wrong'); setSortDir('desc'); }}
           className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             view === 'test-wise'
-              ? 'bg-white/[0.1] text-white border border-white/[0.14]'
-              : 'text-white/50 hover:text-white hover:bg-white/[0.05] border border-transparent'
+              ? 'bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)]'
+              : 'text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--bg2)] border border-transparent'
           }`}
         >
           <div className="flex items-center gap-2">
             <ClipboardList size={15} />
             Test-wise
           </div>
-          <ChevronRight size={13} className="text-white/30" />
+          <ChevronRight size={13} className="text-[var(--text3)]" />
         </button>
 
         <button
           onClick={() => { setView('chapter-wise'); setSortField('wrong'); setSortDir('desc'); }}
           className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             view === 'chapter-wise'
-              ? 'bg-white/[0.1] text-white border border-white/[0.14]'
-              : 'text-white/50 hover:text-white hover:bg-white/[0.05] border border-transparent'
+              ? 'bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)]'
+              : 'text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--bg2)] border border-transparent'
           }`}
         >
           <div className="flex items-center gap-2">
             <BookMarked size={15} />
             Chapter-wise
           </div>
-          <ChevronRight size={13} className="text-white/30" />
+          <ChevronRight size={13} className="text-[var(--text3)]" />
         </button>
 
-        <div className="mt-auto pt-4 border-t border-white/[0.06]">
-          <button onClick={fetchData} className="flex items-center gap-2 text-[11px] text-white/30 hover:text-white/70 transition-colors font-mono">
+        <div className="mt-auto pt-4 border-t border-[var(--border)]">
+          <button onClick={fetchData} className="flex items-center gap-2 text-[11px] text-[var(--text3)] hover:text-[var(--text2)] transition-colors font-mono">
             <RefreshCw size={12} /> Refresh data
           </button>
         </div>
@@ -599,17 +603,17 @@ export default function BookletsPage() {
           {(['test-wise', 'chapter-wise'] as ViewMode[]).map(v => (
             <button key={v} onClick={() => setView(v)}
               className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all ${
-                view === v ? 'bg-white/[0.1] text-white border-white/20' : 'text-white/40 border-white/[0.07] hover:border-white/15'
+                view === v ? 'bg-[var(--bg2)] text-[var(--text)] border-[var(--border)]' : 'text-[var(--text3)] border-[var(--border)] hover:border-[var(--border-hover)]'
               }`}>{v.replace('-', ' ')}</button>
           ))}
         </div>
 
         {/* Page header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-black text-white mb-1">
+          <h1 className="text-2xl font-black text-[var(--text)] mb-1">
             {view === 'test-wise' ? 'Test-wise Mistakes' : 'Chapter-wise Mistakes'}
           </h1>
-          <p className="text-sm text-white/40">Revisit questions which you either attempted incorrectly or didn't attempt.</p>
+          <p className="text-sm text-[var(--text2)]">Revisit questions which you either attempted incorrectly or didn't attempt.</p>
         </div>
 
         {/* Error */}
@@ -621,11 +625,11 @@ export default function BookletsPage() {
 
         {/* Chapter-wise: subject tabs */}
         {view === 'chapter-wise' && subjects.length > 0 && (
-          <div className="flex gap-1 border-b border-white/[0.07] mb-6 overflow-x-auto">
+          <div className="flex gap-1 border-b border-[var(--border)] mb-6 overflow-x-auto">
             <button
               onClick={() => setSubjectFilter('all')}
               className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-                subjectFilter === 'all' ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-white/40 hover:text-white/70'
+                subjectFilter === 'all' ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--text3)] hover:text-[var(--text2)]'
               }`}
             >All Subjects</button>
             {subjects.map(s => {
@@ -633,7 +637,7 @@ export default function BookletsPage() {
               return (
                 <button key={s} onClick={() => setSubjectFilter(s)}
                   className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-                    subjectFilter === s ? 'text-white' : 'text-white/40 hover:text-white/70'
+                    subjectFilter === s ? 'text-[var(--text)]' : 'text-[var(--text3)] hover:text-[var(--text2)]'
                   }`}
                   style={{ borderBottomColor: subjectFilter === s ? meta.color : 'transparent', color: subjectFilter === s ? meta.color : undefined }}
                 >
@@ -657,23 +661,23 @@ export default function BookletsPage() {
                 className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide border transition-all ${
                   testFilter === opt.key
                     ? 'bg-[var(--accent)] text-white border-transparent'
-                    : 'text-white/50 border-white/[0.1] hover:border-white/25 hover:text-white'
+                    : 'text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text)]'
                 }`}>{opt.label}</button>
             ))}
           </div>
         )}
 
         {/* ── Overview Chart Card ─────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] mb-5 overflow-hidden">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] mb-5 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4">
             <div>
-              <div className="font-bold text-white text-sm">Your Mistakes Overview</div>
-              <div className="text-[11px] text-white/40 mt-0.5">
+              <div className="font-bold text-[var(--text)] text-sm">Your Mistakes Overview</div>
+              <div className="text-[11px] text-[var(--text3)] mt-0.5">
                 This graph shows how you performed {view === 'test-wise' ? 'through different tests' : 'across different chapters'} you attempted
               </div>
             </div>
             <button onClick={() => setShowChart(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white/50 hover:text-white border border-white/[0.1] hover:border-white/25 transition-all font-mono">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-all font-mono">
               {showChart ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               {showChart ? 'Hide' : 'Show'}
             </button>
@@ -683,8 +687,8 @@ export default function BookletsPage() {
             <div className="px-2 pb-4">
               {/* Legend */}
               <div className="flex gap-4 px-4 mb-3">
-                {[['#f87171', 'Incorrect Qs'], ['#34d399', 'Correct Qs'], ['rgba(255,255,255,0.4)', 'Not attempted Qs']].map(([color, label]) => (
-                  <div key={label as string} className="flex items-center gap-1.5 text-[10px] text-white/50">
+                {[['#f87171', 'Incorrect Qs'], ['#34d399', 'Correct Qs'], [notAttemptedLineColor, 'Not attempted Qs']].map(([color, label]) => (
+                  <div key={label as string} className="flex items-center gap-1.5 text-[10px] text-[var(--text3)]">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: color as string }} />
                     {label}
                   </div>
@@ -693,37 +697,37 @@ export default function BookletsPage() {
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={180}>
                   <LineChart data={chartData} margin={{ left: -10, right: 10, top: 5, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} />
                     <Tooltip content={<ChartTooltip />} />
                     <Line type="monotone" dataKey="Incorrect Qs" stroke="#f87171" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="Correct Qs" stroke="#34d399" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Not attempted" stroke="rgba(255,255,255,0.35)" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Not attempted" stroke={notAttemptedLineColor} strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[180px] flex items-center justify-center text-white/20 text-sm">No data to display</div>
+                <div className="h-[180px] flex items-center justify-center text-[var(--text3)] text-sm">No data to display</div>
               )}
             </div>
           )}
         </div>
 
         {/* ── Table Card ───────────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-            <div className="font-bold text-white text-sm">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+            <div className="font-bold text-[var(--text)] text-sm">
               {view === 'test-wise' ? 'Test-wise Mistakes' : 'Chapter-wise Mistakes'}
             </div>
             <button onClick={() => sortToggle(sortField)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white/50 hover:text-white border border-white/[0.1] hover:border-white/25 transition-all font-mono">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-all font-mono">
               <ArrowUpDown size={11} /> Sort By
             </button>
           </div>
 
           {/* Table header */}
-          <div className="grid gap-2 px-5 py-3 border-b border-white/[0.05]" style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}>
-            <div className="text-[11px] font-semibold text-white/40">{nameCol}</div>
+          <div className="grid gap-2 px-5 py-3 border-b border-[var(--border)]" style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}>
+            <div className="text-[11px] font-semibold text-[var(--text3)]">{nameCol}</div>
             {[
               { key: 'accuracy', label: 'Accuracy Trend' },
               { key: 'wrong', label: 'Attempted Wrong', cls: 'text-red-400' },
@@ -732,7 +736,7 @@ export default function BookletsPage() {
               { key: 'total', label: 'Total Questions' },
             ].map(col => (
               <button key={col.key} onClick={() => col.key !== 'accuracy' && sortToggle(col.key)}
-                className={`text-[11px] font-semibold text-center transition-colors ${col.cls || 'text-white/40'} ${col.key !== 'accuracy' ? 'hover:text-white cursor-pointer' : 'cursor-default'}`}>
+                className={`text-[11px] font-semibold text-center transition-colors ${col.cls || 'text-[var(--text3)]'} ${col.key !== 'accuracy' ? 'hover:text-[var(--text)] cursor-pointer' : 'cursor-default'}`}>
                 {col.label}
                 {sortField === col.key && <span className="ml-0.5">{sortDir === 'desc' ? '↓' : '↑'}</span>}
               </button>
@@ -743,11 +747,11 @@ export default function BookletsPage() {
           {activeRows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Trophy size={28} className="text-emerald-400 mb-3" />
-              <div className="text-sm font-bold text-white/60 mb-1">No mistakes found!</div>
-              <div className="text-xs text-white/30">Keep solving — mistakes will appear here for revision.</div>
+              <div className="text-sm font-bold text-[var(--text2)] mb-1">No mistakes found!</div>
+              <div className="text-xs text-[var(--text3)]">Keep solving — mistakes will appear here for revision.</div>
             </div>
           ) : (
-            <div className="divide-y divide-white/[0.04]">
+            <div className="divide-y divide-[var(--border)]">
               {activeRows.map((row, idx) => {
                 const title = view === 'test-wise' ? (row as TestRow).testTitle : (row as ChapterRow).chapter;
                 const subtitle = view === 'test-wise'
@@ -759,23 +763,23 @@ export default function BookletsPage() {
                   <button
                     key={idx}
                     onClick={() => setDrill({ type: view === 'test-wise' ? 'test' : 'chapter', row })}
-                    className="w-full grid gap-2 px-5 py-4 hover:bg-white/[0.03] transition-colors text-left group"
+                    className="w-full grid gap-2 px-5 py-4 hover:bg-[var(--bg2)] transition-colors text-left group"
                     style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <ChevronRight size={13} className="flex-shrink-0 text-white/20 group-hover:text-white/60 transition-colors" />
+                      <ChevronRight size={13} className="flex-shrink-0 text-[var(--text3)] group-hover:text-[var(--text2)] transition-colors" />
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-white truncate group-hover:text-[var(--accent)] transition-colors">{title}</div>
-                        <div className="text-[10px] mt-0.5 font-mono" style={{ color: subjectColor || 'rgba(255,255,255,0.35)' }}>{subtitle}</div>
+                        <div className="text-sm font-semibold text-[var(--text)] truncate group-hover:text-[var(--accent)] transition-colors">{title}</div>
+                        <div className="text-[10px] mt-0.5 font-mono" style={{ color: subjectColor || 'var(--text3)' }}>{subtitle}</div>
                       </div>
                     </div>
                     <div className="flex justify-center items-center">
                       <AccuracyDonut wrong={row.wrong} correct={row.correct} total={row.total} />
                     </div>
                     <div className="flex justify-center items-center text-sm font-black text-red-400">{row.wrong}</div>
-                    <div className="flex justify-center items-center text-sm font-semibold text-white/50">{row.notAttempted}</div>
+                    <div className="flex justify-center items-center text-sm font-semibold text-[var(--text2)]">{row.notAttempted}</div>
                     <div className="flex justify-center items-center text-sm font-black text-emerald-400">{row.correct}</div>
-                    <div className="flex justify-center items-center text-sm font-bold text-white">{row.total}</div>
+                    <div className="flex justify-center items-center text-sm font-bold text-[var(--text)]">{row.total}</div>
                   </button>
                 );
               })}
