@@ -1,7 +1,7 @@
 'use client';
 
 import { Post } from '@/hooks/usePosts';
-import { ChevronUp, ChevronDown, MessageSquare, Share2, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
+import { ChevronUp, ChevronDown, MessageSquare, Share2, Pencil, Trash2, MoreHorizontal, User, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -34,10 +34,10 @@ export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUs
   } : (post.profiles || {} as any);
 
   const [showMenu, setShowMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const isOwner = !!currentUserId && currentUserId === post.user_id;
   const showActions = isOwner || canModerate;
-
   const tags = Array.isArray(post.tags) ? post.tags : [];
 
   const timeAgo = (dateStr: string) => {
@@ -51,10 +51,10 @@ export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUs
   const getFirstImage = () => {
     if (Array.isArray(post.image_urls) && post.image_urls.length > 0) return post.image_urls[0];
     if (typeof post.image_urls === 'string' && post.image_urls.startsWith('[')) {
-      try { 
-        const parsed = JSON.parse(post.image_urls); 
+      try {
+        const parsed = JSON.parse(post.image_urls);
         return parsed.length > 0 ? parsed[0] : null;
-      } catch (e) { return null; }
+      } catch { return null; }
     }
     if ((post as any).image_url) return (post as any).image_url;
     return null;
@@ -80,53 +80,64 @@ export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUs
         await navigator.share({ title: post.title || 'SolvingMinds Post', url });
       } else {
         await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
       }
     } catch {
-      await navigator.clipboard.writeText(url);
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch { /* ignore */ }
     }
   };
 
+  const authorInitials = !isAnonymous && profile.name
+    ? profile.name.trim().slice(0, 2).toUpperCase()
+    : null;
+
   return (
-    <Link 
-      href={`/community/${post.id}`}
-      className="block post-card group hover:border-[var(--border-hover)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20"
-    >
+    <article className="post-card group transition-all duration-150 hover:border-[var(--border-hover)]">
       <div className="post-body">
         {/* Author Row */}
         <div className="post-header">
           {isAnonymous ? (
-            <div className="post-avatar-btn cursor-default" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-              <div className="post-avatar bg-[#ffffff08] border border-white/5 flex items-center justify-center">
-                <span className="text-gray-400 text-sm">👤</span>
+            <div className="post-avatar-btn cursor-default">
+              <div className="post-avatar bg-[var(--bg2)] border border-[var(--border)] flex items-center justify-center text-[var(--text2)]">
+                <User size={15} />
               </div>
             </div>
           ) : (
-            <button 
-              className="post-avatar-btn" 
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowUser(post.user_id); }}
+            <button
+              type="button"
+              aria-label={`View ${profile.name || 'user'}'s profile`}
+              className="post-avatar-btn focus-visible:outline-2 focus-visible:outline-[var(--accent)] rounded-full"
+              onClick={() => onShowUser(post.user_id)}
             >
-              <div className="post-avatar">
+              <div className="post-avatar bg-[var(--bg2)] border border-[var(--border)] flex items-center justify-center text-xs font-bold text-[var(--text2)]">
                 {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt={profile.name} />
+                  <img src={profile.avatar_url} alt={profile.name || 'Avatar'} />
+                ) : authorInitials ? (
+                  <span>{authorInitials}</span>
                 ) : (
-                  <span className="flex items-center justify-center w-full h-full text-gray-500">👤</span>
+                  <User size={15} />
                 )}
               </div>
             </button>
           )}
+
           <div className="post-header-info">
             {isAnonymous ? (
-              <span className="font-bold text-sm text-gray-400 cursor-default" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                Anonymous
-              </span>
+              <span className="font-semibold text-sm text-[var(--text2)]">Anonymous</span>
             ) : (
-              <button 
-                className="post-author-link"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowUser(post.user_id); }}
+              <button
+                type="button"
+                className="post-author-link focus-visible:outline-2 focus-visible:outline-[var(--accent)] rounded"
+                onClick={() => onShowUser(post.user_id)}
               >
-                {profile.name || 'Anonymous'}
-                {profile.role === 'admin' && <span className="role-badge badge-admin ml-1">ADMIN</span>}
-                {profile.role === 'mod' && <span className="role-badge badge-mod ml-1">MOD</span>}
+                {profile.name || 'Student'}
+                {profile.role === 'admin' && <span className="role-badge badge-admin ml-1.5">ADMIN</span>}
+                {profile.role === 'mod' && <span className="role-badge badge-mod ml-1.5">MOD</span>}
               </button>
             )}
             <div className="post-time">
@@ -137,7 +148,8 @@ export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUs
                   {profile.class || ''}
                   {profile.class && profile.target_year ? ' · ' : ''}
                   {profile.target_year ? `Target ${profile.target_year}` : ''}
-                  {' · '}{timeAgo(post.created_at)}
+                  {(profile.class || profile.target_year) ? ' · ' : ''}
+                  {timeAgo(post.created_at)}
                 </>
               )}
             </div>
@@ -145,36 +157,37 @@ export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUs
 
           {/* Owner/Mod Actions Menu */}
           {showActions && (
-            <div className="relative ml-auto" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <div className="relative ml-auto">
               <button
+                type="button"
+                aria-label="Post options"
+                aria-expanded={showMenu}
                 onClick={() => setShowMenu(v => !v)}
-                className="p-1.5 rounded-full text-gray-500 hover:text-white hover:bg-white/10 transition-all"
+                className="p-1.5 rounded-lg text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--bg2)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
               >
                 <MoreHorizontal size={16} />
               </button>
               {showMenu && (
                 <>
-                  {/* Click outside to close */}
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowMenu(false)}
-                  />
-                  <div className="absolute right-0 top-8 z-20 min-w-[130px] bg-[#0f0f1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-fade-in">
+                  <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-9 z-20 min-w-[140px] bg-[var(--card2)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden backdrop-blur-md">
                     {isOwner && (
                       <button
+                        type="button"
                         onClick={() => { setShowMenu(false); onEdit(post); }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-400 hover:bg-amber-400/10 transition-colors font-bold"
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-[var(--text)] hover:bg-[var(--bg2)] transition-colors font-semibold"
                       >
-                        <Pencil size={14} />
+                        <Pencil size={13} className="text-[var(--orange)]" />
                         Edit Post
                       </button>
                     )}
                     {(isOwner || canModerate) && (
                       <button
+                        type="button"
                         onClick={() => { setShowMenu(false); onDelete(post.id); }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-red-400/10 transition-colors font-bold"
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-[var(--red)] hover:bg-red-500/10 transition-colors font-semibold"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                         Delete Post
                       </button>
                     )}
@@ -185,17 +198,36 @@ export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUs
           )}
         </div>
 
-        {/* Title (bold & prominent) */}
-        {post.title && (
-          <div className="font-bold text-[var(--text)] text-base mb-1.5 leading-snug group-hover:text-cyan-400 transition-colors">
-            {post.title}
-          </div>
-        )}
+        {/* Clickable Post Body Link */}
+        <Link
+          href={`/community/${post.id}`}
+          className="block focus-visible:outline-2 focus-visible:outline-[var(--accent)] rounded-lg"
+        >
+          {post.title && (
+            <h2 className="font-bold text-[var(--text)] text-base mb-1.5 leading-snug group-hover:text-[var(--accent)] transition-colors">
+              {post.title}
+            </h2>
+          )}
 
-        {/* Content preview — 2 lines max */}
-        <div className="text-[var(--text2)] text-sm leading-relaxed line-clamp-2 mb-3">
-          {post.content}
-        </div>
+          <p className="text-[var(--text2)] text-sm leading-relaxed line-clamp-2 mb-3">
+            {post.content}
+          </p>
+
+          {firstImage && (
+            <div className="relative mb-3 rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--bg2)]">
+              <img
+                src={firstImage}
+                alt={post.title || 'Post attachment'}
+                className="w-full h-48 object-cover transition-transform duration-200 group-hover:scale-[1.01]"
+              />
+              {imageCount > 1 && (
+                <div className="absolute bottom-2 right-2 bg-slate-900/75 backdrop-blur-sm text-white text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-white/15 tabular-nums">
+                  +{imageCount - 1} more
+                </div>
+              )}
+            </div>
+          )}
+        </Link>
 
         {/* Tags */}
         {tags.length > 0 && (
@@ -205,8 +237,8 @@ export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUs
               return (
                 <span
                   key={tag}
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
-                  style={{ color, borderColor: `${color}40`, background: `${color}10` }}
+                  className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border"
+                  style={{ color, borderColor: `${color}35`, background: `${color}12` }}
                 >
                   #{tag}
                 </span>
@@ -215,64 +247,69 @@ export function PostCard({ post, onVote, canModerate, onDelete, onEdit, onShowUs
           </div>
         )}
 
-        {/* First image thumbnail */}
-        {firstImage && (
-          <div className="relative mb-3 rounded-xl overflow-hidden">
-            <img
-              src={firstImage}
-              alt="post"
-              className="w-full h-48 object-cover border border-[var(--border)] rounded-xl transition-all duration-200 group-hover:brightness-95"
-            />
-            {imageCount > 1 && (
-              <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg border border-white/10">
-                +{imageCount - 1} more
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Action Bar */}
-        <div className="post-actions-row flex items-center gap-4">
+        <div className="post-actions-row flex items-center gap-3 pt-2 border-t border-[var(--border)]">
           {/* Votes */}
-          <div className="emoji-vote-group flex items-center bg-[var(--bg3)] rounded-full px-1 py-0.5">
+          <div className="flex items-center bg-[var(--bg2)] border border-[var(--border)] rounded-full px-1 py-0.5">
             <button
-              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === 1 ? 'text-[var(--purple)] bg-[var(--purple)]/20' : 'text-[var(--text3)] hover:bg-[var(--text)]/10'}`}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVote(post.id, 1); }}
+              type="button"
+              aria-label="Upvote post"
+              aria-pressed={post.myVote === 1}
+              className={`p-1.5 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${
+                post.myVote === 1
+                  ? 'text-[var(--accent)] bg-[var(--accent-glow)]'
+                  : 'text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--bg3)]'
+              }`}
+              onClick={() => onVote(post.id, 1)}
             >
-              <ChevronUp size={18} fill={post.myVote === 1 ? 'currentColor' : 'none'} />
+              <ChevronUp size={16} />
             </button>
-            <span className={`text-xs font-bold px-1 ${post.score > 0 ? 'text-[var(--green)]' : post.score < 0 ? 'text-[var(--red)]' : 'text-[var(--text3)]'}`}>
-              {post.score !== 0 ? (post.score > 0 ? `+${post.score}` : post.score) : 'Vote'}
+            <span
+              className={`text-xs font-bold px-1.5 tabular-nums ${
+                post.score > 0
+                  ? 'text-[var(--green)]'
+                  : post.score < 0
+                    ? 'text-[var(--red)]'
+                    : 'text-[var(--text2)]'
+              }`}
+            >
+              {post.score !== 0 ? (post.score > 0 ? `+${post.score}` : post.score) : '0'}
             </span>
             <button
-              className={`emoji-vote-btn p-1.5 rounded-full transition-colors ${post.myVote === -1 ? 'text-[var(--red)] bg-[var(--red)]/20' : 'text-[var(--text3)] hover:bg-[var(--text)]/10'}`}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVote(post.id, -1); }}
+              type="button"
+              aria-label="Downvote post"
+              aria-pressed={post.myVote === -1}
+              className={`p-1.5 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${
+                post.myVote === -1
+                  ? 'text-[var(--red)] bg-red-500/15'
+                  : 'text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--bg3)]'
+              }`}
+              onClick={() => onVote(post.id, -1)}
             >
-              <ChevronDown size={18} fill={post.myVote === -1 ? 'currentColor' : 'none'} />
+              <ChevronDown size={16} />
             </button>
           </div>
 
-          {/* Comments indicator */}
-          <span className="flex items-center gap-1.5 text-[var(--text3)] text-sm">
-            <MessageSquare size={15} />
-            <span className="text-xs font-bold">Comments</span>
-          </span>
+          {/* Comments Link */}
+          <Link
+            href={`/community/${post.id}`}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--bg2)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+          >
+            <MessageSquare size={14} />
+            <span>Discuss</span>
+          </Link>
 
           {/* Share */}
           <button
-            className="flex items-center gap-1.5 text-[var(--text3)] hover:text-cyan-400 transition-colors text-sm ml-auto"
+            type="button"
             onClick={handleShare}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[var(--text2)] hover:text-[var(--accent)] hover:bg-[var(--bg2)] transition-colors ml-auto focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
           >
-            <Share2 size={14} />
-            <span className="text-xs font-bold">Share</span>
+            {copied ? <Check size={14} className="text-[var(--green)]" /> : <Share2 size={14} />}
+            <span>{copied ? 'Copied' : 'Share'}</span>
           </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in 0.15s ease-out; }
-      `}</style>
-    </Link>
+    </article>
   );
 }

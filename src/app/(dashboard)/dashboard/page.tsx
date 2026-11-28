@@ -1,29 +1,29 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './homepage.css';
 import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/lib/supabase/client';
-import { useDialog } from '@/components/DialogProvider';
-import { 
+import {
   Zap, Clock, Target, Award,
   ClipboardList, BookOpen, RotateCcw,
-  ChevronRight, Brain, BookMarked,
+  ChevronRight, ChevronLeft, Brain, BookMarked,
   GraduationCap, Beaker, Library,
-  TrendingUp, Flame
+  Flame, Users, ArrowUpRight
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const { profile } = useProfile();
   const { data, loading } = useDashboardAnalytics(profile?.id);
-  
+
   const [banners, setBanners] = useState<any[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isBannerPaused, setIsBannerPaused] = useState(false);
   const [activeSession, setActiveSession] = useState<any>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
-  const [activeRecTab, setActiveRecTab] = useState('weak');
+  const [activeRecTab, setActiveRecTab] = useState<'weak' | 'tests' | 'revision' | 'ai'>('weak');
   const [activeTests, setActiveTests] = useState<any[]>([]);
 
   useEffect(() => {
@@ -32,25 +32,25 @@ export default function DashboardPage() {
       if (error || !data || data.length === 0) {
         setBanners([
           {
-            title: "REAL NTA EXPERIENCE",
-            subtitle: "19 JEE Main Previous Year Papers Live",
-            button_text: "Attempt Now",
-            button_link: "/tests",
-            image_url: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=1200&auto=format&fit=crop"
+            title: 'REAL NTA EXPERIENCE',
+            subtitle: '19 JEE Main Previous Year Papers Live',
+            button_text: 'Attempt Now',
+            button_link: '/tests',
+            image_url: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=1200&auto=format&fit=crop'
           },
           {
-            title: "NEW BOOKLET RELEASED",
-            subtitle: "Physics Galaxy Mechanics",
-            button_text: "Explore Booklets",
-            button_link: "/solving",
-            image_url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200&auto=format&fit=crop"
+            title: 'MY MISTAKES LIBRARY',
+            subtitle: 'Revise every question you got wrong, chapter & test-wise',
+            button_text: 'Open Booklets',
+            button_link: '/booklets',
+            image_url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200&auto=format&fit=crop'
           },
           {
-            title: "REVISION SYSTEM",
-            subtitle: "Coming Soon",
-            button_text: "Learn More",
-            button_link: "/community",
-            image_url: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=1200&auto=format&fit=crop"
+            title: 'REVISION SYSTEM',
+            subtitle: 'Coming Soon',
+            button_text: 'Learn More',
+            button_link: '/community',
+            image_url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=1200&auto=format&fit=crop'
           }
         ]);
       } else {
@@ -61,12 +61,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (banners.length <= 1 || isBannerPaused) return;
     const interval = setInterval(() => {
       setCurrentSlide(prev => (prev + 1) % banners.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [banners.length, isBannerPaused]);
 
   useEffect(() => {
     if (!profile?.id) {
@@ -116,7 +116,7 @@ export default function DashboardPage() {
           progress: totalQ ? Math.min(100, Math.round((uniqueAttempted / totalQ) * 100)) : 0
         });
       } catch (err) {
-        console.error("Failed to fetch session", err);
+        console.error('Failed to fetch session', err);
       } finally {
         setSessionLoading(false);
       }
@@ -129,55 +129,149 @@ export default function DashboardPage() {
         .select('id, test_id, completed')
         .eq('user_id', profile!.id)
         .eq('completed', false);
-      
+
       if (!attempts || attempts.length === 0) return;
       const testIds = attempts.map(a => a.test_id);
-      
+
       const { data: testsData } = await supabase
         .from('mock_tests')
         .select('id, title, exam_type, total_questions, duration')
         .in('id', testIds);
-        
+
       if (testsData) setActiveTests(testsData);
     }
     fetchActiveTests();
   }, [profile?.id]);
 
+  const firstName = profile?.name?.trim()?.split(/\s+/)[0];
+  const weakChapters = (data?.chapters.weak || []).filter(
+    (c: any) => c.accuracy >= 20 && c.accuracy <= 70
+  );
+
+  const studyTimeDisplay = (() => {
+    const totalSecs = data?.resourceAllocation.reduce((a, b) => a + b.timeSpent, 0) || 0;
+    if (totalSecs < 3600) return `${Math.round(totalSecs / 60)}m`;
+    return `${(totalSecs / 3600).toFixed(1)}h`;
+  })();
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-cyan-500 font-mono animate-pulse text-xs uppercase tracking-widest">Loading Command Center...</div>
+      <div className="sm-homepage-center" aria-busy="true" aria-label="Loading dashboard">
+        <div className="sm-welcome-bar">
+          <div>
+            <div className="sm-skeleton h-7 w-52 mb-2" />
+            <div className="sm-skeleton h-4 w-72" />
+          </div>
+          <div className="sm-skeleton h-8 w-36 rounded-full" />
+        </div>
+        <div className="sm-skeleton h-[230px] w-full rounded-2xl" />
+        <div className="sm-skeleton h-28 w-full rounded-2xl" />
+        <div className="sm-qa-grid">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="sm-skeleton h-24 w-full rounded-xl" />
+          ))}
+        </div>
+        <div className="sm-kpi-grid">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="sm-skeleton h-20 w-full rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="sm-homepage-center">
+      {/* 0. Greeting & Target Context */}
+      <section className="sm-welcome-bar">
+        <div>
+          <h1 className="sm-welcome-title">
+            {firstName ? `Welcome back, ${firstName}` : 'Command Center'}
+          </h1>
+          <p className="sm-welcome-sub">
+            Pick up your practice session, attempt mock tests, or review mistakes.
+          </p>
+        </div>
+        {(profile?.target_year || profile?.class) && (
+          <div className="sm-target-pill">
+            <span className="sm-target-dot" aria-hidden="true" />
+            <span>
+              {[
+                profile?.class ? `Class ${profile.class}` : null,
+                profile?.target_year ? `Target ${profile.target_year}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          </div>
+        )}
+      </section>
+
       {/* 1. Dynamic Banner Slider */}
-      <section className="sm-banner-container">
+      <section
+        className="sm-banner-container"
+        aria-roledescription="carousel"
+        aria-label="Featured announcements"
+        onMouseEnter={() => setIsBannerPaused(true)}
+        onMouseLeave={() => setIsBannerPaused(false)}
+        onFocusCapture={() => setIsBannerPaused(true)}
+        onBlurCapture={() => setIsBannerPaused(false)}
+      >
         {banners.map((banner, idx) => (
-          <div key={idx} className={`sm-banner-slide ${idx === currentSlide ? 'active' : ''}`}>
+          <div
+            key={idx}
+            className={`sm-banner-slide ${idx === currentSlide ? 'active' : ''}`}
+            aria-hidden={idx !== currentSlide}
+          >
             <img src={banner.image_url} alt={banner.title} className="sm-banner-image" />
-            <div className="sm-banner-overlay"></div>
+            <div className="sm-banner-overlay" />
             <div className="sm-banner-content">
               <div className="sm-banner-title">{banner.title}</div>
               <div className="sm-banner-subtitle">{banner.subtitle}</div>
-              <Link href={banner.button_link || '#'} className="sm-btn-primary">
-                {banner.button_text || 'Explore'} <ChevronRight size={16} className="ml-1" />
+              <Link
+                href={banner.button_link || '#'}
+                tabIndex={idx === currentSlide ? 0 : -1}
+                className="sm-btn-primary sm-focus-ring"
+              >
+                <span>{banner.button_text || 'Explore'}</span>
+                <ChevronRight size={15} />
               </Link>
             </div>
           </div>
         ))}
+
         {banners.length > 1 && (
-          <div className="sm-banner-dots">
-            {banners.map((_, idx) => (
-              <div 
-                key={idx} 
-                className={`sm-banner-dot ${idx === currentSlide ? 'active' : ''}`}
-                onClick={() => setCurrentSlide(idx)}
-              ></div>
-            ))}
-          </div>
+          <>
+            <button
+              type="button"
+              aria-label="Previous slide"
+              onClick={() => setCurrentSlide(prev => (prev - 1 + banners.length) % banners.length)}
+              className="sm-banner-nav prev sm-focus-ring"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Next slide"
+              onClick={() => setCurrentSlide(prev => (prev + 1) % banners.length)}
+              className="sm-banner-nav next sm-focus-ring"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <div className="sm-banner-dots" role="tablist" aria-label="Slide navigation">
+              {banners.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  role="tab"
+                  aria-label={`Go to slide ${idx + 1}`}
+                  aria-selected={idx === currentSlide}
+                  onClick={() => setCurrentSlide(idx)}
+                  className={`sm-banner-dot sm-focus-ring ${idx === currentSlide ? 'active' : ''}`}
+                />
+              ))}
+            </div>
+          </>
         )}
       </section>
 
@@ -185,43 +279,52 @@ export default function DashboardPage() {
       <section>
         <div className="sm-section-title">Continue Learning</div>
         {sessionLoading ? (
-          <div className="sm-card sm-continue-card animate-pulse">
-            <div className="h-16 bg-white/5 rounded w-full"></div>
+          <div className="sm-card sm-continue-card">
+            <div className="sm-continue-info space-y-2.5">
+              <div className="sm-skeleton h-3 w-24" />
+              <div className="sm-skeleton h-6 w-56" />
+              <div className="sm-skeleton h-2 w-full mt-3" />
+            </div>
+            <div className="sm-skeleton h-10 w-36 rounded-lg" />
           </div>
         ) : activeSession ? (
-          <div className="sm-card sm-continue-card">
+          <div className="sm-card sm-card-interactive sm-continue-card">
             <div className="sm-continue-info">
               <div className="sm-continue-subject">{activeSession.subject}</div>
               <div className="sm-continue-chapter">{activeSession.chapter}</div>
-              <div className="sm-progress-wrap mt-4">
+              <div className="sm-progress-wrap">
                 <div className="sm-progress-text">
-                  <span>Session Progress</span>
+                  <span>Session Progress ({activeSession.progress}%)</span>
                   <span>{activeSession.solved} / {activeSession.total} Questions</span>
                 </div>
                 <div className="sm-progress-bar-bg">
-                  <div className="sm-progress-bar-fill" style={{ width: `${activeSession.progress}%` }}></div>
+                  <div className="sm-progress-bar-fill" style={{ width: `${activeSession.progress}%` }} />
                 </div>
               </div>
             </div>
             <div className="sm-continue-action">
-              <Link 
-                href={`/solving?exam=${encodeURIComponent(activeSession.examType)}&subject=${encodeURIComponent(activeSession.subject)}&chapter=${encodeURIComponent(activeSession.chapter)}`} 
-                className="sm-btn-primary"
+              <Link
+                href={`/solving?exam=${encodeURIComponent(activeSession.examType)}&subject=${encodeURIComponent(activeSession.subject)}&chapter=${encodeURIComponent(activeSession.chapter)}`}
+                className="sm-btn-primary sm-focus-ring"
               >
-                Continue Practice
+                <span>Continue Practice</span>
+                <ChevronRight size={15} />
               </Link>
             </div>
           </div>
         ) : (
           <div className="sm-card sm-continue-card">
             <div className="sm-continue-info">
+              <div className="sm-continue-subject">Ready to begin</div>
               <div className="sm-continue-chapter">No Active Sessions</div>
-              <div className="sm-continue-subject text-gray-500">Ready to level up?</div>
-              <div className="text-sm text-gray-400 mt-2">Pick a chapter and start your first practice session. Your progress will be saved here.</div>
+              <p className="sm-continue-desc">
+                Pick a chapter and start your first practice session. Your progress will be saved here automatically.
+              </p>
             </div>
             <div className="sm-continue-action">
-              <Link href="/solving" className="sm-btn-primary">
-                Start Practice
+              <Link href="/solving" className="sm-btn-primary sm-focus-ring">
+                <span>Start Practice</span>
+                <ChevronRight size={15} />
               </Link>
             </div>
           </div>
@@ -232,25 +335,29 @@ export default function DashboardPage() {
       <section>
         <div className="sm-section-title">Quick Access</div>
         <div className="sm-qa-grid">
-          <Link href="/solving" className="sm-qa-btn">
-            <Zap size={24} className="sm-qa-icon" />
+          <Link href="/solving" className="sm-qa-btn sm-focus-ring">
+            <div className="sm-qa-icon-box"><Zap size={19} /></div>
             <div className="sm-qa-label">Practice</div>
           </Link>
-          <Link href="/tests" className="sm-qa-btn">
-            <ClipboardList size={24} className="sm-qa-icon" />
+          <Link href="/tests" className="sm-qa-btn sm-focus-ring">
+            <div className="sm-qa-icon-box"><ClipboardList size={19} /></div>
             <div className="sm-qa-label">Mock Tests</div>
           </Link>
-          <Link href="/solving" className="sm-qa-btn">
-            <BookOpen size={24} className="sm-qa-icon" />
+          <Link href="/booklets" className="sm-qa-btn sm-focus-ring">
+            <div className="sm-qa-icon-box"><BookOpen size={19} /></div>
             <div className="sm-qa-label">Booklets</div>
           </Link>
-          <Link href="/solving" className="sm-qa-btn">
-            <RotateCcw size={24} className="sm-qa-icon" />
+          <Link href="/booklets" className="sm-qa-btn sm-focus-ring">
+            <div className="sm-qa-icon-box"><RotateCcw size={19} /></div>
             <div className="sm-qa-label">Revision</div>
           </Link>
-          <Link href="/levelup" className="sm-qa-btn">
-            <Award size={24} className="sm-qa-icon" />
+          <Link href="/levelup" className="sm-qa-btn sm-focus-ring">
+            <div className="sm-qa-icon-box"><Award size={19} /></div>
             <div className="sm-qa-label">Leaderboard</div>
+          </Link>
+          <Link href="/community" className="sm-qa-btn sm-focus-ring">
+            <div className="sm-qa-icon-box"><Users size={19} /></div>
+            <div className="sm-qa-label">Community</div>
           </Link>
         </div>
       </section>
@@ -259,45 +366,39 @@ export default function DashboardPage() {
       <section>
         <div className="sm-section-title">Daily Progress</div>
         <div className="sm-kpi-grid">
-          <div className="sm-card sm-kpi-card">
+          <div className="sm-card sm-card-interactive sm-kpi-card">
             <div className="sm-kpi-icon-wrap sm-c-orange">
-              <Flame size={20} />
+              <Flame size={19} />
             </div>
             <div>
               <div className="sm-kpi-val">{data?.streak.current || 0}</div>
               <div className="sm-kpi-label">Day Streak</div>
             </div>
           </div>
-          <div className="sm-card sm-kpi-card">
+          <div className="sm-card sm-card-interactive sm-kpi-card">
             <div className="sm-kpi-icon-wrap sm-c-purple">
-              <Award size={20} />
+              <Award size={19} />
             </div>
             <div>
               <div className="sm-kpi-val">{profile?.aura_score || 0}</div>
               <div className="sm-kpi-label">Atoms</div>
             </div>
           </div>
-          <div className="sm-card sm-kpi-card">
+          <div className="sm-card sm-card-interactive sm-kpi-card">
             <div className="sm-kpi-icon-wrap sm-c-green">
-              <Target size={20} />
+              <Target size={19} />
             </div>
             <div>
               <div className="sm-kpi-val">{data?.accuracy.overall || 0}%</div>
               <div className="sm-kpi-label">Accuracy</div>
             </div>
           </div>
-          <div className="sm-card sm-kpi-card">
+          <div className="sm-card sm-card-interactive sm-kpi-card">
             <div className="sm-kpi-icon-wrap sm-c-cyan">
-              <Clock size={20} />
+              <Clock size={19} />
             </div>
             <div>
-              <div className="sm-kpi-val">
-                {(() => {
-                  const totalSecs = data?.resourceAllocation.reduce((a, b) => a + b.timeSpent, 0) || 0;
-                  if (totalSecs < 3600) return `${Math.round(totalSecs / 60)}m`;
-                  return `${(totalSecs / 3600).toFixed(1)}h`;
-                })()}
-              </div>
+              <div className="sm-kpi-val">{studyTimeDisplay}</div>
               <div className="sm-kpi-label">Study Time</div>
             </div>
           </div>
@@ -307,64 +408,122 @@ export default function DashboardPage() {
       {/* 5. Recommended For You */}
       <section>
         <div className="sm-section-title">Recommended For You</div>
-        <div className="sm-tabs">
-          <div className={`sm-tab ${activeRecTab === 'weak' ? 'active' : ''}`} onClick={() => setActiveRecTab('weak')}>Weak Chapters</div>
-          <div className={`sm-tab ${activeRecTab === 'tests' ? 'active' : ''}`} onClick={() => setActiveRecTab('tests')}>Mock Tests</div>
-          <div className={`sm-tab ${activeRecTab === 'revision' ? 'active' : ''}`} onClick={() => setActiveRecTab('revision')}>Revision</div>
-          <div className={`sm-tab ${activeRecTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveRecTab('ai')}>AI Beta</div>
+        <div className="sm-tabs" role="tablist" aria-label="Recommendations">
+          {[
+            { id: 'weak', label: 'Weak Chapters' },
+            { id: 'tests', label: 'Mock Tests' },
+            { id: 'revision', label: 'Revision' },
+            { id: 'ai', label: 'AI Beta' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeRecTab === tab.id}
+              className={`sm-tab sm-focus-ring ${activeRecTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveRecTab(tab.id as any)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        
+
         <div className="sm-rec-grid">
           {activeRecTab === 'weak' && (
-            data?.chapters.weak && data.chapters.weak.filter((c: any) => c.accuracy >= 20 && c.accuracy <= 70).length > 0 ? (
-              data.chapters.weak.filter((c: any) => c.accuracy >= 20 && c.accuracy <= 70).slice(0, 4).map((c: any, i: number) => (
-                <div key={i} className="sm-card sm-rec-card">
+            weakChapters.length > 0 ? (
+              weakChapters.slice(0, 4).map((c: any, i: number) => (
+                <div key={i} className="sm-card sm-card-interactive sm-rec-card">
                   <div>
-                    <div className="sm-rec-meta uppercase tracking-wider text-red-500 mb-1">{c.subject}</div>
+                    <div className="sm-rec-meta text-[var(--red)] mb-1">{c.subject}</div>
                     <div className="sm-rec-title">{c.chapter}</div>
                   </div>
                   <div className="sm-rec-footer">
-                    <span className="text-sm font-bold text-red-500">{c.accuracy}% Accuracy</span>
-                    <Link href={`/solving?subject=${c.subject}&chapter=${encodeURIComponent(c.chapter)}`} className="text-xs font-bold text-cyan-500 hover:text-cyan-400">PRACTICE</Link>
+                    <span className="text-sm font-bold text-[var(--red)] tabular-nums">{c.accuracy}% Accuracy</span>
+                    <Link
+                      href={`/solving?subject=${encodeURIComponent(c.subject)}&chapter=${encodeURIComponent(c.chapter)}`}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[var(--accent)] hover:underline sm-focus-ring rounded"
+                    >
+                      Practice <ArrowUpRight size={13} />
+                    </Link>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="col-span-full py-8 text-center text-gray-500 text-sm">No weak chapters identified yet. Keep practicing!</div>
+              <div className="sm-card sm-empty-panel">
+                <Target size={22} className="text-[var(--accent)]" />
+                <div className="sm-empty-title">No weak chapters flagged yet</div>
+                <p className="sm-empty-desc">
+                  Solve questions across chapters to uncover topics between 20%–70% accuracy that need focused practice.
+                </p>
+                <Link href="/solving" className="sm-btn-secondary sm-focus-ring mt-2">
+                  Start Practice <ChevronRight size={14} />
+                </Link>
+              </div>
             )
           )}
-          
+
           {activeRecTab === 'tests' && (
             activeTests.length > 0 ? (
               activeTests.map(test => (
-                <div key={test.id} className="sm-card sm-rec-card border-cyan-500/30 bg-cyan-500/5">
+                <div key={test.id} className="sm-card sm-card-interactive sm-rec-card">
                   <div>
-                    <div className="sm-rec-meta uppercase tracking-wider text-cyan-500 mb-1">{test.exam_type}</div>
+                    <div className="sm-rec-meta text-[var(--accent)] mb-1">{test.exam_type}</div>
                     <div className="sm-rec-title">{test.title}</div>
                   </div>
                   <div className="sm-rec-footer">
-                    <span className="text-xs text-gray-400">{test.total_questions} Questions • {test.duration} Mins</span>
-                    <Link href="/tests" className="text-xs font-bold text-cyan-500 hover:text-cyan-400">RESUME</Link>
+                    <span className="text-xs text-[var(--text2)] tabular-nums">
+                      {test.total_questions} Questions · {test.duration} Mins
+                    </span>
+                    <Link
+                      href="/tests"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[var(--accent)] hover:underline sm-focus-ring rounded"
+                    >
+                      Resume <ArrowUpRight size={13} />
+                    </Link>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="col-span-full py-8 text-center text-gray-500 text-sm">No active mock tests right now. Start one from the Mock Tests section!</div>
+              <div className="sm-card sm-empty-panel">
+                <ClipboardList size={22} className="text-[var(--accent)]" />
+                <div className="sm-empty-title">No in-progress mock tests</div>
+                <p className="sm-empty-desc">
+                  Start a timed JEE Main or Advanced mock test to simulate exam conditions and track your score.
+                </p>
+                <Link href="/tests" className="sm-btn-secondary sm-focus-ring mt-2">
+                  Browse Mock Tests <ChevronRight size={14} />
+                </Link>
+              </div>
             )
           )}
 
           {activeRecTab === 'revision' && (
-            <div className="col-span-full py-8 text-center text-gray-500 text-sm">Review your solved questions from the past week to reinforce memory.</div>
+            <div className="sm-card sm-empty-panel">
+              <BookMarked size={22} className="text-[var(--accent)]" />
+              <div className="sm-empty-title">Revisit your mistakes</div>
+              <p className="sm-empty-desc">
+                Practice every question you got wrong in Solver sessions and Mock Tests inside My Mistakes Library.
+              </p>
+              <Link href="/booklets" className="sm-btn-secondary sm-focus-ring mt-2">
+                Open Mistakes Library <ChevronRight size={14} />
+              </Link>
+            </div>
           )}
 
           {activeRecTab === 'ai' && (
-            <div className="sm-card sm-rec-card col-span-full bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border-purple-500/20">
-              <div className="flex items-center gap-3 mb-2">
-                <Brain className="text-purple-400" />
-                <span className="font-bold text-lg">AI Protocol</span>
+            <div className="sm-card sm-rec-card col-span-full">
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="sm-kpi-icon-wrap sm-c-purple">
+                    <Brain size={19} />
+                  </div>
+                  <span className="font-bold text-base text-[var(--text)]">AI Protocol</span>
+                </div>
+                <span className="sm-soon-badge">Calibrating</span>
               </div>
-              <p className="text-sm text-gray-400 mb-4">Our neural engine is analyzing your solving patterns. Personalized hyper-optimization paths will appear here soon.</p>
-              <div className="text-xs font-bold uppercase tracking-widest text-purple-400">Status: Calibrating</div>
+              <p className="text-sm text-[var(--text2)] leading-relaxed max-w-2xl">
+                Our neural engine is analyzing your solving patterns. Personalized hyper-optimization paths will appear here soon.
+              </p>
             </div>
           )}
         </div>
@@ -383,17 +542,21 @@ export default function DashboardPage() {
             { id: 'comedk', name: 'COMEDK', logo: 'https://res.cloudinary.com/dsflyu8vg/image/upload/q_auto/f_auto/v1781265234/comedk_gsw5ye.jpg', comingSoon: true },
           ].map((exam) => (
             exam.comingSoon ? (
-              <div key={exam.name} className="sm-card sm-exam-card relative opacity-70">
-                <span className="absolute top-2 right-2 text-[0.6rem] font-bold uppercase tracking-wider bg-[var(--bg3)] text-[var(--text2)] px-2 py-1 rounded">Soon</span>
-                <div className="sm-exam-logo overflow-hidden bg-white/5 p-0">
-                  <img src={exam.logo} alt={exam.name} className="w-full h-full object-contain p-2" />
+              <div key={exam.name} className="sm-card sm-exam-card sm-exam-card-soon" aria-disabled="true">
+                <span className="sm-soon-tag">Soon</span>
+                <div className="sm-exam-logo">
+                  <img src={exam.logo} alt={exam.name} className="w-full h-full object-contain" />
                 </div>
                 <div className="sm-exam-name">{exam.name}</div>
               </div>
             ) : (
-              <Link key={exam.name} href={`/solving?exam=${encodeURIComponent(exam.id)}`} className="sm-card sm-exam-card">
-                <div className="sm-exam-logo overflow-hidden bg-white/5 p-0">
-                  <img src={exam.logo} alt={exam.name} className="w-full h-full object-contain p-2" />
+              <Link
+                key={exam.name}
+                href={`/solving?exam=${encodeURIComponent(exam.id)}`}
+                className="sm-card sm-card-interactive sm-exam-card sm-exam-card-active sm-focus-ring"
+              >
+                <div className="sm-exam-logo">
+                  <img src={exam.logo} alt={exam.name} className="w-full h-full object-contain" />
                 </div>
                 <div className="sm-exam-name">{exam.name}</div>
               </Link>
@@ -408,32 +571,47 @@ export default function DashboardPage() {
         <div className="sm-section-subtitle">Features actively in development</div>
         <div className="sm-soon-grid">
           <div className="sm-card sm-soon-card">
-            <span className="sm-soon-badge">Soon</span>
-            <BookMarked size={24} className="text-cyan-500" />
+            <div className="sm-soon-top">
+              <div className="sm-soon-icon-box text-[var(--accent)]">
+                <BookMarked size={18} />
+              </div>
+              <span className="sm-soon-badge">Soon</span>
+            </div>
             <div className="sm-soon-title">Concept Notes</div>
             <div className="sm-soon-desc">High-yield revision notes tailored to exact exam syllabus.</div>
           </div>
           <div className="sm-card sm-soon-card">
-            <span className="sm-soon-badge">Soon</span>
-            <Library size={24} className="text-green-500" />
+            <div className="sm-soon-top">
+              <div className="sm-soon-icon-box text-[var(--green)]">
+                <Library size={18} />
+              </div>
+              <span className="sm-soon-badge">Soon</span>
+            </div>
             <div className="sm-soon-title">NCERT Toolkit</div>
             <div className="sm-soon-desc">Line-by-line NCERT extraction for Chemistry and Physics.</div>
           </div>
           <div className="sm-card sm-soon-card">
-            <span className="sm-soon-badge">Beta</span>
-            <GraduationCap size={24} className="text-purple-500" />
+            <div className="sm-soon-top">
+              <div className="sm-soon-icon-box text-[var(--purple)]">
+                <GraduationCap size={18} />
+              </div>
+              <span className="sm-soon-badge">Beta</span>
+            </div>
             <div className="sm-soon-title">Mentorship</div>
             <div className="sm-soon-desc">Direct guidance from IITians and top rankers.</div>
           </div>
           <div className="sm-card sm-soon-card">
-            <span className="sm-soon-badge">Soon</span>
-            <Beaker size={24} className="text-orange-500" />
+            <div className="sm-soon-top">
+              <div className="sm-soon-icon-box text-[var(--orange)]">
+                <Beaker size={18} />
+              </div>
+              <span className="sm-soon-badge">Soon</span>
+            </div>
             <div className="sm-soon-title">Study Rooms</div>
             <div className="sm-soon-desc">Live virtual study sessions with friends.</div>
           </div>
         </div>
       </section>
-
     </div>
   );
 }

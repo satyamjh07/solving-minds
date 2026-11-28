@@ -6,8 +6,11 @@ import { PostCard } from '@/components/Community/PostCard';
 import { CreatePostModal } from '@/components/Community/CreatePostModal';
 import { EditPostModal } from '@/components/Community/EditPostModal';
 import { supabase } from '@/lib/supabase/client';
-import { useState } from 'react';
-import { Loader2, Plus, PenLine, Filter, RotateCcw, Tag as TagIcon, Calendar, GraduationCap, Target as TargetIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  PenLine, Filter, RotateCcw, Tag as TagIcon,
+  Calendar, GraduationCap, Target as TargetIcon, Search, X, MessageSquarePlus
+} from 'lucide-react';
 import { useDialog } from '@/components/DialogProvider';
 import { UserProfileModal } from '@/components/Community/UserProfileModal';
 
@@ -17,14 +20,22 @@ const PRESET_TAGS = [
   'strategy', 'storytime', 'mock test', '2027', '2028',
 ];
 
+const TIME_OPTIONS = [
+  { id: 'ALL', label: 'All Time' },
+  { id: 'TODAY', label: 'Today' },
+  { id: 'YESTERDAY', label: 'Yesterday' },
+  { id: '1_WEEK', label: 'Last 7 Days' },
+  { id: '1_MONTH', label: 'Last 30 Days' }
+];
+
 export default function CommunityPage() {
   const { profile } = useProfile();
   const { toast, confirm } = useDialog();
   const [filter, setFilter] = useState<'all' | 'my' | 'popular'>('all');
-  const [showFabMenu, setShowFabMenu] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // Advanced Filters State
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState('');
   const [targetYearFilter, setTargetYearFilter] = useState('ALL');
   const [classFilter, setClassFilter] = useState('ALL');
   const [tagFilter, setTagFilter] = useState('ALL');
@@ -41,7 +52,14 @@ export default function CommunityPage() {
     timeRange: timeFilter
   });
 
-  const isAnyFilterActive = targetYearFilter !== 'ALL' || classFilter !== 'ALL' || tagFilter !== 'ALL' || timeFilter !== 'ALL' || filter !== 'all';
+  const activeFilterCount = [
+    targetYearFilter !== 'ALL',
+    classFilter !== 'ALL',
+    tagFilter !== 'ALL',
+    timeFilter !== 'ALL',
+  ].filter(Boolean).length;
+
+  const isAnyFilterActive = activeFilterCount > 0 || filter !== 'all' || searchQuery.trim().length > 0;
 
   const resetFilters = () => {
     setTargetYearFilter('ALL');
@@ -49,12 +67,12 @@ export default function CommunityPage() {
     setTagFilter('ALL');
     setTimeFilter('ALL');
     setFilter('all');
+    setSearchQuery('');
   };
 
   const handleVote = async (postId: string, value: number) => {
     if (!profile) return;
 
-    // Optimistic Update
     setPosts(currentPosts => currentPosts.map(post => {
       if (post.id === postId) {
         let newScore = post.score;
@@ -88,7 +106,17 @@ export default function CommunityPage() {
     }
   };
 
-  const filteredPosts = posts; // Already filtered server-side
+  const filteredPosts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return posts;
+    return posts.filter(p => {
+      const inTitle = (p.title || '').toLowerCase().includes(q);
+      const inContent = (p.content || '').toLowerCase().includes(q);
+      const inTags = Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(q));
+      const inAuthor = !p.is_anonymous && (p.profiles?.name || '').toLowerCase().includes(q);
+      return inTitle || inContent || inTags || inAuthor;
+    });
+  }, [posts, searchQuery]);
 
   const handleDelete = async (postId: string) => {
     const ok = await confirm({
@@ -107,71 +135,170 @@ export default function CommunityPage() {
   };
 
   return (
-    <div className="an-content px-4">
-      <div className="max-w-[1200px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="an-content px-4 pb-28">
+      <div className="max-w-[1200px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
-        {/* Left Column: Posts (8 cols) */}
-        <div className="lg:col-span-8 order-2 lg:order-1">
-          {/* Toggle Bar & Direct Create Post Button */}
-          <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
-            <div className="flex items-center bg-bg-2 border border-white/5 p-1 rounded-xl w-full md:max-w-md">
-              <button
-                onClick={() => setFilter('all')}
-                className={`flex-1 py-2 px-4 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all ${filter === 'all' ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/20' : 'text-gray-500 hover:text-white'}`}
-              >
-                All Posts
-              </button>
-              <button
-                onClick={() => setFilter('my')}
-                className={`flex-1 py-2 px-4 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center justify-center gap-2 ${filter === 'my' ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/20' : 'text-gray-500 hover:text-white'}`}
-              >
-                My Posts
-              </button>
-              <button
-                onClick={() => setFilter('popular')}
-                className={`flex-1 py-2 px-4 rounded-lg text-[10px] uppercase tracking-widest font-bold transition-all flex items-center justify-center gap-2 ${filter === 'popular' ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/20' : 'text-gray-500 hover:text-white'}`}
-              >
-                Popular
-              </button>
+        {/* Left Column: Feed (8 cols) */}
+        <div className="lg:col-span-8 order-2 lg:order-1 space-y-5">
+
+          {/* Feed Controls Header */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+            <div
+              role="tablist"
+              aria-label="Feed view"
+              className="flex items-center bg-[var(--card)] border border-[var(--border)] p-1 rounded-xl w-full sm:w-auto sm:min-w-[300px]"
+            >
+              {[
+                { id: 'all', label: 'All Posts' },
+                { id: 'my', label: 'My Posts' },
+                { id: 'popular', label: 'Popular' },
+              ].map(tab => {
+                const active = filter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setFilter(tab.id as any)}
+                    className={`flex-1 py-2 px-3.5 rounded-lg text-xs font-semibold transition-all focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${
+                      active
+                        ? 'bg-[var(--accent)] text-white shadow-sm'
+                        : 'text-[var(--text2)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex gap-2 w-full md:w-auto justify-end items-center">
+            <div className="flex gap-2 items-center">
               <button
-                onClick={() => setShowMobileFilters(!showMobileFilters)}
-                className="lg:hidden flex items-center gap-2 bg-[var(--bg2)] border border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text)] px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                type="button"
+                onClick={() => setShowMobileFilters(v => !v)}
+                aria-expanded={showMobileFilters}
+                className="lg:hidden inline-flex items-center gap-2 bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text)] px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
               >
-                <Filter size={13} className={isAnyFilterActive ? "text-cyan-400" : "text-[var(--text3)]"} />
-                Filters
-                {isAnyFilterActive && (
-                  <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full"></span>
+                <Filter size={14} className={activeFilterCount > 0 ? 'text-[var(--accent)]' : 'text-[var(--text2)]'} />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold tabular-nums">
+                    {activeFilterCount}
+                  </span>
                 )}
               </button>
 
               <button
+                type="button"
                 onClick={() => setShowCreateModal(true)}
-                className="flex-1 md:flex-none bg-gradient-to-r from-cyan-400 to-blue-500 hover:scale-[1.02] active:scale-[0.98] text-black font-black text-[10px] uppercase tracking-[0.2em] px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/20"
+                className="flex-1 sm:flex-none bg-[var(--accent)] hover:brightness-110 active:scale-[0.99] text-white font-semibold text-xs px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-all shadow-sm focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
               >
-                <PenLine size={13} className="text-black" /> Create Post
+                <PenLine size={14} />
+                <span>Create Post</span>
               </button>
             </div>
           </div>
 
-          {/* Posts List */}
-          <div className="space-y-6 pb-32">
+          {/* Search Input */}
+          <div className="relative">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text2)] pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search discussions, doubts, or #tags..."
+              aria-label="Search posts"
+              className="w-full pl-10 pr-9 py-2.5 text-sm bg-[var(--card)] border border-[var(--border)] focus:border-[var(--accent)] rounded-xl text-[var(--text)] placeholder:text-[var(--text3)] outline-none transition-colors"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text2)] hover:text-[var(--text)] p-0.5 rounded"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Active Filters Summary Bar */}
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-[var(--text2)] font-medium">Active:</span>
+              {targetYearFilter !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setTargetYearFilter('ALL')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/30 font-semibold"
+                >
+                  Target {targetYearFilter} <X size={12} />
+                </button>
+              )}
+              {classFilter !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setClassFilter('ALL')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/30 font-semibold"
+                >
+                  {classFilter} <X size={12} />
+                </button>
+              )}
+              {tagFilter !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setTagFilter('ALL')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/30 font-semibold"
+                >
+                  #{tagFilter} <X size={12} />
+                </button>
+              )}
+              {timeFilter !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setTimeFilter('ALL')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/30 font-semibold"
+                >
+                  {TIME_OPTIONS.find(t => t.id === timeFilter)?.label} <X size={12} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-[var(--text2)] hover:text-[var(--red)] font-semibold ml-1 transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {/* Posts Feed */}
+          <div className="space-y-4">
             {loading ? (
-              <div className="flex justify-center py-20">
-                <div className="flex flex-col items-center gap-4">
-                  <Loader2 className="h-10 w-10 animate-spin text-cyan-400 opacity-50" />
-                  <p className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.3em]">Synching with Social_Feed...</p>
-                </div>
+              <div className="space-y-4" aria-busy="true" aria-label="Loading posts">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-3 animate-pulse">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-[var(--bg2)]" />
+                      <div className="space-y-1.5">
+                        <div className="h-3.5 w-28 rounded bg-[var(--bg2)]" />
+                        <div className="h-2.5 w-20 rounded bg-[var(--bg2)]" />
+                      </div>
+                    </div>
+                    <div className="h-4 w-3/4 rounded bg-[var(--bg2)]" />
+                    <div className="h-3.5 w-full rounded bg-[var(--bg2)]" />
+                    <div className="h-3.5 w-2/3 rounded bg-[var(--bg2)]" />
+                  </div>
+                ))}
               </div>
             ) : filteredPosts.length > 0 ? (
               filteredPosts.map(post => (
-                <PostCard 
-                  key={post.id} 
-                  post={post} 
-                  onVote={handleVote} 
-                  canModerate={profile?.role === 'admin' || profile?.role === 'mod'} 
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onVote={handleVote}
+                  canModerate={profile?.role === 'admin' || profile?.role === 'mod'}
                   onDelete={handleDelete}
                   onEdit={setEditingPost}
                   currentUserId={profile?.id}
@@ -179,35 +306,56 @@ export default function CommunityPage() {
                 />
               ))
             ) : (
-              <div className="text-center py-32 bg-bg-2/30 border border-white/5 rounded-3xl backdrop-blur-sm">
-                <div className="mb-6 opacity-20 flex justify-center"><Filter size={60} /></div>
-                <p className="text-gray-400 font-mono text-xs mb-8 uppercase tracking-widest">
-                  {isAnyFilterActive ? "No matches found for active filters." : "Zero posts detected in this sector."}
+              <div className="text-center py-16 px-6 bg-[var(--card)] border border-[var(--border)] rounded-2xl">
+                <div className="w-12 h-12 rounded-xl bg-[var(--bg2)] border border-[var(--border)] flex items-center justify-center mx-auto mb-4 text-[var(--text2)]">
+                  {isAnyFilterActive ? <Filter size={22} /> : <MessageSquarePlus size={22} />}
+                </div>
+                <h3 className="text-base font-bold text-[var(--text)] mb-1">
+                  {isAnyFilterActive ? 'No matching posts found' : 'No discussions yet'}
+                </h3>
+                <p className="text-sm text-[var(--text2)] max-w-sm mx-auto mb-6">
+                  {isAnyFilterActive
+                    ? 'Try adjusting your search query or clearing active filters.'
+                    : 'Start a conversation by asking a doubt or sharing a study strategy.'}
                 </p>
-                {isAnyFilterActive && (
-                  <button onClick={resetFilters} className="px-6 py-3 rounded-xl bg-[#ffffff05] border border-[#ffffff10] text-cyan-400 text-[10px] font-bold uppercase tracking-widest hover:bg-cyan-400 hover:text-black transition-all">
-                    Reset Protocol
+                <div className="flex justify-center gap-3">
+                  {isAnyFilterActive && (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="px-4 py-2 rounded-xl bg-[var(--bg2)] border border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text)] text-xs font-semibold transition-colors"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(true)}
+                    className="px-4 py-2 rounded-xl bg-[var(--accent)] text-white text-xs font-semibold hover:brightness-110 transition-all"
+                  >
+                    Create Post
                   </button>
-                )}
+                </div>
               </div>
             )}
           </div>
         </div>
 
         {/* Right Column: Filters (4 cols) */}
-        <div className={`lg:col-span-4 order-1 lg:order-2 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
-          <div className="sticky top-24 space-y-6">
+        <aside className={`lg:col-span-4 order-1 lg:order-2 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
+          <div className="sticky top-24 space-y-4">
 
-            {/* Header + Reset */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-[var(--text)] font-mono text-[10px] uppercase tracking-[0.2em] font-bold">
-                <Filter size={14} className="text-cyan-400" />
-                Feed Filters
+            {/* Sidebar Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--text)]">
+                <Filter size={14} className="text-[var(--accent)]" />
+                <span>Filters</span>
               </div>
               {isAnyFilterActive && (
                 <button
+                  type="button"
                   onClick={resetFilters}
-                  className="flex items-center gap-2 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-400/10 px-3 py-1.5 rounded-lg transition-all"
+                  className="inline-flex items-center gap-1.5 text-[var(--red)] text-xs font-semibold hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition-colors"
                 >
                   <RotateCcw size={12} />
                   Reset
@@ -216,58 +364,81 @@ export default function CommunityPage() {
             </div>
 
             {/* Target Year Filter */}
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-[var(--text3)] uppercase tracking-widest">
-                <TargetIcon size={14} /> Target Year
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-[var(--text2)]">
+                <TargetIcon size={14} className="text-[var(--accent)]" />
+                <span>Target Year</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {['ALL', '2025', '2026', '2027', '2028', '2029'].map(year => (
                   <button
                     key={year}
+                    type="button"
                     onClick={() => setTargetYearFilter(year)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${targetYearFilter === year ? 'bg-cyan-500 text-black border-cyan-500 shadow-lg shadow-cyan-500/20' : 'bg-[var(--bg3)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)]'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${
+                      targetYearFilter === year
+                        ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                        : 'bg-[var(--bg2)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text)]'
+                    }`}
                   >
-                    {year}
+                    {year === 'ALL' ? 'All' : year}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Class Filter */}
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-[var(--text3)] uppercase tracking-widest">
-                <GraduationCap size={14} /> Academic Stage
+            {/* Academic Stage Filter */}
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-[var(--text2)]">
+                <GraduationCap size={14} className="text-[var(--accent)]" />
+                <span>Academic Stage</span>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
                 {['ALL', 'Class 11', 'Class 12', 'Dropper'].map(cls => (
                   <button
                     key={cls}
+                    type="button"
                     onClick={() => setClassFilter(cls)}
-                    className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border ${classFilter === cls ? 'bg-[var(--purple)] text-white border-[var(--purple)] shadow-lg shadow-purple-500/20' : 'bg-[var(--bg3)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)]'}`}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all border text-center focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${
+                      classFilter === cls
+                        ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                        : 'bg-[var(--bg2)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text)]'
+                    }`}
                   >
-                    {cls}
+                    {cls === 'ALL' ? 'All Stages' : cls}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Tags Filter */}
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-[var(--text3)] uppercase tracking-widest">
-                <TagIcon size={14} /> Subject Tags
+            {/* Subject Tags Filter */}
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-[var(--text2)]">
+                <TagIcon size={14} className="text-[var(--accent)]" />
+                <span>Subject Tags</span>
               </div>
-              <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="flex flex-wrap gap-1.5 max-h-[180px] overflow-y-auto pr-1">
                 <button
+                  type="button"
                   onClick={() => setTagFilter('ALL')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${tagFilter === 'ALL' ? 'bg-[var(--text)] text-[var(--bg)] border-[var(--text)]' : 'bg-[var(--bg3)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)]'}`}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${
+                    tagFilter === 'ALL'
+                      ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                      : 'bg-[var(--bg2)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text)]'
+                  }`}
                 >
-                  ALL TAGS
+                  All
                 </button>
                 {PRESET_TAGS.map(tag => (
                   <button
                     key={tag}
+                    type="button"
                     onClick={() => setTagFilter(tag)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${tagFilter === tag ? 'bg-[var(--accent-glow)] text-[var(--accent)] border-[var(--accent)]' : 'bg-[var(--bg3)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)]'}`}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${
+                      tagFilter === tag
+                        ? 'bg-[var(--accent-glow)] text-[var(--accent)] border-[var(--accent)]'
+                        : 'bg-[var(--bg2)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text)]'
+                    }`}
                   >
                     #{tag}
                   </button>
@@ -275,23 +446,23 @@ export default function CommunityPage() {
               </div>
             </div>
 
-            {/* Time Filter */}
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-[var(--text3)] uppercase tracking-widest">
-                <Calendar size={14} /> Temporal Sync
+            {/* Time Range Filter */}
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-[var(--text2)]">
+                <Calendar size={14} className="text-[var(--accent)]" />
+                <span>Time Range</span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'ALL', label: 'All Time' },
-                  { id: 'TODAY', label: 'Today' },
-                  { id: 'YESTERDAY', label: 'Yesterday' },
-                  { id: '1_WEEK', label: 'Last 7 Days' },
-                  { id: '1_MONTH', label: 'Last 30 Days' }
-                ].map(t => (
+              <div className="grid grid-cols-2 gap-1.5">
+                {TIME_OPTIONS.map(t => (
                   <button
                     key={t.id}
+                    type="button"
                     onClick={() => setTimeFilter(t.id)}
-                    className={`px-3 py-2 rounded-lg text-[9px] font-bold uppercase transition-all border ${timeFilter === t.id ? 'bg-[var(--blue)] text-white border-[var(--blue)] shadow-lg shadow-blue-500/20' : 'bg-[var(--bg3)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)]'}`}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all border focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${
+                      timeFilter === t.id
+                        ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                        : 'bg-[var(--bg2)] text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text)]'
+                    }`}
                   >
                     {t.label}
                   </button>
@@ -300,35 +471,18 @@ export default function CommunityPage() {
             </div>
 
           </div>
-        </div>
+        </aside>
       </div>
 
-      {/* FAB Button */}
-      <div className="fixed bottom-24 right-6 z-[100] flex flex-col items-end gap-3">
-        {showFabMenu && (
-          <div className="flex flex-col items-end gap-2 animate-fade-in">
-            <button 
-              onClick={() => { setShowFabMenu(false); setShowCreateModal(true); }} 
-              className="flex items-center gap-3 bg-bg-2 border border-border text-foreground px-4 py-3 rounded-2xl shadow-xl hover:border-cyan-400/50 transition-all group"
-            >
-              <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground">Create Post</span>
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                <PenLine size={15} className="text-black" />
-              </div>
-            </button>
-          </div>
-        )}
-        <button 
-          onClick={() => setShowFabMenu(!showFabMenu)} 
-          className={`w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-300 ${
-            showFabMenu 
-              ? 'bg-white/10 border border-white/20 rotate-45' 
-              : 'bg-gradient-to-br from-cyan-400 to-blue-500 shadow-cyan-500/40 hover:scale-110'
-          }`}
-        >
-          <Plus size={26} className={showFabMenu ? 'text-white' : 'text-black'} />
-        </button>
-      </div>
+      {/* Mobile Floating Create Button */}
+      <button
+        type="button"
+        aria-label="Create new post"
+        onClick={() => setShowCreateModal(true)}
+        className="sm:hidden fixed bottom-24 right-5 z-40 w-13 h-13 p-3.5 rounded-2xl bg-[var(--accent)] text-white shadow-lg flex items-center justify-center hover:brightness-110 active:scale-95 transition-all focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+      >
+        <PenLine size={20} />
+      </button>
 
       {showCreateModal && <CreatePostModal onClose={() => setShowCreateModal(false)} onSuccess={() => refetch()} />}
 
@@ -341,15 +495,6 @@ export default function CommunityPage() {
       )}
 
       {selectedUserId && <UserProfileModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />}
-
-      <style>{`
-        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in 0.2s ease-out; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #ffffff10; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #ffffff20; }
-      `}</style>
     </div>
   );
 }

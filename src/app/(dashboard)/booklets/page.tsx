@@ -8,7 +8,8 @@ import {
   BookMarked, Loader2, ChevronRight, XCircle, Eye, EyeOff,
   CheckCircle2, RefreshCw, ArrowLeft, ArrowUpDown, ChevronDown,
   Atom, FlaskConical, Zap, BookOpen, Layers, Trophy, AlertTriangle,
-  ClipboardList, BarChart2, ChevronLeft, ChevronUp
+  ClipboardList, BarChart2, ChevronLeft, ChevronUp, Search, X,
+  Check, TrendingUp, TrendingDown, Minus, Filter
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -106,8 +107,8 @@ function getSubjectMeta(s: string) {
 }
 
 // ─── Accuracy Donut SVG ───────────────────────────────────────────────────────
-function AccuracyDonut({ wrong, correct, total }: { wrong: number; correct: number; total: number }) {
-  const r = 14;
+function AccuracyDonut({ wrong, correct, total, size = 36 }: { wrong: number; correct: number; total: number; size?: number }) {
+  const r = size * 0.39;
   const circ = 2 * Math.PI * r;
   const wrongPct = total > 0 ? wrong / total : 0;
   const correctPct = total > 0 ? correct / total : 0;
@@ -115,16 +116,16 @@ function AccuracyDonut({ wrong, correct, total }: { wrong: number; correct: numb
   const correctLen = correctPct * circ;
 
   return (
-    <svg width={36} height={36} viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={18} cy={18} r={r} fill="none" stroke="var(--border)" strokeWidth={3.5} />
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={3.5} />
       {wrongLen > 0 && (
-        <circle cx={18} cy={18} r={r} fill="none" stroke="#f87171" strokeWidth={3.5}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f87171" strokeWidth={3.5}
           strokeDasharray={`${wrongLen} ${circ - wrongLen}`}
           strokeDashoffset={0}
           strokeLinecap="butt" />
       )}
       {correctLen > 0 && (
-        <circle cx={18} cy={18} r={r} fill="none" stroke="#34d399" strokeWidth={3.5}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#34d399" strokeWidth={3.5}
           strokeDasharray={`${correctLen} ${circ - correctLen}`}
           strokeDashoffset={-wrongLen}
           strokeLinecap="butt" />
@@ -146,6 +147,107 @@ function DiffBadge({ diff }: { diff: string | null }) {
     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${map[diff.toLowerCase()] ?? 'bg-slate-500/15 text-slate-400 border-slate-500/25'}`}>
       {diff}
     </span>
+  );
+}
+
+// ─── Skeleton Row ─────────────────────────────────────────────────────────────
+function SkeletonRow() {
+  return (
+    <div className="grid gap-2 px-5 py-4 animate-pulse" style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}>
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded bg-[var(--bg3)]" />
+        <div>
+          <div className="h-3.5 w-36 rounded bg-[var(--bg3)] mb-1.5" />
+          <div className="h-2.5 w-20 rounded bg-[var(--bg3)]" />
+        </div>
+      </div>
+      <div className="flex justify-center items-center"><div className="w-9 h-9 rounded-full bg-[var(--bg3)]" /></div>
+      <div className="flex justify-center items-center"><div className="h-3.5 w-6 rounded bg-[var(--bg3)]" /></div>
+      <div className="flex justify-center items-center"><div className="h-3.5 w-6 rounded bg-[var(--bg3)]" /></div>
+      <div className="flex justify-center items-center"><div className="h-3.5 w-6 rounded bg-[var(--bg3)]" /></div>
+      <div className="flex justify-center items-center"><div className="h-3.5 w-6 rounded bg-[var(--bg3)]" /></div>
+    </div>
+  );
+}
+
+// ─── Mobile Skeleton Card ─────────────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 animate-pulse">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-9 h-9 rounded-full bg-[var(--bg3)]" />
+        <div className="flex-1">
+          <div className="h-3.5 w-32 rounded bg-[var(--bg3)] mb-1.5" />
+          <div className="h-2.5 w-20 rounded bg-[var(--bg3)]" />
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="text-center">
+            <div className="h-2.5 w-full rounded bg-[var(--bg3)] mb-1.5" />
+            <div className="h-4 w-6 mx-auto rounded bg-[var(--bg3)]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Sort Dropdown ────────────────────────────────────────────────────────────
+function SortDropdown({ sortField, sortDir, onSort }: {
+  sortField: string;
+  sortDir: 'asc' | 'desc';
+  onSort: (field: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const fields = [
+    { key: 'wrong', label: 'Attempted Wrong' },
+    { key: 'notAttempted', label: 'Not Attempted' },
+    { key: 'correct', label: 'Attempted Correct' },
+    { key: 'total', label: 'Total Questions' },
+  ];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-all"
+      >
+        <ArrowUpDown size={12} />
+        Sort By
+        {sortDir === 'desc' ? ' ↓' : ' ↑'}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-48 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg z-20 py-1 overflow-hidden">
+          {fields.map(f => (
+            <button
+              key={f.key}
+              onClick={() => { onSort(f.key); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
+                sortField === f.key
+                  ? 'text-[var(--accent)] bg-[var(--accent-glow)]'
+                  : 'text-[var(--text2)] hover:bg-[var(--bg2)] hover:text-[var(--text)]'
+              }`}
+            >
+              {f.label}
+              {sortField === f.key && (
+                <span className="text-[10px] font-mono">{sortDir === 'desc' ? '↓' : '↑'}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -307,6 +409,209 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
+// ─── Attempting Pattern Summary ───────────────────────────────────────────────
+function AttemptingPattern({
+  rows,
+  view,
+}: {
+  rows: (TestRow | ChapterRow)[];
+  view: 'test-wise' | 'chapter-wise';
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const stats = useMemo(() => {
+    const totalWrong = rows.reduce((s, r) => s + r.wrong, 0);
+    const totalCorrect = rows.reduce((s, r) => s + r.correct, 0);
+    const totalNA = rows.reduce((s, r) => s + r.notAttempted, 0);
+    const totalQ = rows.reduce((s, r) => s + r.total, 0);
+    const accuracy = totalQ > 0 ? ((totalCorrect / totalQ) * 100) : 0;
+    const wrongRate = totalQ > 0 ? ((totalWrong / totalQ) * 100) : 0;
+    return { totalWrong, totalCorrect, totalNA, totalQ, accuracy, wrongRate };
+  }, [rows]);
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] mb-5 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-[var(--text)] text-sm">Your Overview of Attempting Pattern</span>
+          <a href="#" onClick={e => e.preventDefault()}
+            className="inline-flex items-center gap-1 text-[10px] text-[var(--text3)] hover:text-[var(--text2)] border border-[var(--border)] rounded-full px-2 py-0.5 transition-colors">
+            <BarChart2 size={10} /> Learn more
+          </a>
+        </div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-all"
+        >
+          VIEW
+          {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+      </div>
+      {expanded && (
+        <div className="px-5 pb-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Total Questions */}
+            <div className="rounded-xl bg-[var(--bg2)] border border-[var(--border)] p-3">
+              <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider mb-1">Total Questions</div>
+              <div className="text-xl font-black text-[var(--text)] tabular-nums">{stats.totalQ}</div>
+            </div>
+            {/* Accuracy */}
+            <div className="rounded-xl bg-[var(--bg2)] border border-[var(--border)] p-3">
+              <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider mb-1">Accuracy</div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-black text-emerald-400 tabular-nums">{stats.accuracy.toFixed(1)}%</span>
+                {stats.accuracy >= 50
+                  ? <TrendingUp size={14} className="text-emerald-400" />
+                  : stats.accuracy > 0 ? <TrendingDown size={14} className="text-red-400" /> : <Minus size={14} className="text-[var(--text3)]" />
+                }
+              </div>
+            </div>
+            {/* Wrong Rate */}
+            <div className="rounded-xl bg-[var(--bg2)] border border-[var(--border)] p-3">
+              <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider mb-1">Attempted Wrong</div>
+              <div className="text-xl font-black text-red-400 tabular-nums">{stats.totalWrong}</div>
+              <div className="text-[10px] text-[var(--text3)] mt-0.5 tabular-nums">{stats.wrongRate.toFixed(1)}% of total</div>
+            </div>
+            {/* Not Attempted */}
+            <div className="rounded-xl bg-[var(--bg2)] border border-[var(--border)] p-3">
+              <div className="text-[10px] text-[var(--text3)] uppercase tracking-wider mb-1">Not Attempted</div>
+              <div className="text-xl font-black text-[var(--text2)] tabular-nums">{stats.totalNA}</div>
+              <div className="text-[10px] text-[var(--text3)] mt-0.5 tabular-nums">
+                {stats.totalQ > 0 ? ((stats.totalNA / stats.totalQ) * 100).toFixed(1) : '0.0'}% of total
+              </div>
+            </div>
+          </div>
+          {/* Per-item breakdown bar */}
+          {stats.totalQ > 0 && (
+            <div className="mt-4">
+              <div className="flex items-center gap-4 mb-2">
+                <div className="flex items-center gap-1.5 text-[10px] text-emerald-400"><span className="w-2.5 h-0.5 rounded bg-emerald-400 inline-block" /> Correct ({stats.totalCorrect})</div>
+                <div className="flex items-center gap-1.5 text-[10px] text-red-400"><span className="w-2.5 h-0.5 rounded bg-red-400 inline-block" /> Wrong ({stats.totalWrong})</div>
+                <div className="flex items-center gap-1.5 text-[10px] text-[var(--text3)]"><span className="w-2.5 h-0.5 rounded bg-[var(--text3)] inline-block" /> Skipped ({stats.totalNA})</div>
+              </div>
+              <div className="h-2.5 rounded-full bg-[var(--bg3)] overflow-hidden flex">
+                {stats.totalCorrect > 0 && (
+                  <div className="h-full bg-emerald-400 transition-all" style={{ width: `${(stats.totalCorrect / stats.totalQ) * 100}%` }} />
+                )}
+                {stats.totalWrong > 0 && (
+                  <div className="h-full bg-red-400 transition-all" style={{ width: `${(stats.totalWrong / stats.totalQ) * 100}%` }} />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mobile Table Card ────────────────────────────────────────────────────────
+function MobileCard({
+  row,
+  view,
+  onClick,
+}: {
+  row: TestRow | ChapterRow;
+  view: 'test-wise' | 'chapter-wise';
+  onClick: () => void;
+}) {
+  const title = view === 'test-wise' ? (row as TestRow).testTitle : (row as ChapterRow).chapter;
+  const subtitle = view === 'test-wise'
+    ? new Date((row as TestRow).date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : (row as ChapterRow).subject.charAt(0).toUpperCase() + (row as ChapterRow).subject.slice(1);
+  const subjectColor = view === 'chapter-wise' ? getSubjectMeta((row as ChapterRow).subject).color : undefined;
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--border-hover)] p-4 transition-all group active:scale-[0.99]"
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <AccuracyDonut wrong={row.wrong} correct={row.correct} total={row.total} size={40} />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-[var(--text)] truncate group-hover:text-[var(--accent)] transition-colors">{title}</div>
+          <div className="text-[10px] mt-0.5" style={{ color: subjectColor || 'var(--text3)' }}>{subtitle}</div>
+        </div>
+        <ChevronRight size={14} className="flex-shrink-0 text-[var(--text3)] group-hover:text-[var(--accent)] transition-colors" />
+      </div>
+      <div className="grid grid-cols-4 gap-2 pt-3 border-t border-[var(--border)]">
+        <div className="text-center">
+          <div className="text-[9px] text-red-400 uppercase tracking-wider mb-0.5">Wrong</div>
+          <div className="text-sm font-black text-red-400 tabular-nums">{row.wrong}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-[var(--text3)] uppercase tracking-wider mb-0.5">Skipped</div>
+          <div className="text-sm font-semibold text-[var(--text2)] tabular-nums">{row.notAttempted}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-emerald-400 uppercase tracking-wider mb-0.5">Correct</div>
+          <div className="text-sm font-black text-emerald-400 tabular-nums">{row.correct}</div>
+        </div>
+        <div className="text-center">
+          <div className="text-[9px] text-[var(--text3)] uppercase tracking-wider mb-0.5">Total</div>
+          <div className="text-sm font-bold text-[var(--text)] tabular-nums">{row.total}</div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── Test Type Filter Dropdown ────────────────────────────────────────────────
+function TestTypeDropdown({ value, onChange, testRows }: {
+  value: string;
+  onChange: (v: string) => void;
+  testRows: TestRow[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const displayLabel = value === 'all' ? 'All Tests' : testRows.find(t => t.testId === value)?.testTitle || 'All Tests';
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text2)] border border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text)] transition-all"
+      >
+        Test Type : <span className="font-semibold text-[var(--text)]">{displayLabel.length > 20 ? displayLabel.slice(0, 19) + '…' : displayLabel}</span>
+        <ChevronDown size={12} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 w-56 max-h-60 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg z-20 py-1">
+          <button
+            onClick={() => { onChange('all'); setOpen(false); }}
+            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
+              value === 'all' ? 'text-[var(--accent)] bg-[var(--accent-glow)]' : 'text-[var(--text2)] hover:bg-[var(--bg2)]'
+            }`}
+          >
+            {value === 'all' && <Check size={11} />} All Tests
+          </button>
+          {testRows.map(t => (
+            <button
+              key={t.testId}
+              onClick={() => { onChange(t.testId); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors truncate ${
+                value === t.testId ? 'text-[var(--accent)] bg-[var(--accent-glow)]' : 'text-[var(--text2)] hover:bg-[var(--bg2)]'
+              }`}
+            >
+              {value === t.testId && <Check size={11} className="flex-shrink-0" />}
+              <span className="truncate">{t.testTitle}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 type ViewMode = 'test-wise' | 'chapter-wise';
 type DrillTarget = { type: 'test' | 'chapter'; row: TestRow | ChapterRow } | null;
@@ -331,9 +636,11 @@ export default function BookletsPage() {
   const [showChart, setShowChart] = useState(true);
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const [testFilter, setTestFilter] = useState<string>('all'); // 'all' | 'last3' | 'last5' | 'last30'
+  const [specificTestFilter, setSpecificTestFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<string>('wrong');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [drill, setDrill] = useState<DrillTarget>(null);
+  const [tableSearch, setTableSearch] = useState('');
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -359,7 +666,7 @@ export default function BookletsPage() {
       }
 
       // 3. Collect all question IDs from mock attempts
-      const allMockAnswers: Record<string, Record<string, string | null>> = {}; // testId → { qId: answer }
+      const allMockAnswers: Record<string, Record<string, string | null>> = {};
       for (const a of (mockAttempts || [])) {
         allMockAnswers[a.test_id] = { ...(allMockAnswers[a.test_id] || {}), ...(a.answers || {}) };
       }
@@ -407,13 +714,11 @@ export default function BookletsPage() {
       const seen = new Set<string>();
       const mistakes: MistakeQuestion[] = [];
 
-      // Add wrong mock test questions
       for (const row of builtTestRows) {
         for (const q of row.questions) {
           if (!seen.has(q.id)) { seen.add(q.id); mistakes.push(q); }
         }
       }
-      // Add solver mistakes
       for (const row of (solverMistakes || [])) {
         const q = (row as any).questions as any;
         if (!q || seen.has(q.id)) continue;
@@ -431,7 +736,6 @@ export default function BookletsPage() {
         if (!chapMap.has(key)) chapMap.set(key, { subject: q.subject?.toLowerCase() || '', qs: [] });
         chapMap.get(key)!.qs.push(q);
       }
-      // For correct counts in chapter-wise, use solver correct attempts
       const solverCorrect: Record<string, number> = {};
       for (const row of (solverMistakes || [])) {
         const q = (row as any).questions as any;
@@ -467,23 +771,41 @@ export default function BookletsPage() {
       const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000);
       rows = rows.filter(r => new Date(r.date) >= cutoff);
     }
+    // Search filter
+    if (tableSearch.trim()) {
+      const q = tableSearch.toLowerCase();
+      rows = rows.filter(r => r.testTitle.toLowerCase().includes(q));
+    }
     return rows.sort((a, b) => {
       const v = sortField as keyof TestRow;
       const av = (a[v] as number) ?? 0;
       const bv = (b[v] as number) ?? 0;
       return sortDir === 'desc' ? bv - av : av - bv;
     });
-  }, [testRows, testFilter, sortField, sortDir]);
+  }, [testRows, testFilter, sortField, sortDir, tableSearch]);
 
   const filteredChapterRows = useMemo(() => {
     let rows = subjectFilter !== 'all' ? chapterRows.filter(r => r.subject === subjectFilter) : [...chapterRows];
+    // Specific test filter for chapter-wise
+    if (specificTestFilter !== 'all') {
+      const testRow = testRows.find(t => t.testId === specificTestFilter);
+      if (testRow) {
+        const testChapters = new Set(testRow.questions.map(q => `${q.subject?.toLowerCase()}::${q.chapter}`));
+        rows = rows.filter(r => testChapters.has(`${r.subject}::${r.chapter}`));
+      }
+    }
+    // Search filter
+    if (tableSearch.trim()) {
+      const q = tableSearch.toLowerCase();
+      rows = rows.filter(r => r.chapter.toLowerCase().includes(q) || r.subject.toLowerCase().includes(q));
+    }
     return rows.sort((a, b) => {
       const v = sortField as keyof ChapterRow;
       const av = (a[v] as number) ?? 0;
       const bv = (b[v] as number) ?? 0;
       return sortDir === 'desc' ? bv - av : av - bv;
     });
-  }, [chapterRows, subjectFilter, sortField, sortDir]);
+  }, [chapterRows, subjectFilter, sortField, sortDir, specificTestFilter, testRows, tableSearch]);
 
   // Chart data
   const testChartData = useMemo(() => filteredTestRows.slice().reverse().map(r => ({
@@ -500,21 +822,45 @@ export default function BookletsPage() {
     'Not attempted': r.notAttempted,
   })), [filteredChapterRows]);
 
-  const totalWrong = view === 'test-wise'
-    ? filteredTestRows.reduce((s, r) => s + r.wrong, 0)
-    : filteredChapterRows.reduce((s, r) => s + r.wrong, 0);
-
   function sortToggle(field: string) {
     if (sortField === field) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
     else { setSortField(field); setSortDir('desc'); }
   }
 
-  // ── Loading / Error ────────────────────────────────────────────────────────
+  // ── Skeleton Loading ──────────────────────────────────────────────────────
   if (profileLoading || loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--bg)]">
-        <Loader2 className="animate-spin text-[var(--accent)]" size={32} />
-        <p className="text-xs text-[var(--text3)] uppercase tracking-widest font-mono animate-pulse">Loading Mistakes Library...</p>
+      <div className="min-h-screen flex bg-[var(--bg)] text-[var(--text)]">
+        {/* Skeleton sidebar */}
+        <aside className="hidden md:flex flex-col w-56 flex-shrink-0 border-r border-[var(--border)] p-4 pt-8 gap-3 sticky top-0 h-screen animate-pulse">
+          <div className="mb-4">
+            <div className="h-2.5 w-16 rounded bg-[var(--bg3)] mb-2" />
+            <div className="h-5 w-28 rounded bg-[var(--bg3)]" />
+          </div>
+          <div className="h-10 rounded-xl bg-[var(--bg3)]" />
+          <div className="h-10 rounded-xl bg-[var(--bg3)]" />
+        </aside>
+        {/* Skeleton main */}
+        <main className="flex-1 min-w-0 px-4 md:px-8 py-8 pb-28 max-w-5xl animate-pulse">
+          <div className="h-7 w-56 rounded bg-[var(--bg3)] mb-2" />
+          <div className="h-4 w-80 rounded bg-[var(--bg3)] mb-6" />
+          {/* Skeleton chart card */}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] mb-5 p-5">
+            <div className="h-4 w-40 rounded bg-[var(--bg3)] mb-3" />
+            <div className="h-[180px] rounded-xl bg-[var(--bg3)]" />
+          </div>
+          {/* Skeleton table */}
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] overflow-hidden">
+            <div className="px-5 py-4 border-b border-[var(--border)]">
+              <div className="h-4 w-40 rounded bg-[var(--bg3)]" />
+            </div>
+            {[1, 2, 3, 4, 5].map(i => <SkeletonRow key={i} />)}
+          </div>
+          {/* Mobile skeleton cards */}
+          <div className="md:hidden space-y-3 mt-5">
+            {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
+          </div>
+        </main>
       </div>
     );
   }
@@ -546,7 +892,7 @@ export default function BookletsPage() {
   // ── Main view ──────────────────────────────────────────────────────────────
   const activeRows = view === 'test-wise' ? filteredTestRows : filteredChapterRows;
   const chartData = view === 'test-wise' ? testChartData : chapChartData;
-  const nameCol = view === 'test-wise' ? 'Test Name' : 'Chapter Name';
+  const nameCol = view === 'test-wise' ? 'Test name' : 'Chapter Name';
 
   return (
     <div className="min-h-screen flex bg-[var(--bg)] text-[var(--text)]">
@@ -559,10 +905,10 @@ export default function BookletsPage() {
         </div>
 
         <button
-          onClick={() => { setView('test-wise'); setSortField('wrong'); setSortDir('desc'); }}
+          onClick={() => { setView('test-wise'); setSortField('wrong'); setSortDir('desc'); setTableSearch(''); }}
           className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             view === 'test-wise'
-              ? 'bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)]'
+              ? 'bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/30'
               : 'text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--bg2)] border border-transparent'
           }`}
         >
@@ -574,10 +920,10 @@ export default function BookletsPage() {
         </button>
 
         <button
-          onClick={() => { setView('chapter-wise'); setSortField('wrong'); setSortDir('desc'); }}
+          onClick={() => { setView('chapter-wise'); setSortField('wrong'); setSortDir('desc'); setTableSearch(''); }}
           className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             view === 'chapter-wise'
-              ? 'bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)]'
+              ? 'bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/30'
               : 'text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--bg2)] border border-transparent'
           }`}
         >
@@ -601,9 +947,11 @@ export default function BookletsPage() {
         {/* Mobile nav pills */}
         <div className="flex md:hidden gap-2 mb-6">
           {(['test-wise', 'chapter-wise'] as ViewMode[]).map(v => (
-            <button key={v} onClick={() => setView(v)}
+            <button key={v} onClick={() => { setView(v); setTableSearch(''); }}
               className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all ${
-                view === v ? 'bg-[var(--bg2)] text-[var(--text)] border-[var(--border)]' : 'text-[var(--text3)] border-[var(--border)] hover:border-[var(--border-hover)]'
+                view === v
+                  ? 'bg-[var(--accent-glow)] text-[var(--accent)] border-[var(--accent)]/30'
+                  : 'text-[var(--text3)] border-[var(--border)] hover:border-[var(--border-hover)]'
               }`}>{v.replace('-', ' ')}</button>
           ))}
         </div>
@@ -613,7 +961,7 @@ export default function BookletsPage() {
           <h1 className="text-2xl font-black text-[var(--text)] mb-1">
             {view === 'test-wise' ? 'Test-wise Mistakes' : 'Chapter-wise Mistakes'}
           </h1>
-          <p className="text-sm text-[var(--text2)]">Revisit questions which you either attempted incorrectly or didn't attempt.</p>
+          <p className="text-sm text-[var(--text2)]">Revisit questions which you either attempted incorrectly or didn&apos;t attempt.</p>
         </div>
 
         {/* Error */}
@@ -625,7 +973,7 @@ export default function BookletsPage() {
 
         {/* Chapter-wise: subject tabs */}
         {view === 'chapter-wise' && subjects.length > 0 && (
-          <div className="flex gap-1 border-b border-[var(--border)] mb-6 overflow-x-auto">
+          <div className="flex gap-1 border-b border-[var(--border)] mb-4 overflow-x-auto">
             <button
               onClick={() => setSubjectFilter('all')}
               className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
@@ -648,21 +996,44 @@ export default function BookletsPage() {
           </div>
         )}
 
+        {/* Chapter-wise: filter dropdowns row */}
+        {view === 'chapter-wise' && testRows.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <TestTypeDropdown
+              value={specificTestFilter}
+              onChange={setSpecificTestFilter}
+              testRows={testRows}
+            />
+          </div>
+        )}
+
         {/* Test-wise: filter tabs */}
         {view === 'test-wise' && (
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <span className="text-xs text-[var(--text3)] mr-1">Test Type :</span>
+            {testRows.length > 0 && (
+              <TestTypeDropdown
+                value={'all'}
+                onChange={() => {}}
+                testRows={testRows}
+              />
+            )}
+            <div className="w-px h-5 bg-[var(--border)] mx-1" />
             {[
               { key: 'all', label: 'All' },
               { key: 'last3', label: 'Last 3 Tests' },
               { key: 'last5', label: 'Last 5 Tests' },
-              { key: 'last30', label: 'Last 30 days' },
+              { key: 'last30', label: 'Attempted in last 30 days' },
             ].map(opt => (
               <button key={opt.key} onClick={() => setTestFilter(opt.key)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide border transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide border transition-all ${
                   testFilter === opt.key
                     ? 'bg-[var(--accent)] text-white border-transparent'
                     : 'text-[var(--text2)] border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text)]'
-                }`}>{opt.label}</button>
+                }`}>
+                {testFilter === opt.key && <Check size={11} />}
+                {opt.label}
+              </button>
             ))}
           </div>
         )}
@@ -676,11 +1047,13 @@ export default function BookletsPage() {
                 This graph shows how you performed {view === 'test-wise' ? 'through different tests' : 'across different chapters'} you attempted
               </div>
             </div>
-            <button onClick={() => setShowChart(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-all font-mono">
-              {showChart ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              {showChart ? 'Hide' : 'Show'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowChart(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-all">
+                {showChart ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                {showChart ? 'HIDE' : 'SHOW'}
+              </button>
+            </div>
           </div>
 
           {showChart && (
@@ -695,7 +1068,7 @@ export default function BookletsPage() {
                 ))}
               </div>
               {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={180}>
+                <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={chartData} margin={{ left: -10, right: 10, top: 5, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -707,82 +1080,165 @@ export default function BookletsPage() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[180px] flex items-center justify-center text-[var(--text3)] text-sm">No data to display</div>
+                <div className="h-[200px] flex items-center justify-center text-[var(--text3)] text-sm">No data to display</div>
               )}
             </div>
           )}
         </div>
 
+        {/* ── Attempting Pattern Summary ───────────────────────────────────── */}
+        <AttemptingPattern
+          rows={activeRows}
+          view={view}
+        />
+
         {/* ── Table Card ───────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-            <div className="font-bold text-[var(--text)] text-sm">
+          {/* Table header bar */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] gap-3">
+            <div className="font-bold text-[var(--text)] text-sm whitespace-nowrap">
               {view === 'test-wise' ? 'Test-wise Mistakes' : 'Chapter-wise Mistakes'}
             </div>
-            <button onClick={() => sortToggle(sortField)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-hover)] transition-all font-mono">
-              <ArrowUpDown size={11} /> Sort By
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Search input */}
+              <div className="relative hidden sm:block">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text3)]" />
+                <input
+                  type="text"
+                  value={tableSearch}
+                  onChange={e => setTableSearch(e.target.value)}
+                  placeholder={view === 'test-wise' ? 'Search tests…' : 'Search chapters…'}
+                  className="pl-7 pr-7 py-1.5 w-44 text-xs bg-[var(--bg2)] border border-[var(--border)] focus:border-[var(--accent)] rounded-lg text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text3)]"
+                />
+                {tableSearch && (
+                  <button onClick={() => setTableSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text3)] hover:text-[var(--text)]">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <SortDropdown sortField={sortField} sortDir={sortDir} onSort={sortToggle} />
+            </div>
           </div>
 
-          {/* Table header */}
-          <div className="grid gap-2 px-5 py-3 border-b border-[var(--border)]" style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}>
+          {/* Mobile search */}
+          <div className="sm:hidden px-5 py-3 border-b border-[var(--border)]">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text3)]" />
+              <input
+                type="text"
+                value={tableSearch}
+                onChange={e => setTableSearch(e.target.value)}
+                placeholder={view === 'test-wise' ? 'Search tests…' : 'Search chapters…'}
+                className="w-full pl-7 pr-7 py-2 text-xs bg-[var(--bg2)] border border-[var(--border)] focus:border-[var(--accent)] rounded-lg text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text3)]"
+              />
+              {tableSearch && (
+                <button onClick={() => setTableSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text3)] hover:text-[var(--text)]">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop table header */}
+          <div className="hidden md:grid gap-2 px-5 py-3 border-b border-[var(--border)] bg-[var(--bg2)]/50" style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}>
             <div className="text-[11px] font-semibold text-[var(--text3)]">{nameCol}</div>
             {[
-              { key: 'accuracy', label: 'Accuracy Trend' },
-              { key: 'wrong', label: 'Attempted Wrong', cls: 'text-red-400' },
-              { key: 'notAttempted', label: 'Not Attempted' },
-              { key: 'correct', label: 'Attempted Correct', cls: 'text-emerald-400' },
-              { key: 'total', label: 'Total Questions' },
+              { key: 'accuracy', label: 'Accuracy\nTrend', cls: '' },
+              { key: 'wrong', label: 'Attempted\nWrong', cls: 'text-red-400' },
+              { key: 'notAttempted', label: 'Not\nAttempted', cls: '' },
+              { key: 'correct', label: 'Attempted\nCorrect', cls: 'text-emerald-400' },
+              { key: 'total', label: 'Total\nQuestions', cls: '' },
             ].map(col => (
               <button key={col.key} onClick={() => col.key !== 'accuracy' && sortToggle(col.key)}
-                className={`text-[11px] font-semibold text-center transition-colors ${col.cls || 'text-[var(--text3)]'} ${col.key !== 'accuracy' ? 'hover:text-[var(--text)] cursor-pointer' : 'cursor-default'}`}>
+                className={`text-[11px] font-semibold text-center transition-colors whitespace-pre-line leading-tight ${col.cls || 'text-[var(--text3)]'} ${col.key !== 'accuracy' ? 'hover:text-[var(--text)] cursor-pointer' : 'cursor-default'}`}>
                 {col.label}
                 {sortField === col.key && <span className="ml-0.5">{sortDir === 'desc' ? '↓' : '↑'}</span>}
               </button>
             ))}
           </div>
 
-          {/* Rows */}
+          {/* Desktop rows */}
           {activeRows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Trophy size={28} className="text-emerald-400 mb-3" />
-              <div className="text-sm font-bold text-[var(--text2)] mb-1">No mistakes found!</div>
-              <div className="text-xs text-[var(--text3)]">Keep solving — mistakes will appear here for revision.</div>
+              {tableSearch ? (
+                <>
+                  <Search size={28} className="text-[var(--text3)] mb-3" />
+                  <div className="text-sm font-bold text-[var(--text2)] mb-1">No results for &ldquo;{tableSearch}&rdquo;</div>
+                  <div className="text-xs text-[var(--text3)]">Try a different search term.</div>
+                </>
+              ) : (
+                <>
+                  <Trophy size={28} className="text-emerald-400 mb-3" />
+                  <div className="text-sm font-bold text-[var(--text2)] mb-1">No mistakes found!</div>
+                  <div className="text-xs text-[var(--text3)]">Keep solving — mistakes will appear here for revision.</div>
+                </>
+              )}
             </div>
           ) : (
-            <div className="divide-y divide-[var(--border)]">
-              {activeRows.map((row, idx) => {
-                const title = view === 'test-wise' ? (row as TestRow).testTitle : (row as ChapterRow).chapter;
-                const subtitle = view === 'test-wise'
-                  ? new Date((row as TestRow).date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                  : (row as ChapterRow).subject.charAt(0).toUpperCase() + (row as ChapterRow).subject.slice(1);
-                const subjectColor = view === 'chapter-wise' ? getSubjectMeta((row as ChapterRow).subject).color : undefined;
+            <>
+              {/* Desktop table rows */}
+              <div className="hidden md:block divide-y divide-[var(--border)]">
+                {activeRows.map((row, idx) => {
+                  const title = view === 'test-wise' ? (row as TestRow).testTitle : (row as ChapterRow).chapter;
+                  const subtitle = view === 'test-wise'
+                    ? new Date((row as TestRow).date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : (row as ChapterRow).subject.charAt(0).toUpperCase() + (row as ChapterRow).subject.slice(1);
+                  const subjectColor = view === 'chapter-wise' ? getSubjectMeta((row as ChapterRow).subject).color : undefined;
 
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => setDrill({ type: view === 'test-wise' ? 'test' : 'chapter', row })}
-                    className="w-full grid gap-2 px-5 py-4 hover:bg-[var(--bg2)] transition-colors text-left group"
-                    style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ChevronRight size={13} className="flex-shrink-0 text-[var(--text3)] group-hover:text-[var(--text2)] transition-colors" />
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-[var(--text)] truncate group-hover:text-[var(--accent)] transition-colors">{title}</div>
-                        <div className="text-[10px] mt-0.5 font-mono" style={{ color: subjectColor || 'var(--text3)' }}>{subtitle}</div>
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setDrill({ type: view === 'test-wise' ? 'test' : 'chapter', row })}
+                      className={`w-full grid gap-2 px-5 py-4 hover:bg-[var(--bg2)] transition-colors text-left group ${
+                        idx % 2 === 1 ? 'bg-[var(--bg)]/30' : ''
+                      }`}
+                      style={{ gridTemplateColumns: '1fr 90px 90px 90px 90px 90px' }}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {view === 'chapter-wise' && (
+                          <span className="flex-shrink-0" style={{ color: subjectColor }}>
+                            {getSubjectMeta((row as ChapterRow).subject).icon}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-[var(--text)] truncate group-hover:text-[var(--accent)] transition-colors">{title}</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: subjectColor || 'var(--text3)' }}>{subtitle}</div>
+                        </div>
+                        <ChevronRight size={13} className="flex-shrink-0 text-[var(--text3)] group-hover:text-[var(--accent)] transition-colors ml-auto" />
                       </div>
-                    </div>
-                    <div className="flex justify-center items-center">
-                      <AccuracyDonut wrong={row.wrong} correct={row.correct} total={row.total} />
-                    </div>
-                    <div className="flex justify-center items-center text-sm font-black text-red-400">{row.wrong}</div>
-                    <div className="flex justify-center items-center text-sm font-semibold text-[var(--text2)]">{row.notAttempted}</div>
-                    <div className="flex justify-center items-center text-sm font-black text-emerald-400">{row.correct}</div>
-                    <div className="flex justify-center items-center text-sm font-bold text-[var(--text)]">{row.total}</div>
-                  </button>
-                );
-              })}
+                      <div className="flex justify-center items-center">
+                        <AccuracyDonut wrong={row.wrong} correct={row.correct} total={row.total} />
+                      </div>
+                      <div className="flex justify-center items-center text-sm font-black text-red-400 tabular-nums">{row.wrong}</div>
+                      <div className="flex justify-center items-center text-sm font-semibold text-[var(--text2)] tabular-nums">{row.notAttempted}</div>
+                      <div className="flex justify-center items-center text-sm font-black text-emerald-400 tabular-nums">{row.correct}</div>
+                      <div className="flex justify-center items-center text-sm font-bold text-[var(--text)] tabular-nums">{row.total}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden divide-y divide-[var(--border)]">
+                <div className="p-4 space-y-3">
+                  {activeRows.map((row, idx) => (
+                    <MobileCard
+                      key={idx}
+                      row={row}
+                      view={view}
+                      onClick={() => setDrill({ type: view === 'test-wise' ? 'test' : 'chapter', row })}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Results count footer */}
+          {activeRows.length > 0 && (
+            <div className="px-5 py-3 border-t border-[var(--border)] text-[10px] text-[var(--text3)] tabular-nums">
+              Showing {activeRows.length} {view === 'test-wise' ? 'test' : 'chapter'}{activeRows.length !== 1 ? 's' : ''}
+              {tableSearch && ` matching "${tableSearch}"`}
             </div>
           )}
         </div>
