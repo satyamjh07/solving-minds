@@ -41,7 +41,9 @@ export default async function PrintPage({ params }: PageProps) {
     }
 
     let qQuery = supabase.from('questions').select('id, subject, chapter, topic, type, difficulty, correct_answer, marks');
-    if (test.is_pyp && test.year && test.shift) {
+    if (Array.isArray(test.question_ids) && test.question_ids.length > 0) {
+      qQuery = qQuery.in('id', test.question_ids);
+    } else if (test.is_pyp && test.year && test.shift) {
       qQuery = qQuery.eq('year', test.year).eq('shift', test.shift);
     } else {
       qQuery = qQuery.eq('booklet_id', test.id);

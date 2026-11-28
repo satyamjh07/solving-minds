@@ -43,3 +43,29 @@ ALTER TABLE public.reports ADD CONSTRAINT report_target CHECK (post_id IS NOT NU
 ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE;
 
+-- 7. Support user-generated custom mock tests
+ALTER TABLE public.mock_tests ADD COLUMN IF NOT EXISTS question_ids UUID[] DEFAULT NULL;
+ALTER TABLE public.mock_tests ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_mock_tests_created_by ON public.mock_tests(created_by);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'mock_tests' AND policyname = 'Users can create their own custom mock tests'
+  ) THEN
+    CREATE POLICY "Users can create their own custom mock tests"
+      ON public.mock_tests FOR INSERT
+      TO authenticated
+      WITH CHECK (auth.uid() = created_by);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'mock_tests' AND policyname = 'Users can delete their own custom mock tests'
+  ) THEN
+    CREATE POLICY "Users can delete their own custom mock tests"
+      ON public.mock_tests FOR DELETE
+      TO authenticated
+      USING (auth.uid() = created_by);
+  END IF;
+END $$;
+

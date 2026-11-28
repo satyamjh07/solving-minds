@@ -270,7 +270,9 @@ export default function SolutionPage() {
 
         // Fetch questions
         let query = supabase.from('questions').select('*');
-        if (testData.is_pyp && testData.year && testData.shift) {
+        if (Array.isArray(testData.question_ids) && testData.question_ids.length > 0) {
+          query = (query as any).in('id', testData.question_ids);
+        } else if (testData.is_pyp && testData.year && testData.shift) {
           query = (query as any).eq('year', testData.year).eq('shift', testData.shift);
         } else {
           query = (query as any).eq('booklet_id', testId);

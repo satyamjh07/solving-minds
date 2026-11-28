@@ -124,7 +124,9 @@ export default function AnalysisPage() {
 
         // 3. Fetch questions
         let qQuery = supabase.from('questions').select('id, subject, chapter, topic, type, difficulty, correct_answer');
-        if (testData.is_pyp && testData.year && testData.shift) {
+        if (Array.isArray(testData.question_ids) && testData.question_ids.length > 0) {
+          qQuery = (qQuery as any).in('id', testData.question_ids);
+        } else if (testData.is_pyp && testData.year && testData.shift) {
           qQuery = qQuery.eq('year', testData.year).eq('shift', testData.shift);
         } else {
           qQuery = qQuery.eq('booklet_id', testId);

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { useTheme } from '@/components/ThemeProvider';
+import CreateCustomMockModal from '@/components/Tests/CreateCustomMockModal';
 import {
   Award,
   Clock,
@@ -22,6 +23,8 @@ import {
   RefreshCw,
   BarChart3,
   Calendar,
+  Sparkles,
+  Trash2,
 } from 'lucide-react';
 
 interface MockTest {
@@ -37,9 +40,11 @@ interface MockTest {
   shift?: string;
   subjects: string[];
   created_at: string;
+  created_by?: string | null;
+  question_ids?: string[] | null;
 }
 
-type TabMode = 'mocks' | 'pyps';
+type TabMode = 'mocks' | 'pyps' | 'my-mocks';
 type StatusFilter = 'all' | 'not-attempted' | 'in-progress' | 'completed';
 
 function formatExamType(type: string) {
@@ -100,13 +105,16 @@ export default function TestsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tests, setTests] = useState<MockTest[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [examFilter, setExamFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  // Modals state
-  const [showComingSoonModal, setShowComingSoonModal] = useState(false);
+  // Modals & delete state
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTestForAttempt, setSelectedTestForAttempt] = useState<MockTest | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [activeAttempts, setActiveAttempts] = useState<Map<string, string>>(new Map());
   const [completedAttempts, setCompletedAttempts] = useState<Map<string, string>>(new Map());
@@ -125,6 +133,8 @@ export default function TestsPage() {
       setTests(data || []);
 
       const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
+
       if (user) {
         const { data: attempts } = await supabase
           .from('mock_test_live_attempts')
@@ -157,26 +167,48 @@ export default function TestsPage() {
     fetchTests();
   }, [fetchTests]);
 
-  // Close modals on Escape
+  // Close attempt modal on Escape
   useEffect(() => {
-    if (!showComingSoonModal && !selectedTestForAttempt) return;
+    if (!selectedTestForAttempt && !showCreateModal) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setShowComingSoonModal(false);
         setSelectedTestForAttempt(null);
+        setShowCreateModal(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [showComingSoonModal, selectedTestForAttempt]);
+  }, [selectedTestForAttempt, showCreateModal]);
 
-  const tabTests = useMemo(
-    () => tests.filter((t) => (activeTab === 'mocks' ? !t.is_pyp : t.is_pyp)),
-    [tests, activeTab]
-  );
+  const handleDeleteCustomMock = async (testId: string) => {
+    setDeletingId(testId);
+    try {
+      const { error: delErr } = await supabase
+        .from('mock_tests')
+        .delete()
+        .eq('id', testId);
+      if (delErr) throw delErr;
+      setTests((prev) => prev.filter((t) => t.id !== testId));
+      setConfirmDeleteId(null);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to delete custom mock test.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
-  const mockCount = useMemo(() => tests.filter((t) => !t.is_pyp).length, [tests]);
+  const tabTests = useMemo(() => {
+    if (activeTab === 'mocks') return tests.filter((t) => !t.is_pyp && !t.created_by);
+    if (activeTab === 'pyps') return tests.filter((t) => t.is_pyp);
+    return tests.filter((t) => Boolean(t.created_by) && t.created_by === currentUserId);
+  }, [tests, activeTab, currentUserId]);
+
+  const mockCount = useMemo(() => tests.filter((t) => !t.is_pyp && !t.created_by).length, [tests]);
   const pypCount = useMemo(() => tests.filter((t) => t.is_pyp).length, [tests]);
+  const myMockCount = useMemo(
+    () => tests.filter((t) => Boolean(t.created_by) && t.created_by === currentUserId).length,
+    [tests, currentUserId]
+  );
 
   const availableExams = useMemo(
     () => [...new Set(tabTests.map((t) => t.exam_type))].sort(),
@@ -230,33 +262,34 @@ export default function TestsPage() {
             Test Center
           </h1>
           <p className="text-sm text-[var(--text2)] max-w-2xl leading-relaxed">
-            Practice with full-length mock tests and official previous year papers under timed exam conditions.
+            Practice with full-length mock tests, official previous year papers, or build your own custom mock test.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => setShowComingSoonModal(true)}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--card)] hover:bg-[var(--bg2)] border border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text)] text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] group flex-shrink-0"
+          onClick={() => setShowCreateModal(true)}
+          style={{ color: accentTextColor }}
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--accent)] hover:brightness-110 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] group flex-shrink-0"
         >
-          <Plus size={15} className="text-[var(--accent)] transition-transform duration-200 group-hover:rotate-90" />
-          Create Custom Test
+          <Plus size={15} className="transition-transform duration-200 group-hover:rotate-90" />
+          Create Mock Test
         </button>
       </header>
 
       {/* Tabs + Search Bar */}
-      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between mb-4">
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between mb-4">
         <div
           role="tablist"
           aria-label="Test categories"
-          className="flex p-1 bg-[var(--bg2)] border border-[var(--border)] rounded-xl md:w-fit"
+          className="flex p-1 bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-x-auto lg:w-fit"
         >
           <button
             role="tab"
             type="button"
             aria-selected={activeTab === 'mocks'}
             onClick={() => setActiveTab('mocks')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            className={`flex-1 lg:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
               activeTab === 'mocks'
                 ? 'bg-[var(--card)] text-[var(--text)] shadow-sm'
                 : 'text-[var(--text2)] hover:text-[var(--text)]'
@@ -280,7 +313,7 @@ export default function TestsPage() {
             type="button"
             aria-selected={activeTab === 'pyps'}
             onClick={() => setActiveTab('pyps')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            className={`flex-1 lg:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
               activeTab === 'pyps'
                 ? 'bg-[var(--card)] text-[var(--text)] shadow-sm'
                 : 'text-[var(--text2)] hover:text-[var(--text)]'
@@ -298,10 +331,34 @@ export default function TestsPage() {
               {loading ? '—' : pypCount}
             </span>
           </button>
+
+          <button
+            role="tab"
+            type="button"
+            aria-selected={activeTab === 'my-mocks'}
+            onClick={() => setActiveTab('my-mocks')}
+            className={`flex-1 lg:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+              activeTab === 'my-mocks'
+                ? 'bg-[var(--card)] text-[var(--text)] shadow-sm'
+                : 'text-[var(--text2)] hover:text-[var(--text)]'
+            }`}
+          >
+            <Sparkles size={14} className={activeTab === 'my-mocks' ? 'text-[var(--accent)]' : ''} />
+            My Mocks
+            <span
+              className={`px-1.5 py-0.5 text-[11px] rounded-md font-semibold tabular-nums ${
+                activeTab === 'my-mocks'
+                  ? 'bg-[var(--accent-glow)] text-[var(--accent)]'
+                  : 'bg-[var(--bg3)] text-[var(--text2)]'
+              }`}
+            >
+              {loading ? '—' : myMockCount}
+            </span>
+          </button>
         </div>
 
         {/* Search Input */}
-        <div className="relative flex-1 md:max-w-sm">
+        <div className="relative flex-1 lg:max-w-xs">
           <Search
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text3)] pointer-events-none"
             size={15}
@@ -310,8 +367,18 @@ export default function TestsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label={activeTab === 'mocks' ? 'Search mock tests' : 'Search previous year papers'}
-            placeholder={activeTab === 'mocks' ? 'Search mock tests or subjects...' : 'Search by year, shift, exam...'}
+            aria-label={
+              activeTab === 'mocks'
+                ? 'Search mock tests'
+                : activeTab === 'pyps'
+                ? 'Search previous year papers'
+                : 'Search my custom mocks'
+            }
+            placeholder={
+              activeTab === 'pyps'
+                ? 'Search by year, shift, exam...'
+                : 'Search tests or subjects...'
+            }
             className="w-full bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-hover)] focus:border-[var(--accent)] rounded-xl pl-10 pr-9 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)] outline-none transition-colors"
           />
           {searchQuery && (
@@ -425,22 +492,30 @@ export default function TestsPage() {
         </div>
       ) : filteredTests.length === 0 ? (
         <div className="text-center py-16 px-4 bg-[var(--card)] border border-[var(--border)] rounded-2xl">
-          {activeTab === 'mocks' ? (
+          {activeTab === 'my-mocks' ? (
+            <Sparkles className="w-10 h-10 text-[var(--accent)] mx-auto mb-3 opacity-80" />
+          ) : activeTab === 'mocks' ? (
             <Award className="w-10 h-10 text-[var(--text3)] mx-auto mb-3 opacity-60" />
           ) : (
             <BookMarked className="w-10 h-10 text-[var(--text3)] mx-auto mb-3 opacity-60" />
           )}
+
           <h2 className="text-base font-semibold text-[var(--text)] mb-1">
             {hasActiveFilters
-              ? `No ${activeTab === 'mocks' ? 'mock tests' : 'papers'} match your filters`
+              ? `No ${activeTab === 'pyps' ? 'papers' : 'tests'} match your filters`
+              : activeTab === 'my-mocks'
+              ? 'No custom mock tests yet'
               : `No ${activeTab === 'mocks' ? 'mock tests' : 'previous year papers'} available yet`}
           </h2>
           <p className="text-xs text-[var(--text2)] max-w-md mx-auto mb-5">
             {hasActiveFilters
               ? 'Try clearing your search query or switching exam and status filters.'
+              : activeTab === 'my-mocks'
+              ? 'Generate a personalized test by picking your exam, subjects, chapters, and difficulty.'
               : 'New live tests will appear here as soon as they are published.'}
           </p>
-          {hasActiveFilters && (
+
+          {hasActiveFilters ? (
             <button
               type="button"
               onClick={resetFilters}
@@ -449,7 +524,17 @@ export default function TestsPage() {
               <RotateCcw size={13} />
               Clear all filters
             </button>
-          )}
+          ) : activeTab === 'my-mocks' ? (
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              style={{ color: accentTextColor }}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[var(--accent)] hover:brightness-110 text-xs font-semibold transition-all"
+            >
+              <Plus size={14} />
+              Create Your First Mock Test
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -457,6 +542,7 @@ export default function TestsPage() {
             const isInProgress = activeAttempts.has(test.id);
             const attemptId = completedAttempts.get(test.id);
             const isCompleted = Boolean(attemptId);
+            const isOwnCustom = Boolean(test.created_by) && test.created_by === currentUserId;
 
             return (
               <article
@@ -486,21 +572,55 @@ export default function TestsPage() {
                       )}
                     </div>
 
-                    {isInProgress ? (
-                      <span className="inline-flex items-center gap-1 bg-blue-500/10 text-blue-500 border border-blue-500/25 px-2 py-0.5 rounded-md text-[10px] font-semibold flex-shrink-0">
-                        <PlayCircle size={11} />
-                        In Progress
-                      </span>
-                    ) : isCompleted ? (
-                      <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 px-2 py-0.5 rounded-md text-[10px] font-semibold flex-shrink-0">
-                        <CheckCircle2 size={11} />
-                        Completed
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 bg-[var(--green)]/10 text-[var(--green)] border border-[var(--green)]/20 px-2 py-0.5 rounded-md text-[10px] font-semibold flex-shrink-0">
-                        Live
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {isInProgress ? (
+                        <span className="inline-flex items-center gap-1 bg-blue-500/10 text-blue-500 border border-blue-500/25 px-2 py-0.5 rounded-md text-[10px] font-semibold">
+                          <PlayCircle size={11} />
+                          In Progress
+                        </span>
+                      ) : isCompleted ? (
+                        <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 px-2 py-0.5 rounded-md text-[10px] font-semibold">
+                          <CheckCircle2 size={11} />
+                          Completed
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-[var(--green)]/10 text-[var(--green)] border border-[var(--green)]/20 px-2 py-0.5 rounded-md text-[10px] font-semibold">
+                          {isOwnCustom ? 'Custom' : 'Live'}
+                        </span>
+                      )}
+
+                      {isOwnCustom && (
+                        confirmDeleteId === test.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={deletingId === test.id}
+                              onClick={() => handleDeleteCustomMock(test.id)}
+                              className="px-2 py-0.5 rounded bg-red-500 text-white text-[10px] font-semibold hover:bg-red-600 transition-colors"
+                            >
+                              {deletingId === test.id ? '...' : 'Delete'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="px-1.5 py-0.5 rounded bg-[var(--bg2)] text-[var(--text2)] text-[10px] hover:text-[var(--text)]"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(test.id)}
+                            aria-label={`Delete ${test.title}`}
+                            title="Delete custom mock"
+                            className="p-1 rounded-md text-[var(--text3)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
 
                   {/* Title */}
@@ -599,53 +719,17 @@ export default function TestsPage() {
         </div>
       )}
 
-      {/* CREATE MOCK TEST COMING SOON MODAL */}
-      {showComingSoonModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="custom-test-modal-title"
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4"
-          onClick={() => setShowComingSoonModal(false)}
-        >
-          <div
-            className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 sm:p-7 max-w-sm w-full relative shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setShowComingSoonModal(false)}
-              aria-label="Close modal"
-              className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-[var(--bg2)] text-[var(--text2)] hover:text-[var(--text)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
-              <X size={16} />
-            </button>
-
-            <div className="text-center">
-              <div className="w-11 h-11 rounded-xl bg-[var(--accent-glow)] text-[var(--accent)] flex items-center justify-center mx-auto mb-4">
-                <Plus size={22} />
-              </div>
-              <h3 id="custom-test-modal-title" className="text-lg font-bold text-[var(--text)] mb-1.5">
-                Custom Mock Test Builder
-              </h3>
-              <span className="inline-block bg-[var(--accent-glow)] text-[var(--accent)] border border-[var(--accent)]/20 px-2.5 py-0.5 rounded-full text-[11px] font-semibold mb-4">
-                Coming Soon
-              </span>
-              <p className="text-xs text-[var(--text2)] leading-relaxed mb-6">
-                Build personalized mock tests by selecting specific chapters, difficulty levels, and custom time limits. This feature is currently in development.
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowComingSoonModal(false)}
-                style={{ color: accentTextColor }}
-                className="w-full bg-[var(--accent)] hover:brightness-110 font-semibold py-2.5 rounded-xl transition-all text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* CREATE CUSTOM MOCK TEST MODAL */}
+      <CreateCustomMockModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        accentTextColor={accentTextColor}
+        onCreated={() => {
+          setActiveTab('my-mocks');
+          resetFilters();
+          fetchTests();
+        }}
+      />
 
       {/* ATTEMPT NOW CONFIRMATION MODAL */}
       {selectedTestForAttempt && (
@@ -675,7 +759,11 @@ export default function TestsPage() {
                   {formatExamType(selectedTestForAttempt.exam_type)}
                 </span>
                 <span className="bg-[var(--bg2)] text-[var(--text2)] border border-[var(--border)] px-2.5 py-0.5 rounded-md text-[11px] font-medium">
-                  {selectedTestForAttempt.is_pyp ? 'Previous Year Paper' : 'Mock Test'}
+                  {selectedTestForAttempt.is_pyp
+                    ? 'Previous Year Paper'
+                    : selectedTestForAttempt.created_by
+                    ? 'Custom Mock'
+                    : 'Mock Test'}
                 </span>
                 {selectedTestForAttempt.year && (
                   <span className="bg-[var(--bg2)] text-[var(--text2)] border border-[var(--border)] px-2.5 py-0.5 rounded-md text-[11px] font-medium tabular-nums">
